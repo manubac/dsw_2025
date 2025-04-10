@@ -9,7 +9,7 @@
 
 ##  Repositorio
 
-[https://github.com/usuario/nombre-del-repo](https://github.com/usuario/nombre-del-repo)
+
 
 
 ---
