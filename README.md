@@ -7,13 +7,6 @@
 
 ---
 
-##  Repositorio
-
-
-
-
----
-
 ##  Tema
 
 **Marketplace de Cartas de Pokémon**
