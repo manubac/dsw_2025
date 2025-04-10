@@ -1,0 +1,70 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{Propuesta TP DSW: Plataforma de Compra y Distribución de Cartas Pokémon}
+\author{
+  Triches Alan Facundo (49598) \\
+  Manuel Bacolla (50214) \\
+  Volentiera Nicolás (51824) \\
+  Bruno Leo Santi (51950)
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section*{Resumen}
+Este proyecto consiste en una plataforma web de compraventa de cartas coleccionables donde los usuarios pueden explorar, reservar y adquirir cartas publicadas por otros usuarios.
+
+El sistema introduce una lógica de compra agrupada por ciudad, optimizando la logística mediante la participación de intermediarios locales que gestionan la entrega a los compradores finales.
+
+\section{Descripción General}
+Es un marketplace especializado en la compra y distribución de cartas de Pokémon, donde tiendas oficiales agrupan pedidos de varios vendedores para enviarlos a otra tienda oficial.
+
+La plataforma optimiza la distribución de cartas, permitiendo a los minoristas obtener mejores precios y reducir costos de envío, incentivando una dinámica colaborativa entre usuarios y vendedores.
+
+\section{Dinámica del Sistema}
+
+\begin{enumerate}
+  \item \textbf{Publicación:} Los usuarios pueden publicar cartas indicando precio, descripción y stock.
+  \item \textbf{Reserva:} Otros usuarios pueden reservar cartas sin generar envíos inmediatos.
+  \item \textbf{Consolidación:} Al alcanzarse un mínimo de reservas en una ciudad, se genera un pedido agrupado.
+  \item \textbf{Envío:} El pedido se envía a un intermediario designado, quien lo distribuye localmente.
+  \item \textbf{Valoraciones:} Los usuarios pueden calificar a los intermediarios tras recibir sus cartas.
+\end{enumerate}
+
+\section{Objetivos}
+\begin{itemize}
+  \item Crear una plataforma web intuitiva y funcional.
+  \item Optimizar la logística de envíos mediante agrupamiento por ciudad.
+  \item Incentivar compras colaborativas para reducir costos.
+  \item Facilitar la interacción entre coleccionistas y vendedores.
+\end{itemize}
+
+\section{Tecnologías}
+A definir según el stack elegido por el grupo, posibles tecnologías:
+\begin{itemize}
+  \item Frontend: HTML, CSS, JavaScript
+  \item Backend: Node.js / Python / PHP
+  \item Base de datos: PostgreSQL / MySQL / MongoDB
+\end{itemize}
+
+\section{Organización del Grupo}
+\begin{itemize}
+  \item Triches Alan Facundo – [rol asignado]
+  \item Manuel Bacolla – [rol asignado]
+  \item Volentiera Nicolás – [rol asignado]
+  \item Bruno Leo Santi – [rol asignado]
+\end{itemize}
+
+\section{Conclusión}
+Esta plataforma busca mejorar la experiencia de compra y venta de cartas coleccionables, aprovechando un modelo colaborativo de logística y fomentando una comunidad activa de usuarios.
+
+\end{document}
