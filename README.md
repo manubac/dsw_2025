@@ -24,7 +24,7 @@ La plataforma optimiza la distribución de cartas, permitiendo a los minoristas 
 
 | Requerimiento         | Detalle               |
 |-----------------------|------------------------|
-| CRUD simple           |  Usuario <br> Producto                      |
+| CRUD simple           |  1. CRUD Usuario <br> 2. CRUD Producto                      |
 | CRUD dependiente      |                        |
 | Listado + detalle     |                        |
 | CUU/Epic              |                        |
