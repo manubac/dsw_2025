@@ -40,5 +40,4 @@ La plataforma optimiza la distribución de cartas, permitiendo a los minoristas 
 | Requerimiento         | Detalle                                                                 |
 |-----------------------|-------------------------------------------------------------------------|
 | CRUD dependiente      | 1. CRUD Valoraciones (vinculadas a pedidos o cartas)                    |
-| CUU / Epic            | 1. Valorar una carta después de la compra                              |
-|                       | 2. Asignar un pedido a un intermediario para su distribución posterior |
+| CUU / Epic            | 1. Valorar una carta después de la compra<br>2. Asignar un pedido a un intermediario para su distribución posterior |
