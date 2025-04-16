@@ -23,10 +23,13 @@ La plataforma optimiza la distribución de cartas, permitiendo a los minoristas 
 
 **Alcance Minimo**
 
-| Requerimiento         | Detalle               |
-|-----------------------|------------------------|
-| CRUD simple           |  1. CRUD Usuario <br> 2. CRUD Producto                      |
-| CRUD dependiente      |                         |
-| Listado + detalle     |  1.Listado de cartas filtrado por nombre, código, ubicación, etc                      |
-| CUU/Epic              |                        |
+
+| Requerimiento         | Detalle                                                                                                                                              |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CRUD simple           | 1. CRUD Usuario <br> 2. CRUD Carta <br> 3. CRUD Pedido <br> 4. CRUD Dirección                                                                         |
+| CRUD dependiente      | 1. CRUD Reserva (depende de Usuario y Carta) <br> 2. CRUD Valoración (opcional, entre usuarios)                                                      |
+| Listado + detalle     | 1. Listado de cartas filtrado por nombre, código, ubicación, etc. <br> 2. Detalle de reservas realizadas y ventas de un usuario                     |
+| CUU/Epic              | 1. Publicación de carta por parte del vendedor <br> 2. Reserva y compra de una carta por parte de un comprador                                       |
+
+---
 
