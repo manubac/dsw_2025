@@ -19,9 +19,9 @@
 Es un marketplace especializado en la compra y distribución de cartas de Pokémon, donde tiendas oficiales agrupan pedidos de varios vendedores para enviarlos a otra tienda oficial.  
 La plataforma optimiza la distribución de cartas, permitiendo a los minoristas obtener mejores precios y reducir costos de envío.
 
-**Alcance Funcional**
+## Alcance Funcional
 
-**Alcance Minimo**
+### Alcance Minimo
 
 
 | Requerimiento         | Detalle                                                                                                                                              |
@@ -33,3 +33,12 @@ La plataforma optimiza la distribución de cartas, permitiendo a los minoristas 
 
 ---
 
+
+### Adicionales para Aprobación
+
+
+| Requerimiento         | Detalle                                                                 |
+|-----------------------|-------------------------------------------------------------------------|
+| CRUD dependiente      | 1. CRUD Valoraciones (vinculadas a pedidos o cartas)                    |
+| CUU / Epic            | 1. Valorar una carta después de la compra                              |
+|                       | 2. Asignar un pedido a un intermediario para su distribución posterior |
