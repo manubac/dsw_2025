@@ -26,10 +26,10 @@ La plataforma optimiza la distribución de cartas, permitiendo a los minoristas 
 
 | Requerimiento         | Detalle                                                                                                                                              |
 |-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| CRUD simple           | 1. CRUD Usuario <br> 2. CRUD Carta <br> 3. CRUD Pedido <br> 4. CRUD Dirección                                                                         |
-| CRUD dependiente      | 1. CRUD Reserva (depende de Usuario y Carta) <br> 2. CRUD Valoración (opcional, entre usuarios)                                                      |
-| Listado + detalle     | 1. Listado de cartas filtrado por nombre, código, ubicación, etc. <br> 2. Detalle de reservas realizadas y ventas de un usuario                     |
-| CUU/Epic              | 1. Publicación de carta por parte del vendedor <br> 2. Reserva y compra de una carta por parte de un comprador                                       |
+| CRUD simple           | 1. CRUD Usuario <br> 2. CRUD Carta <br> 3. CRUD Vendedor <br> 4. CRUD Dirección                                                                         |
+| CRUD dependiente      | 1. CRUD Reserva (depende de Usuario y Carta) <br> 2. CRUD Envío (opcional, entre usuarios)                                                      |
+| Listado + detalle     | 1. Listado de cartas filtrado por nombre, código, etc. <br> 2. Detalle de reservas realizadas y ventas de un vendedor                     |
+| CUU/Epic              | 1. Publicación de carta por parte del vendedor <br> 2. Reserva y compra de una carta por parte de un usuario                                       |
 
 ---
 
@@ -39,5 +39,6 @@ La plataforma optimiza la distribución de cartas, permitiendo a los minoristas 
 
 | Requerimiento         | Detalle                                                                 |
 |-----------------------|-------------------------------------------------------------------------|
-| CRUD dependiente      | 1. CRUD Valoraciones (vinculadas a pedidos o cartas)                    |
-| CUU / Epic            | 1. Valorar una carta después de la compra<br>2. Asignar un pedido a un intermediario para su distribución posterior |
+| CRUD simple      | 1. CRUD Intermediario (vinculadas a pedidos o cartas)                    |
+| CRUD dependiente      | 1. CRUD Valoración (depende de intermediario, usuario                                                   |
+| CUU / Epic            | 1. Valorar una carta después de la compra<br>2. Asignar un envío a un intermediario para su distribución posterior |
