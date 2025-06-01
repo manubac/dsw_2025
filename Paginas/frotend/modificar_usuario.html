@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Modificar Usuario</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Modificar Usuario</h1>
+
+  <div id="usuario-datos">
+    <input type="hidden" id="id" />
+
+    <div>
+      <label>Nombre completo:</label>
+      <span id="nombreTexto"></span>
+      <input type="text" id="nombreInput" style="display: none;" />
+      <button onclick="editarCampo('nombre')">Editar</button>
+    </div>
+
+    <div>
+      <label>Email:</label>
+      <span id="emailTexto"></span>
+      <input type="email" id="emailInput" style="display: none;" />
+      <button onclick="editarCampo('email')">Editar</button>
+    </div>
+
+    <div>
+      <label>Contraseña:</label>
+      <span id="passTexto">********</span>
+      <input type="password" id="passInput" style="display: none;" />
+      <button onclick="editarCampo('pass')">Editar</button>
+    </div>
+
+    <div>
+      <label>Número de teléfono:</label>
+      <span id="telefonoTexto"></span>
+      <input type="tel" id="telefonoInput" style="display: none;" />
+      <button onclick="editarCampo('telefono')">Editar</button>
+    </div>
+  </div>
+
+  <br />
+
+  <button onclick="guardarCambios()">Guardar Cambios</button>
+  <button onclick="eliminarUsuario()" style="color: red;">Eliminar Usuario</button>
+
+  <script src="modificar_usuario.js"></script>
+</body>
+</html>
