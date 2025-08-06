@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "type": "module",
+  "type": "commonjs",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
@@ -12,7 +12,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0"
@@ -21,7 +20,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.13",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3",
-    "tsc-watch": "^6.0.0"
+    "tsc-watch": "^6.0.0",
+    "typescript": "^5.8.3"
   }
 }
