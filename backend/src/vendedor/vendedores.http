@@ -1,0 +1,41 @@
+### obtener todos los vendedores 
+GET http://localhost:3000/api/vendedores
+
+### obtener un vendedor POR ID
+GET http://localhost:3000/api/vendedores/ae24829e-ba22-4911-ae8a-9b77c805823c
+
+### crear un vendedor
+POST http://localhost:3000/api/vendedores
+Content-Type: application/json
+
+{
+  "nombre": "Alicia Robles",
+  "email": "aliciarobles@icloud.com",
+  "telefono": "1234567890",
+  "direccion": "123 Calle Falsa, Ciudad, País"
+}
+
+### modificar un vendedor (PUT - recurso completo e idempotente)
+PUT http://localhost:3000/api/vendedores/f65faf70-18d4-4148-b592-e82aa756342d
+Content-Type: application/json  
+
+{
+  "nombre": "'Manuela",
+  "email": "manubacolla@gmail.com",
+  "telefono": "3412284248",
+  "direccion": "123 Calle Falsa, Ciudad, País"
+}
+
+### modificar un vendedor (PATCH - recurso parcial y no idempotente)
+PATCH http://localhost:3000/api/vendedores/f65faf70-18d4-4148-b592-e82aa756342d
+Content-Type: application/json  
+
+{
+  "nombre": "'Manuela Andrea",
+  "email": "manu_a@gmail.com",
+  "telefono": "3412284248",
+  "direccion": "123 Calle Falsa, Ciudad, País"
+}
+
+### eliminar un vendedor
+DELETE http://localhost:3000/api/vendedores/9da7c58d-fb7b-450d-a9d7-5e5c295fbb87

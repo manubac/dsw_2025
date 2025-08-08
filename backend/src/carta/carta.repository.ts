@@ -1,4 +1,4 @@
-import { repository } from "../shared/repository.js";
+import { Repository } from "../shared/repository.js";
 import { Carta } from "./carta.entity.js";
 
 const cartas = [
@@ -14,7 +14,7 @@ const cartas = [
   ),
 ]
 
-export class CartaRepositoy implements repository<Carta>{
+export class CartaRepositoy implements Repository<Carta>{
     public findAll(): Carta[] | undefined {
         return cartas;
     }
