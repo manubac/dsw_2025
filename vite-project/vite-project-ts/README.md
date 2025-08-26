@@ -1,0 +1,1 @@
+This is a TypeScript copy of the original Vite + React project.\n\nTo run:\n1. cd vite-project-ts\n2. npm install   # or pnpm install\n3. npm run dev\n\nThis copy preserves the app structure but is a starting point; you may need to add types or tweak imports.

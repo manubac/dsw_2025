@@ -1,0 +1,277 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "title": "Charizard VMAX (074/073) - Champion's Path",
+      "description": "Una de las cartas más codiciadas de la era Sword & Shield. Este Charizard VMAX 'Shiny' del set Champion's Path es una pieza central para cualquier colección.",
+      "price": 350,
+      "discountPercentage": 12.5,
+      "rating": 4.95,
+      "stock": 12,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Champion's Path",
+      "releaseYear": 2020,
+      "rarity": "Secret Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh35/74.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh35/74_hires.png"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Pikachu VMAX (TG17/TG30) - Lost Origin",
+      "description": "Arte especial de la Galería de Entrenadores donde Pikachu VMAX se une a su entrenador, Red. Una carta vibrante y llena de nostalgia.",
+      "price": 45,
+      "discountPercentage": 10.2,
+      "rating": 4.88,
+      "stock": 45,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Lost Origin",
+      "releaseYear": 2022,
+      "rarity": "Trainer Gallery",
+      "thumbnail": "https://images.pokemontcg.io/swsh11tg/TG17.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh11tg/TG17_hires.png"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Umbreon VMAX (215/203) - Evolving Skies",
+      "description": "Considerada una obra de arte, esta carta de arte alternativo de Umbreon VMAX es la más valiosa y buscada del set Evolving Skies. Presenta a Umbreon bajo la luna.",
+      "price": 550,
+      "discountPercentage": 8.0,
+      "rating": 4.99,
+      "stock": 7,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Evolving Skies",
+      "releaseYear": 2021,
+      "rarity": "Secret Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh7/215.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh7/215_hires.png"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Lugia V (186/195) - Silver Tempest",
+      "description": "Impresionante arte alternativo de Lugia V del set Silver Tempest. La ilustración captura el poder y la majestuosidad de este Pokémon legendario en medio de una tormenta.",
+      "price": 180,
+      "discountPercentage": 15.0,
+      "rating": 4.91,
+      "stock": 21,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Silver Tempest",
+      "releaseYear": 2022,
+      "rarity": "Ultra Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh12/186.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh12/186_hires.png"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Giratina V (186/196) - Lost Origin",
+      "description": "Una de las cartas con el arte más aclamado de los últimos años. El arte alternativo de Giratina V del set Lost Origin es una pieza caótica y hermosa.",
+      "price": 320,
+      "discountPercentage": 11.3,
+      "rating": 4.96,
+      "stock": 14,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Lost Origin",
+      "releaseYear": 2022,
+      "rarity": "Ultra Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh11/186.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh11/186_hires.png"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Mew V (251/264) - Fusion Strike",
+      "description": "Adorable y poderosa carta de arte alternativo de Mew V del set Fusion Strike. Muestra a varios Mew flotando y jugando con otros Pokémon.",
+      "price": 50,
+      "discountPercentage": 5.5,
+      "rating": 4.85,
+      "stock": 33,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Fusion Strike",
+      "releaseYear": 2021,
+      "rarity": "Ultra Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh8/251.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh8/251_hires.png"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Rayquaza VMAX (218/203) - Evolving Skies",
+      "description": "El majestuoso Rayquaza VMAX en su forma de arte alternativo del set Evolving Skies. Una carta imponente y muy buscada por coleccionistas.",
+      "price": 300,
+      "discountPercentage": 9.75,
+      "rating": 4.93,
+      "stock": 11,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Evolving Skies",
+      "releaseYear": 2021,
+      "rarity": "Secret Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh7/218.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh7/218_hires.png"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Gengar VMAX (271/264) - Fusion Strike",
+      "description": "Una carta de arte alternativo increíblemente popular que muestra a un Gengar gigante absorbiendo el mundo a su alrededor. Una pieza maestra del set Fusion Strike.",
+      "price": 210,
+      "discountPercentage": 14.0,
+      "rating": 4.94,
+      "stock": 16,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Fusion Strike",
+      "releaseYear": 2021,
+      "rarity": "Secret Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh8/271.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh8/271_hires.png"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Charizard V (154/172) - Brilliant Stars",
+      "description": "El icónico enfrentamiento entre Charizard y Venusaur capturado en esta carta de arte alternativo del set Brilliant Stars. Una de las cartas más dinámicas y buscadas.",
+      "price": 200,
+      "discountPercentage": 10.0,
+      "rating": 4.92,
+      "stock": 19,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Brilliant Stars",
+      "releaseYear": 2022,
+      "rarity": "Ultra Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh9/154.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh9/154_hires.png"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Arceus V (166/172) - Brilliant Stars",
+      "description": "El Pokémon mítico Arceus en una gloriosa carta de arte alternativo, mostrando su inmenso poder y tamaño. Una pieza central de la Galería de Entrenadores de Brilliant Stars.",
+      "price": 75,
+      "discountPercentage": 5.8,
+      "rating": 4.89,
+      "stock": 38,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Brilliant Stars",
+      "releaseYear": 2022,
+      "rarity": "Ultra Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh9/166.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh9/166_hires.png"
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Magikarp (203/193) - Paldea Evolved",
+      "description": "Una de las cartas 'raras de ilustración' más queridas. Este Magikarp, con un arte que recuerda al estilo Ukiyo-e japonés, se ha convertido en un favorito inesperado.",
+      "price": 100,
+      "discountPercentage": 18.5,
+      "rating": 4.97,
+      "stock": 25,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Paldea Evolved",
+      "releaseYear": 2023,
+      "rarity": "Special Illustration Rare",
+      "thumbnail": "https://images.pokemontcg.io/sv2/203.png",
+      "images": [
+        "https://images.pokemontcg.io/sv2/203_hires.png"
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Iono (269/193) - Paldea Evolved",
+      "description": "La carta de Entrenador más valiosa y buscada de la era Scarlet & Violet. Esta versión 'rara de ilustración especial' de la popular streamer Iono es esencial para jugadores y coleccionistas.",
+      "price": 140,
+      "discountPercentage": 7.1,
+      "rating": 4.91,
+      "stock": 30,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Paldea Evolved",
+      "releaseYear": 2023,
+      "rarity": "Special Illustration Rare",
+      "thumbnail": "https://images.pokemontcg.io/sv2/269.png",
+      "images": [
+        "https://images.pokemontcg.io/sv2/269_hires.png"
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Mewtwo VSTAR (GG44/GG70) - Crown Zenith",
+      "description": "El épico enfrentamiento entre Mewtwo y Charizard de la Galería de Galar. Una carta con un arte espectacular y muy popular del set Crown Zenith.",
+      "price": 95,
+      "discountPercentage": 11.8,
+      "rating": 4.9,
+      "stock": 41,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Crown Zenith",
+      "releaseYear": 2023,
+      "rarity": "Galarian Gallery",
+      "thumbnail": "https://images.pokemontcg.io/swsh12pt5gg/GG44.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh12pt5gg/GG44_hires.png"
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Espeon VMAX (270/203) - Evolving Skies",
+      "description": "Conocida como 'Sleeping Espeon', esta carta de arte alternativo muestra a Espeon durmiendo plácidamente sobre un tejado. Un diseño único y muy querido por los fans.",
+      "price": 190,
+      "discountPercentage": 16.2,
+      "rating": 4.95,
+      "stock": 13,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Evolving Skies",
+      "releaseYear": 2021,
+      "rarity": "Secret Rare",
+      "thumbnail": "https://images.pokemontcg.io/swsh7/270.png",
+      "images": [
+        "https://images.pokemontcg.io/swsh7/270_hires.png"
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Pikachu (241/236) - Cosmic Eclipse",
+      "description": "Una carta 'Secreta Rara' de la Galería de Personajes, donde Pikachu se une a su entrenador Red en un arte conmovedor. Un clásico de la era Sun & Moon.",
+      "price": 60,
+      "discountPercentage": 8.4,
+      "rating": 4.88,
+      "stock": 52,
+      "brand": "Pokémon TCG",
+      "category": "trading-cards",
+      "set": "Cosmic Eclipse",
+      "releaseYear": 2019,
+      "rarity": "Secret Rare",
+      "thumbnail": "https://images.pokemontcg.io/sm12/241.png",
+      "images": [
+        "https://images.pokemontcg.io/sm12/241_hires.png"
+      ]
+    }
+  ],
+  "total": 15,
+  "skip": 0,
+  "limit": 15
+}
