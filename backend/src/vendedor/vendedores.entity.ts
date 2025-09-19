@@ -1,11 +1,25 @@
-import crypto from 'node:crypto';
+import { Entity, PrimaryKey, Property, OneToMany,ManyToMany,Collection, ManyToOne, Cascade } from "@mikro-orm/core"
+import { BaseEntity } from "../shared/db/baseEntity.js"
+import { VendedorClass } from "./vendedorClass.entity.js"
+import { Item } from "./item.entity.js"
 
-export class Vendedor{
-    constructor(
-        public nombre: string,
-        public email: string,
-        public telefono: string,
-        //public rating: number,
-        public id: string = crypto.randomUUID(),
-      ) {}
-    }
+@Entity()
+export class Vendedor extends BaseEntity {
+    @Property({nullable:false, unique: true})
+    nombre!: string
+
+    @ManyToOne (() => VendedorClass, {nullable: false, unique:true})
+    vendedorClass!: VendedorClass
+
+    @Property({nullable:false, unique: true})
+    email!: string
+
+    @Property()
+    telefono!: string
+
+    //public rating: number,
+
+    @ManyToMany(() => Item, (item) => item.vendedores, {cascade:[Cascade.ALL], owner: true})
+    items!: Item[]
+}
+     
