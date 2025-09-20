@@ -1,0 +1,61 @@
+
+
+### Get all
+GET http://localhost:3000/api/vendedores/classes
+
+### POST
+# @name createVendedorClass
+POST http://localhost:3000/api/vendedores/classes
+Content-Type: application/json
+
+{
+    "name": "Clase A",
+    "description": "Descripción de la Clase A"
+}
+
+### ID
+@id={{createVendedorClass.response.body.data.id}}
+
+### GET ONE
+GET http://localhost:3000/api/vendedores/classes/{{id}}
+
+### PUT
+PUT http://localhost:3000/api/vendedores/classes/{{id}}
+Content-Type: application/json
+
+{
+    "name": "Armando Puentes",
+    "description": "Armador de puentes"
+}
+
+### POST2
+POST http://localhost:3000/api/vendedores/classes
+Content-Type: application/json
+
+{
+    "name": "Armando Fuentes",
+    "description": "Armador de fuentes"
+}
+
+### POST3
+POST http://localhost:3000/api/vendedores/classes
+Content-Type: application/json
+
+{
+    "name": "Armando Banderas",
+    "description": "Armador de banderas"
+}
+
+### POST VENDEDOR TO DELETE
+# @name createVendedorClassToDelete
+POST http://localhost:3000/api/vendedores/classes
+Content-Type: application/json
+
+{
+    "name": "Armando Banderas",
+    "description": "Armador de banderas"
+}
+
+### DELETE
+@idToDelete={{createVendedorClassToDelete.response.body.data.id}}
+DELETE http://localhost:3000/api/vendedores/classes/{{idToDelete}}

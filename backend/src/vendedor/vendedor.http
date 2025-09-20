@@ -1,0 +1,53 @@
+### GET all vendedores
+GET http://localhost:3000/api/vendedores
+
+### POST vendedor
+# @name createVendedor
+POST http://localhost:3000/api/vendedores
+Content-Type: application/json
+
+{
+    "nombre": "Juan Perez",
+    "vendedor_class_id": 10,
+    "email": "juan.perez@example.com",
+    "telefono": "123456789",
+    "items": [1, 2],
+    "vendedorClass": 10
+}
+
+### POST another vendedor
+# @name createAnotherVendedor
+POST http://localhost:3000/api/vendedores
+Content-Type: application/json
+
+{
+    "nombre": "Maria Lopez",
+    "vendedor_class_id": 11,
+    "email": "maria.lopez@example.com",
+    "telefono": "987654321",
+    "items": [1],
+    "vendedorClass": 11
+}
+
+### ID
+@id={{createAnotherVendedor.response.body.data.id}}
+
+### GET one vendedor
+GET http://localhost:3000/api/vendedores/{{id}}
+
+### PUT vendedor
+PUT http://localhost:3000/api/vendedores/{{id}}
+Content-Type: application/json
+
+{
+    "nombre": "Maria Lopez",
+    "vendedor_class_id": 11,
+    "email": "maria.lopez@example.com",
+    "telefono": "341405327",
+    "items": [1],
+    "vendedorClass": 11
+}
+
+### DELETE vendedor
+@idToDelete={{createVendedor.response.body.data.id}}
+DELETE http://localhost:3000/api/vendedores/{{idToDelete}}

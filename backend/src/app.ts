@@ -4,6 +4,8 @@ import { vendedorRouter } from './vendedor/vendedor.routes.js';
 import { cartaRouter } from './carta/carta.routes.js'
 import { orm, syncSchema } from './shared/db/orm.js'
 import { RequestContext } from '@mikro-orm/core';
+import { vendedorClassRouter } from './vendedor/vendedorClass.routes.js';
+import { itemRouter } from './vendedor/item.routes.js';
 
 const app = express()
 app.use(express.json())
@@ -14,8 +16,10 @@ app.use((req, res, next)=> {
 })
 //antes de las rutas
 
-app.use('/api/vendedores', vendedorRouter);
+app.use('/api/vendedores/classes', vendedorClassRouter)
+app.use('/api/vendedores', vendedorRouter)
 app.use('/api/cartas', cartaRouter)
+app.use('/api/items', itemRouter)
 
 app.use((req, res)=> {
     res.status(404).send({message:'Ruta no encontrada'});

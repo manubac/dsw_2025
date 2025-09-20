@@ -1,0 +1,59 @@
+### Get all
+GET http://localhost:3000/api/items
+
+### POST
+# @name createItem
+POST http://localhost:3000/api/items
+Content-Type: application/json
+
+{
+    "name": "Puentes Flotantes",
+    "description": "flotan con aire"
+}
+
+### ID
+@id={{createItem.response.body.data.id}}
+
+### GET ONE
+GET http://localhost:3000/api/items/{{id}}
+
+### PUT
+PUT http://localhost:3000/api/items/{{id}}
+Content-Type: application/json
+
+{
+    "name": "Puentes Flotantes",
+    "description": "flotan con aire"
+}
+
+### POST2
+POST http://localhost:3000/api/items
+Content-Type: application/json
+
+{
+    "name": "Fuentes de vino",
+    "description": "Traido de mendoza"
+}
+
+### POST3
+POST http://localhost:3000/api/items
+Content-Type: application/json
+
+{
+    "name": "Sala de banderas",
+    "description": "Banderas de todo el mundo"
+}
+
+### POST ITEM TO DELETE
+# @name createItemToDelete
+POST http://localhost:3000/api/items
+Content-Type: application/json
+
+{
+    "name": "Sala de banderas",
+    "description": "Banderas de todo el mundo"
+}
+
+### DELETE
+@idToDelete={{createItemToDelete.response.body.data.id}}
+DELETE http://localhost:3000/api/items/{{idToDelete}}

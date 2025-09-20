@@ -1,4 +1,4 @@
-import { Entity, PrimaryKey, Property, OneToMany,ManyToMany,Collection, ManyToOne, Cascade } from "@mikro-orm/core"
+import { Entity, PrimaryKey, Property, OneToMany,ManyToMany,Collection, ManyToOne, Cascade, Rel } from "@mikro-orm/core"
 import { BaseEntity } from "../shared/db/baseEntity.js"
 import { VendedorClass } from "./vendedorClass.entity.js"
 import { Item } from "./item.entity.js"
@@ -9,7 +9,7 @@ export class Vendedor extends BaseEntity {
     nombre!: string
 
     @ManyToOne (() => VendedorClass, {nullable: false, unique:true})
-    vendedorClass!: VendedorClass
+    vendedorClass!: Rel<VendedorClass>
 
     @Property({nullable:false, unique: true})
     email!: string

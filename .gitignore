@@ -1,15 +1,20 @@
 # Node modules
 node_modules/
+**/node_modules/
 
 # VS Code settings (personal/editor-specific)
 .vscode/
 
 # Salida de compilación de TypeScript
 dist/
+**/dist/
+
 
 # Archivos de entorno
 .env
 .env.local
+**/.env
+**/.env.local
 
 # Logs
 logs
@@ -41,3 +46,9 @@ coverage/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Ignore specific project folders to only keep vite-project-ts
+viteproject/
+vite-project/vite-project/
+node_modules/.package-lock.json
+
