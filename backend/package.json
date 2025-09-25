@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "type": "commonjs",
+  "type": "module",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
@@ -13,8 +13,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@mikro-orm/core": "6.5.6",
+    "@mikro-orm/mysql": "6.5.6",
+    "@mikro-orm/sql-highlighter": "1.0.1",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "reflect-metadata": "0.2.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

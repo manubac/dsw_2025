@@ -1,0 +1,31 @@
+###GET ALL
+
+GET http://localhost:3000/api/cartas/classes
+###POST
+# @name createCartaClass
+POST http://localhost:3000/api/cartas/classes
+Content-Type: application/json
+
+{
+    "name": "Clase Test",
+    "description": "Descripcion de la clase test"
+}
+
+### ID
+
+
+### GET ONE
+GET http://localhost:3000/api/cartas/classes/1
+
+
+###PUT
+PUT http://localhost:3000/api/cartas/classes/1
+Content-Type: application/json
+
+{
+    "name": "Clase Test",
+    "description": "Descripcion de la clase test editada"
+}
+
+###DELETE
+DELETE http://localhost:3000/api/cartas/classes/1
