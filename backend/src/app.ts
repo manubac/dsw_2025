@@ -7,6 +7,7 @@ import { RequestContext } from '@mikro-orm/core';
 import { vendedorClassRouter } from './vendedor/vendedorClass.routes.js';
 import { itemRouter } from './vendedor/item.routes.js';
 import { cartaClassRouter } from './carta/cartaClass.routes.js';
+import { itemCartaRouter } from './carta/itemCarta.routes.js';
 
 const app = express()
 app.use(express.json())
@@ -19,9 +20,10 @@ app.use((req, res, next)=> {
 
 app.use('/api/vendedores/classes', vendedorClassRouter)
 app.use('/api/vendedores', vendedorRouter)
+app.use('/api/items', itemRouter)
 app.use('/api/cartas/classes', cartaClassRouter)
 app.use('/api/cartas', cartaRouter)
-app.use('/api/items', itemRouter)
+app.use('/api/itemsCarta', itemCartaRouter)
 
 app.use((req, res)=> {
     res.status(404).send({message:'Ruta no encontrada'});

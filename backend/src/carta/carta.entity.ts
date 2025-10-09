@@ -1,6 +1,7 @@
 import { Entity, Property, ManyToOne, ManyToMany, Collection, Cascade, Rel } from "@mikro-orm/core";
 import { BaseEntity } from "../shared/db/baseEntity.js";
 import {CartaClass } from "./cartaClass.entity.js";
+import { ItemCarta } from "./itemCarta.entity.js";
 
 @Entity()
 export class Carta extends BaseEntity{
@@ -22,4 +23,10 @@ export class Carta extends BaseEntity{
     @Property({ nullable: false })
     attack!: number;
 
+    @ManyToMany(() => ItemCarta, (item) => item.cartas, {
+    cascade: [Cascade.ALL],
+    owner: true})
+
+    items!: ItemCarta[]; 
 }
+

@@ -1,48 +1,49 @@
-### Obtener todas las cartas
-GET http://localhost:3000/api/cartas
+@baseUrl = http://localhost:3000/api/cartas
 
-### Obtener una carta por id
-GET http://localhost:3000/api/cartas/a02b91bc-3769-4221-beb1-d7a3aeba7dad
+### 🟢 1. GET - Obtener todas las cartas
+# @name getAllCartas
+GET {{baseUrl}}
+Content-Type: application/json
 
-### crear un nuevo character
-POST http://localhost:3000/api/cartas
+### 🟢 2. POST - Crear una nueva carta
+# @name createCarta
+POST {{baseUrl}}
 Content-Type: application/json
 
 {
-  "name": "Atila",
-  "characterClass": "warrior",
-  "items": ["bow","arrow"],
-  "attack": 10,
-  "mana": 10,
-  "hp": 10,
-  "level": 1
-}
-
-### Modificar una carta (PUT - recurso completo e idempotente)
-PUT http://localhost:3000/api/cartas/a02b91bc-3769-4221-beb1-d7a3aeba7dad
-Content-Type: application/json  
-
-{
-  "name": "Anakin Skywalker",
-  "cartaClass": "Fallen Jedi",
-  "items": ["Lightsaber", "Death Star"],
-  "attack": 110,
-  "mana": 500,
+  "name": "Darth Vader",
+  "cartaClass": 5,
+  "items": [1, 2],
+  "attack": 25,
+  "mana": 100,
   "hp": 100,
-  "level": 11
+  "level": 10
 }
 
-### modificar un character (PATCH - recurso parcial)
-PATCH http://localhost:3000/api/cartas/a02b91bc-3769-4221-beb1-d7a3aeba7dad
+### (Guardar el ID de la carta creada para usar después)
+@id = {{createCarta.response.body.data.id}}
+
+### 🟡 3. GET - Obtener una carta por ID
+# @name getOneCarta
+GET {{baseUrl}}/{{id}}
+Content-Type: application/json
+
+### 🔵 4. PUT - Actualizar una carta existente
+# @name updateCarta
+PUT {{baseUrl}}/{{id}}
 Content-Type: application/json
 
 {
-  "name": "Anakin Skywalker",
-  "cartaClass": "Fallen Jedi",
-  "items": ["Lightsaber", "X-Wing"],
-  "level": 12    
+  "name": "Darth Vader - Updated",
+  "cartaClass": 5,
+  "items": [1, 2],
+  "attack": 30,
+  "mana": 120,
+  "hp": 110,
+  "level": 12
 }
 
-### borrar un character
-DELETE http://localhost:3000/api/cartas/a02b91bc-3769-4221-beb1-d7a3aeba7dad
-
+### 🔴 5. DELETE - Eliminar una carta
+# @name deleteCarta
+DELETE {{baseUrl}}/{{id}}
+Content-Type: application/json
