@@ -1,7 +1,7 @@
 import './Cart.css'
 import { useId, useContext } from 'react'
-import { CartIcon, ClearCartIcon, RemoveFromCartIcon } from './Icons.js'
-import { CartContext } from '../context/cart.js'
+import { CartIcon, ClearCartIcon, RemoveFromCartIcon } from './Icons'
+import { CartContext } from '../context/cart'
 
 function CartItem ({ thumbnail, price, title, quantity, addToCart, decreaseFromCart, removeFromCart }: any) {
   return (
@@ -27,7 +27,7 @@ function CartItem ({ thumbnail, price, title, quantity, addToCart, decreaseFromC
 }
 
 export function Cart () {
-  const cartCheckboxId = useId()
+  const cartCheckboxId = 'global-cart-checkbox'
   const { cart, clearCart, addToCart, decreaseFromCart, removeFromCart } = useContext(CartContext)
 
   return (

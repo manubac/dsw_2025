@@ -52,3 +52,6 @@ viteproject/
 vite-project/vite-project/
 node_modules/.package-lock.json
 
+docker-compose.yml
+.DS_Store
+mysql-data/

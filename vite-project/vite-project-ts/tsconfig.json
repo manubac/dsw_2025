@@ -4,10 +4,13 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM"],
     "jsx": "react-jsx",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "skipLibCheck": true,
-    "allowJs": true,
+  "moduleResolution": "node",
+  "strict": true,
+  "skipLibCheck": true,
+  "allowJs": true,
+  "resolveJsonModule": true,
+  "allowSyntheticDefaultImports": true,
+  "esModuleInterop": true,
     "types": ["vite/client", "react"]
   },
   "include": ["src"]

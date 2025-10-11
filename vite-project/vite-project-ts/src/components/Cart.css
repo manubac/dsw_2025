@@ -1,12 +1,16 @@
 .cart {
-  background: #000;
+  background: #0b1020;
   color: #fff;
-  display: none;
-  padding: 32px;
+  padding: 20px;
   position: fixed;
   right: 0px;
   top: 0px;
-  width: 200px;
+  width: 320px;
+  height: 100vh;
+  transform: translateX(100%);
+  transition: transform 300ms ease;
+  z-index: 9998;
+  box-shadow: -8px 0 20px rgba(2,6,23,0.6);
 }
 
 .cart ul {
@@ -15,23 +19,58 @@
 }
 
 .cart img {
-   width: 100%;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
 }
 
 .cart li {
-  border-bottom: 1px solid #444;
-  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 10px 0;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 10px;
+  align-items: start;
 }
 
 .cart footer {
   display: flex;
   gap: 8px;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
 }
 
 .cart footer button {
-  padding: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+  border: none;
+}
+
+/* place item-level footer under the title (second column) */
+.cart li footer {
+  grid-column: 2 / 3;
+  margin-top: 4px;
+  justify-self: end;
+}
+
+.cart li footer button {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.cart li div {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart li strong {
+  font-size: 0.95rem;
 }
 
 .cart-button {
@@ -57,7 +96,7 @@
 
 /*selector sibling ~ */
 .cart-button ~ input:checked ~ .cart {
-  height: 100%;
+  transform: translateX(0%);
   display: flex;
   flex-direction: column;
 }
@@ -67,4 +106,5 @@
   overflow-y: auto;
   list-style: none;
   padding: 0;
+  margin: 0 0 12px 0;
 }

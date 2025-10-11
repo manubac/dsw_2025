@@ -1,27 +1,20 @@
-import { useState } from 'react'
-import { Products } from './components/Products'
-import { Header } from './components/Header'
-import { Footer } from './components/Footer'
-import { FiltersProvider } from './context/filters'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { HomePage } from './pages/HomePage'
+import { UserRegistration } from './pages/UserRegistration'
 import { CartProvider } from './context/cart'
-
-import { products as initialProducts } from './mocks/cartas.json'
-
-import { useFilters } from './hooks/useFilters'
-import { Cart } from './components/Cart'
+import { Layout } from './components/Layout'
 
 function App() {
-  const [products] = useState(initialProducts)
-  const { filterProducts, setFilters } = useFilters()
-
-  const filteredProducts = filterProducts(products)
-
   return (
     <CartProvider>
-      <Cart />
-      <Header changeFilters={setFilters} />
-      <Products products={filteredProducts} />
-      <Footer />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<HomePage />} />
+            <Route path="register" element={<UserRegistration />} />
+          </Route>
+        </Routes>
+      </Router>
     </CartProvider>
   )
 }

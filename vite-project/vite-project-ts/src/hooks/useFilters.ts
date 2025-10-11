@@ -17,6 +17,9 @@ export function useFilters () {
         (
           filters.category === 'all' ||
           product.category === filters.category
+        ) &&
+        (
+          !filters.query || product.title.toLowerCase().includes(filters.query.toLowerCase()) || product.description.toLowerCase().includes(filters.query.toLowerCase())
         )
       )
     })
