@@ -32,10 +32,13 @@ export function Cart () {
 
   return (
     <>
-      <label className='cart-button' htmlFor={cartCheckboxId}>
-        <CartIcon />
-      </label>
-      <input id={cartCheckboxId} type='checkbox' hidden />
+<label className='cart-button' htmlFor={cartCheckboxId}>
+  <CartIcon />
+  {cart.length > 0 && (
+    <span className="cart-count">{cart.reduce((acc: number, p: any) => acc + p.quantity, 0)}</span>
+  )}
+</label>
+<input id={cartCheckboxId} type='checkbox' hidden />
 
       <aside className='cart'>
         <ul>

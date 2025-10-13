@@ -1,69 +1,61 @@
-.site-header {
+.header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
-  background: linear-gradient(90deg, #1e293b, #0f172a);
-  color: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-
-.site-header .brand {
-  display: flex;
   align-items: center;
-  gap: 10px;
+  padding: 12px 30px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.site-header .logo {
-  width: 36px;
-  height: 36px;
+.header-left .logo img {
+  height: 45px;
+  cursor: pointer;
 }
 
-.site-header .brand h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.site-header .brand a {
-  color: #fff;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.brand-link {
-  color: #fff;
-  font-weight: 700;
-  font-size: 1.1rem;
-  text-decoration: none;
-}
-
-.tagline {
-  display: block;
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.7);
-}
-
-.search-wrap {
+.header-center {
   flex: 1;
-  max-width: 520px;
-  margin: 0 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .search-input {
-  width: 100%;
-  padding: 10px 12px;
+  width: 60%;
+  max-width: 450px;
+  padding: 10px 14px;
   border-radius: 8px;
-  border: none;
+  border: 1px solid #ddd;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 2px rgba(0,122,255,0.15);
   outline: none;
 }
 
-.site-nav {
+.header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
-  align-self: stretch;
-  white-space: nowrap;
+  gap: 30px;
+  margin-right: 60px;
+}
+
+.nav-button {
+  background-color: #007aff;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.nav-button:hover {
+  background-color: #005fce;
 }
 
 .cart-button {
@@ -85,46 +77,72 @@
 .cart-count {
   position: absolute;
   top: -6px;
-  right: -6px;
-  background: #ff4d4f;
+  right: -10px;
+  background-color: #ff3b30;
   color: white;
-  border-radius: 999px;
-  padding: 2px 6px;
+  border-radius: 50%;
   font-size: 12px;
-  transform: translate(6px, -6px);
-}
-
-.site-nav .nav-link { flex-shrink: 0; }
-
-@media (max-width: 700px) {
-  .search-wrap { display: none; }
-  .site-header { padding: 12px; }
-}
-
-.site-header .brand a:hover {
-  color: #facc15; /* yellow for Pokemon vibe */
-}
-
-.site-header nav {
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
 }
 
-.site-header nav a {
+.brand-logo {
+  height: 50px;
+  width: auto;
+  cursor: pointer;
+  background-color: #ffffff;
+}
+
+.brand-link {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: white;
-  text-decoration: none;
-  font-weight: 600;
-  background-color: rgba(66,133,244,0.15);
-  padding: 8px 14px;
+}
+
+
+.search-container {
+  position: relative;
+  width: 600px;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: 40px;
+  width: 100%;
+  background: white;
+  border: 1px solid #ccc;
   border-radius: 8px;
-  transition: background-color 0.2s, transform 0.2s;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  z-index: 50;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-.site-header nav a:hover {
-  background-color: rgba(66,133,244,0.3);
-  transform: translateY(-2px);
+.search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-item:hover {
+  background-color: #f7f7f7;
+}
+
+.search-item-image {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.search-item-title {
+  font-size: 14px;
+  color: #333;
 }

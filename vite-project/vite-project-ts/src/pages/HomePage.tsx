@@ -6,16 +6,17 @@ import { ProductFilters } from '../components/ProductFilters'
 import { Hero } from '../components/Hero'
 
 export function HomePage () {
-  const [products] = useState(initialProducts)
-  const { filterProducts } = useFilters()
+  //const [products] = useState(initialProducts)
+  //const { filterProducts } = useFilters()
 
-  const filteredProducts = filterProducts(products)
+  //const filteredProducts = filterProducts(products)
 
   return (
     <>
   <Hero />
-  <ProductFilters />
-  <Products products={filteredProducts} />
+
     </>
   )
 }
+  //<ProductFilters />
+  //<Products products={filteredProducts} /> 

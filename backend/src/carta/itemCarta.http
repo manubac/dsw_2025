@@ -1,0 +1,59 @@
+### GET ALL
+GET http://localhost:3000/api/itemsCarta
+
+### POST
+# @name createItemCarta
+POST http://localhost:3000/api/itemsCarta
+Content-Type: application/json
+
+{
+  "name": "Espada de Fuego",
+  "description": "Una carta legendaria con poder ígneo"
+}
+
+### ID
+@id={{createItemCarta.response.body.data.id}}
+
+### GET ONE
+GET http://localhost:3000/api/itemsCarta/{{id}}
+
+### PUT
+PUT http://localhost:3000/api/itemsCarta/{{id}}
+Content-Type: application/json
+
+{
+  "name": "Espada de Hielo",
+  "description": "Una carta legendaria con poder gélido"
+}
+
+### POST2
+POST http://localhost:3000/api/itemsCarta
+Content-Type: application/json
+
+{
+  "name": "Escudo del Alba",
+  "description": "Protege contra ataques de oscuridad"
+}
+
+### POST3
+POST http://localhost:3000/api/itemsCarta
+Content-Type: application/json
+
+{
+  "name": "Anillo del Dragón",
+  "description": "Otorga fuerza y sabiduría al portador"
+}
+
+### POST ITEM TO DELETE
+# @name createItemCartaToDelete
+POST http://localhost:3000/api/itemsCarta
+Content-Type: application/json
+
+{
+  "name": "Carta Temporal",
+  "description": "Elemento de prueba para eliminar"
+}
+
+### DELETE
+@idToDelete={{createItemCartaToDelete.response.body.data.id}}
+DELETE http://localhost:3000/api/itemsCarta/{{idToDelete}}

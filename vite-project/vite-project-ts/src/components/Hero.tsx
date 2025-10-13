@@ -5,9 +5,9 @@ export function Hero () {
   return (
     <section className='hero'>
       <div className='hero-content'>
-        <h1>Your Pokémon TCG Destination</h1>
-        <p>Find the rarest cards and complete your collection.</p>
-        <Link to="/register" className="cta-button">Create Account</Link>
+        <h1>PokemonCard Market</h1>
+        <p>Encuentra las mejores cartas y completa tu colección.</p>
+        <Link to="/cards" className="cta-button">Ver stock</Link>
       </div>
     </section>
   )
