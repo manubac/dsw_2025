@@ -18,6 +18,12 @@ app.use((req, res, next)=> {
 })
 //antes de las rutas
 
+// Add logging middleware for debugging
+app.use('/api/vendedores', (req, res, next) => {
+  console.log(`${req.method} ${req.path}`, req.body);
+  next();
+});
+
 app.use('/api/vendedores/classes', vendedorClassRouter)
 app.use('/api/vendedores', vendedorRouter)
 app.use('/api/items', itemRouter)

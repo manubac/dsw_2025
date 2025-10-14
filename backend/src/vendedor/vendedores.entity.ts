@@ -8,7 +8,7 @@ export class Vendedor extends BaseEntity {
     @Property({nullable:false, unique: true})
     nombre!: string
 
-    @ManyToOne (() => VendedorClass, {nullable: false, unique:true})
+    @ManyToOne (() => VendedorClass, {nullable: false})
     vendedorClass!: Rel<VendedorClass>
 
     @Property({nullable:false, unique: true})
