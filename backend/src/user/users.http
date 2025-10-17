@@ -1,0 +1,48 @@
+### obtener todos los usuarios
+GET http://localhost:3000/api/users
+
+### obtener un usuario por id
+GET http://localhost:3000/api/users/a02b91bc-3769-4221-beb1-d7a3aeba7dad
+
+### crear un nuevo usuario (registro)
+POST http://localhost:3000/api/users
+Content-Type: application/json
+
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "123456",
+  "role": "user"
+}
+
+### iniciar sesión (login)
+POST http://localhost:3000/api/users/login  
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "123456"
+}
+
+### modificar un usuario (PUT - recurso completo e idempotente)
+PUT http://localhost:3000/api/users/a02b91bc-3769-4221-beb1-d7a3aeba7dad
+Content-Type: application/json
+
+{
+  "username": "admin_updated",
+  "email": "admin@example.com",
+  "password": "newpassword123",
+  "role": "admin"
+}
+
+### modificar un usuario (PATCH - recurso parcial)
+PATCH http://localhost:3000/api/users/a02b91bc-3769-4221-beb1-d7a3aeba7dad
+Content-Type: application/json
+
+{
+  "username": "admin_patched",
+  "role": "superadmin"
+}
+
+### borrar un usuario
+DELETE http://localhost:3000/api/users/a02b91bc-3769-4221-beb1-d7a3aeba7dad
