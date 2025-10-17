@@ -1,12 +1,17 @@
 import { MikroORM } from "@mikro-orm/mysql"
 import { SqlHighlighter } from "@mikro-orm/sql-highlighter"
+import { Carta } from "../../carta/carta.entity.js"
+import { CartaClass } from "../../carta/cartaClass.entity.js"
+import { ItemCarta } from "../../carta/itemCarta.entity.js"
+import { Vendedor } from "../../vendedor/vendedores.entity.js"
+import { VendedorClass } from "../../vendedor/vendedorClass.entity.js"
+import { Item } from "../../vendedor/item.entity.js"
 
 export const orm = await MikroORM.init({
-    entities: ['./dist/**/*.entity.js'],
-    entitiesTs: ['./src/**/*.entity.ts'],
+    entities: [Carta, CartaClass, ItemCarta, Vendedor, VendedorClass, Item],
     dbName: 'heroclash4geeks',
     /*type: 'mysql',*/
-    clientUrl: 'mysql://dsw:dsw@localhost:3307/heroclash4geeks',
+    clientUrl: 'mysql://dsw:dsw@localhost:3306/heroclash4geeks',
     highlighter: new SqlHighlighter(),
     debug: true,
     schemaGenerator: {

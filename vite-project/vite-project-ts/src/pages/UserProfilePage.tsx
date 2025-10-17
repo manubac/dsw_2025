@@ -1,35 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useUser } from "../context/user";
 import "./UserProfilePage.css";
-import { useUser } from "../context/user"; // Importamos el contexto
 
 export function UserProfilePage() {
-  const { user, updateUser } = useUser(); // obtenemos el usuario actual y la función para actualizarlo
-  const [localUser, setLocalUser] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
+  const { user, updateUser } = useUser();
 
-  // cuando el usuario esté disponible en el contexto, lo copiamos al estado local
-  useEffect(() => {
-    if (user) {
-      setLocalUser({
-        name: user.name,
-        email: user.email,
-        password: user.password || "",
-      });
-    }
-  }, [user]);
+  const [formData, setFormData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    password: "********",
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setLocalUser((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSave = () => {
-    updateUser(localUser); // actualiza en el contexto global
+    console.log("Datos actualizados:", formData);
+    updateUser({ name: formData.name, email: formData.email });
     alert("Datos guardados (simulado)");
-    console.log("Datos actualizados:", localUser);
   };
 
   if (!user) {
@@ -54,7 +44,7 @@ export function UserProfilePage() {
             id="name"
             type="text"
             name="name"
-            value={localUser.name}
+            value={formData.name}
             onChange={handleChange}
           />
         </div>
@@ -65,7 +55,7 @@ export function UserProfilePage() {
             id="email"
             type="email"
             name="email"
-            value={localUser.email}
+            value={formData.email}
             onChange={handleChange}
           />
         </div>
@@ -76,7 +66,7 @@ export function UserProfilePage() {
             id="password"
             type="password"
             name="password"
-            value={localUser.password}
+            value={formData.password}
             onChange={handleChange}
           />
         </div>

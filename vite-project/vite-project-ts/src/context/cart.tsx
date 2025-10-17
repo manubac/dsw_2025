@@ -9,12 +9,13 @@ const reducer = (state: any[], action: any) => {
     switch (actionType) {
         case 'ADD_TO_CART': {
             const { id } = actionPayload
+            const quantity = actionPayload.quantity || 1
             const productInCartIndex = state.findIndex(item => item.id === id)
 
             if (productInCartIndex >= 0) {
                 const newState = [
                     ...state.slice(0, productInCartIndex),
-                    { ...state[productInCartIndex], quantity: state[productInCartIndex].quantity + 1 },
+                    { ...state[productInCartIndex], quantity: state[productInCartIndex].quantity + quantity },
                     ...state.slice(productInCartIndex + 1)
                 ]
                 return newState
@@ -24,7 +25,7 @@ const reducer = (state: any[], action: any) => {
                 ...state,
                 {
                     ...actionPayload,
-                    quantity: 1
+                    quantity: quantity
                 }
             ]
         }
@@ -59,9 +60,9 @@ const reducer = (state: any[], action: any) => {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
-  const addToCart = (product: any) => dispatch({
+  const addToCart = (product: any, quantity: number = 1) => dispatch({
     type: 'ADD_TO_CART',
-    payload: product
+    payload: { ...product, quantity }
   })
 
   const decreaseFromCart = (product: any) => dispatch({

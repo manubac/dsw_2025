@@ -1,10 +1,10 @@
-import { createContext, useState, useContext, ReactNode, useEffect } from "react";
+import { createContext, useState, useContext, ReactNode } from 'react'
 
 interface User {
-  name: string;
-  email: string;
-  password?: string;
-  role: "usuario" | "vendedor" | "admin";
+  name: string
+  email: string
+  password: string
+  role?: string
 }
 
 interface UserContextType {
@@ -19,19 +19,8 @@ const UserContext = createContext<UserContextType | null>(null);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    //  restaurar el usuario si está en localStorage
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
-
-  const login = (userData: User) => setUser(userData);
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
-  };
-
+  const login = (userData: User) => setUser(userData)
+  const logout = () => setUser(null)
   const updateUser = (updated: Partial<User>) => {
     if (!user) return;
     const updatedUser = { ...user, ...updated };

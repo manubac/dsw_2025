@@ -75,6 +75,7 @@ export function UserRegistration() {
           email: formData.email,
           password: formData.password,
           telefono: formData.telefono,
+          ciudad: formData.ciudad,
           vendedorClass: formData.vendedorClass, // Pass the ID
           // Add other fields as required by your backend
         };

@@ -2,6 +2,7 @@ import './Cart.css'
 import { useId, useContext } from 'react'
 import { CartIcon, ClearCartIcon, RemoveFromCartIcon } from './Icons'
 import { CartContext } from '../context/cart'
+import { useNavigate } from 'react-router-dom'
 
 function CartItem ({ thumbnail, price, title, quantity, addToCart, decreaseFromCart, removeFromCart }: any) {
   return (
@@ -29,6 +30,11 @@ function CartItem ({ thumbnail, price, title, quantity, addToCart, decreaseFromC
 export function Cart () {
   const cartCheckboxId = 'global-cart-checkbox'
   const { cart, clearCart, addToCart, decreaseFromCart, removeFromCart } = useContext(CartContext)
+  const navigate = useNavigate()
+
+  const handleCheckout = () => {
+    navigate('/checkout')
+  }
 
   return (
     <>
@@ -41,21 +47,30 @@ export function Cart () {
 <input id={cartCheckboxId} type='checkbox' hidden />
 
       <aside className='cart'>
-        <ul>
-          {cart.map((product: any) => (
-            <CartItem
-              key={product.id}
-              addToCart={() => addToCart(product)}
-              decreaseFromCart={() => decreaseFromCart(product)}
-              removeFromCart={() => removeFromCart(product)}
-              {...product}
-            />
-          ))}
-        </ul>
+        <div className='cart-content'>
+          <ul>
+            {cart.map((product: any) => (
+              <CartItem
+                key={product.id}
+                addToCart={() => addToCart(product)}
+                decreaseFromCart={() => decreaseFromCart(product)}
+                removeFromCart={() => removeFromCart(product)}
+                {...product}
+              />
+            ))}
+          </ul>
+        </div>
 
-        <button onClick={clearCart}>
-          <ClearCartIcon />
-        </button>
+        {cart.length > 0 && (
+          <div className="cart-footer">
+            <button onClick={clearCart} className="clear-cart-btn">
+              <ClearCartIcon />
+            </button>
+            <button onClick={handleCheckout} className="checkout-btn">
+              Proceder al Checkout
+            </button>
+          </div>
+        )}
       </aside>
     </>
   )

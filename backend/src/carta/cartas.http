@@ -12,7 +12,7 @@ Content-Type: application/json
 
 {
   "name": "Darth Vader",
-  "cartaClass": 5,
+  "cartaClass": 1,
   "items": [1, 2],
   "attack": 25,
   "mana": 100,
