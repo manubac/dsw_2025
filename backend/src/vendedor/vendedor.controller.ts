@@ -101,5 +101,8 @@ async function remove(req: Request, res: Response) {
     }
 }
 
+
+
+
 export { sanitiseVendedorInput, findAll, findOne, add, update, remove };
 

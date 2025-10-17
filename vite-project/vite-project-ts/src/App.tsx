@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { CardsPage } from "./pages/CardsPage";
 import { UserProfilePage } from "./pages/UserProfilePage"; 
+import PublicarCartaPage from "./pages/PublicarCarta";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="login" element={<LoginPage />} />
             <Route path="cards" element={<CardsPage />} />
             <Route path="profile" element={<UserProfilePage />} /> 
+            <Route path="/publicar" element={<PublicarCartaPage />} />
           </Route>
         </Routes>
       </Router>

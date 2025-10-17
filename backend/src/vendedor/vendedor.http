@@ -8,14 +8,14 @@ Content-Type: application/json
 
 {
     "nombre": "Juan Perez",
-    "vendedor_class_id": 10,
+    "vendedor_class_id": 1,
     "email": "juan.perez@example.com",
     "telefono": "123456789",
     "items": [1, 2],
-    "vendedorClass": 10
+    "vendedorClass": 1
 }
 
-### POST another vendedor
+### POST another vendedor 
 # @name createAnotherVendedor
 POST http://localhost:3000/api/vendedores
 Content-Type: application/json

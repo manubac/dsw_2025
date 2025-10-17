@@ -13,21 +13,26 @@ export function Products({ products }: { products: any[] }) {
   return (
     <main className='products'>
       <ul>
-        {products.map(product => {
-          const isProductInCart = checkProductInCart(product)
+        {products.map(carta => {
+          const isProductInCart = checkProductInCart(carta)
           return (
-            <li key={product.id}>
-              <img src={product.thumbnail} alt={product.title} />
+            <li key={carta.id}>
+              {/* Si más adelante agregás imágenes, poné carta.image o similar */}
               <div>
-                <strong>{product.title}</strong> - ${product.price}
+                <strong>{carta.name}</strong>
+                <p>Clase: {carta.cartaClass?.name}</p>
+                <p>Nivel: {carta.level}</p>
+                <p>HP: {carta.hp}</p>
+                <p>Mana: {carta.mana}</p>
+                <p>Ataque: {carta.attack}</p>
               </div>
               <div>
                 <button
                   style={{ backgroundColor: isProductInCart ? 'red' : '#09f' }}
                   onClick={() => {
                     isProductInCart
-                      ? removeFromCart(product)
-                      : addToCart(product)
+                      ? removeFromCart(carta)
+                      : addToCart(carta)
                   }}
                 >
                   {

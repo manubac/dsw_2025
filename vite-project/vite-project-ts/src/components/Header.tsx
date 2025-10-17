@@ -1,26 +1,21 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState } from "react";
 import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
-import cartasData from "../mocks/cartas.json"; // 👈 tu JSON con 'products'
+import { useUser } from "../context/user"; //  usamos el contexto global
+import cartasData from "../mocks/cartas.json";
 import "./Header.css";
 
 export function Header() {
   const { cart } = useContext(CartContext);
   const { setFilters } = useContext(FiltersContext);
+  const { user, logout } = useUser(); //  traemos user y logout del contexto
+
   const [query, setQuery] = useState("");
-  const [user, setUser] = useState<string | null>(null);
   const [results, setResults] = useState<any[]>([]);
   const navigate = useNavigate();
 
-  const cartas = cartasData.products; 
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser).nombre);
-    }
-  }, []);
+  const cartas = cartasData.products;
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -33,7 +28,7 @@ export function Header() {
       const filtered = cartas.filter((carta) =>
         carta.title.toLowerCase().includes(value.toLowerCase())
       );
-      setResults(filtered.slice(0, 5)); // máximo 5 resultados
+      setResults(filtered.slice(0, 5));
     }
   };
 
@@ -47,6 +42,11 @@ export function Header() {
   const handleUserClick = () => {
     if (user) navigate("/profile");
     else navigate("/login");
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
   };
 
   const cartCount = cart.reduce(
@@ -94,8 +94,20 @@ export function Header() {
 
       <div className="header-right">
         <button onClick={handleUserClick} className="nav-button">
-          👤 {user ? user : "Usuario"}
+          👤 {user ? user.name : "Usuario"}
         </button>
+
+        {user && (
+          <button onClick={handleLogout} className="logout-button">
+            Cerrar sesión
+          </button>
+        )}
+
+        {cartCount > 0 && (
+          <Link to="/cart" className="nav-button">
+            🛒 {cartCount}
+          </Link>
+        )}
       </div>
     </header>
   );

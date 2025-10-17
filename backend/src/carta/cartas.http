@@ -47,3 +47,12 @@ Content-Type: application/json
 # @name deleteCarta
 DELETE {{baseUrl}}/{{id}}
 Content-Type: application/json
+
+### Buscar una carta
+GET http://localhost:3000/api/cartas/search/pikachu
+
+### Buscar una carta
+GET http://localhost:3000/api/cartas/search/charizard
+
+### Buscar una carta
+GET http://localhost:3000/api/cartas/search/bulbasaur
