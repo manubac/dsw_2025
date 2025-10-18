@@ -3,6 +3,12 @@ import { orm } from "../shared/db/orm.js";
 import { Carta } from "./carta.entity.js";
 import { CartaClass } from "./cartaClass.entity.js";
 import axios from "axios";
+import puppeteer from "puppeteer-core";
+import * as chrome from "chrome-launcher"; // ✅ Import correcto para ESM
+
+
+import fs from "fs"; // opcional si querés guardar en archivo
+
 
 const em = orm.em;
 
@@ -54,11 +60,10 @@ async function findOne(req: Request, res: Response) {
 // Agregar una carta
 async function add(req: Request, res: Response) {
   try {
-    console.log("Sanitised input:", req.body.sanitisedInput); // Log para debug
+    console.log("Sanitised input:", req.body.sanitisedInput);
 
     const cartaData = { ...req.body.sanitisedInput };
 
-    // Manejar relación con CartaClass
     if (cartaData.cartaClass) {
       cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
     }
@@ -81,7 +86,6 @@ async function update(req: Request, res: Response) {
 
     console.log("Updating carta:", id, req.body.sanitisedInput);
 
-    // Si hay una nueva cartaClass, asignarla correctamente
     const cartaData = { ...req.body.sanitisedInput };
     if (cartaData.cartaClass) {
       cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
@@ -111,6 +115,7 @@ async function remove(req: Request, res: Response) {
   }
 }
 
+// Buscar cartas Pokémon (PokeAPI)
 async function findFromAPI(req: Request, res: Response) {
   try {
     const { nombre } = req.params;
@@ -119,7 +124,6 @@ async function findFromAPI(req: Request, res: Response) {
     const response = await axios.get(url);
     const p = response.data;
 
-    // Adaptamos los datos a un formato "tipo carta"
     const result = {
       nombre: p.name,
       tipo: p.types?.map((t: any) => t.type.name).join(", ") || "Desconocido",
@@ -143,4 +147,124 @@ async function findFromAPI(req: Request, res: Response) {
 }
 
 
-export { sanitizeCartaInput, findAll, findOne, add, update, remove, findFromAPI };
+
+
+
+
+
+
+
+// ============================
+// 🔹 Scrape cartas desde CoolStuffInc
+// ============================
+async function scrapeCartas(req: Request, res: Response) {
+  try {
+    const { nombre } = req.params;
+
+    if (!nombre) {
+      return res.status(400).json({ message: "Debe indicar un nombre de carta." });
+    }
+
+    const url = `https://www.coolstuffinc.com/main_search.php?pa=searchOnName&page=1&resultsPerPage=25&q=${encodeURIComponent(
+      nombre
+    )}`;
+
+    console.log(`🔎 Buscando cartas con nombre "${nombre}" en CoolStuffInc...`);
+
+    // Detectar instalación de Chrome
+    const chromePaths = chrome.Launcher.getInstallations();
+    if (!chromePaths.length) {
+      return res.status(500).json({
+        message: "No se encontró una instalación de Google Chrome en el sistema.",
+      });
+    }
+
+    const chromePath = chromePaths[0];
+    console.log("🟢 Chrome detectado en:", chromePath);
+
+    // Iniciar Puppeteer
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: chromePath,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+    console.log("⌛ Esperando que carguen los resultados...");
+    await page.waitForSelector(".row.product-search-row.main-container", {
+      timeout: 60000,
+    });
+
+    // =============================
+    // 📦 Extraer datos
+    // =============================
+    const cartas = await page.evaluate(() => {
+      const productos = document.querySelectorAll(
+        ".row.product-search-row.main-container"
+      );
+      const resultados: any[] = [];
+
+      productos.forEach((prod) => {
+        const nombre =
+          prod.querySelector(".product-name")?.textContent?.trim() ||
+          prod.querySelector("img")?.alt?.trim() ||
+          "Sin nombre";
+
+        const precio =
+          prod.querySelector(".darkred b")?.textContent?.trim() ||
+          prod.querySelector(".price")?.textContent?.trim() ||
+          "Sin precio";
+
+        const enlace = (prod.querySelector(".productLink") as HTMLAnchorElement)?.href || "Sin enlace";
+        const imagen = (prod.querySelector("img[itemprop='image']") as HTMLImageElement)?.src || null;
+
+        // 🧩 Nuevo: nombre del set
+        const setName =
+          prod.querySelector(".breadcrumb-trail")?.textContent?.trim() || null;
+
+        // 💎 Nuevo: rareza
+        const rareza =
+          prod.querySelector(".large-12.medium-12.small-12:nth-of-type(2)")?.textContent?.trim() || null;
+
+        resultados.push({ nombre, precio, enlace, imagen, setName, rareza });
+      });
+
+      return resultados;
+    });
+
+    await browser.close();
+
+    if (!cartas || cartas.length === 0) {
+      return res.status(404).json({
+        message: "No se encontraron cartas o cambió el selector en la web.",
+      });
+    }
+
+    console.log(`✅ Se encontraron ${cartas.length} cartas para "${nombre}".`);
+
+    return res.status(200).json({
+      message: `Scraping completado (${cartas.length} resultados).`,
+      data: cartas,
+    });
+  } catch (error: any) {
+    console.error("❌ Error durante el scraping:", error.message);
+    return res.status(500).json({
+      message: "Error al realizar scraping de CoolStuffInc.",
+      error: error.message,
+    });
+  }
+}
+
+ 
+export {
+  sanitizeCartaInput,
+  findAll,
+  findOne,
+  add,
+  update,
+  remove,
+  findFromAPI,
+  scrapeCartas,
+};

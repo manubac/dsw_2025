@@ -1,3 +1,4 @@
+// CardsPage.tsx
 import { useEffect, useState } from "react";
 import { useFilters } from "../hooks/useFilters";
 import { Products } from "../components/Products";
@@ -10,7 +11,7 @@ export function CardsPage() {
   useEffect(() => {
     async function fetchCartas() {
       try {
-        const res = await fetch("http://localhost:3000/cartas");
+        const res = await fetch("http://localhost:3000/api/cartas");
         const json = await res.json();
         setProducts(json.data); // tu backend devuelve { message, data }
       } catch (err) {

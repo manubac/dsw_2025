@@ -56,3 +56,17 @@ GET http://localhost:3000/api/cartas/search/charizard
 
 ### Buscar una carta
 GET http://localhost:3000/api/cartas/search/bulbasaur
+
+
+### Buscar carta en TCGPlayer (scraping)
+GET http://localhost:3000/api/cartas/search-tcg/pikachu
+Content-Type: application/json
+
+
+### Obtener datos desde una URL de TCGPlayer
+GET http://localhost:3000/api/cartas/search-tcg-url?url=https://www.tcgplayer.com/product/197663/pokemon-hidden-fates-pikachu?page=1&Language=English
+Content-Type: application/json
+
+
+### Buscar cartas de Pikachu en TCGPlayer
+GET http://localhost:3000/api/cartas/scrape/pikachu

@@ -4,29 +4,32 @@ import {CartaClass } from "./cartaClass.entity.js";
 import { ItemCarta } from "./itemCarta.entity.js";
 
 @Entity()
-export class Carta extends BaseEntity{
-    @Property({ nullable: false })
-    name!: string;
+export class Carta extends BaseEntity {
+  @Property()
+  name!: string;
 
-    @ManyToOne(() => CartaClass, { nullable: false})
-    cartaClass!: Rel<CartaClass>  
+  @Property({ nullable: true })
+  price?: string;
 
-    @Property({ nullable: false })
-    level!: number;
+  @Property({ nullable: true })
+  image?: string;
 
-    @Property({ nullable: false })
-    hp!: number;
+  @Property({ nullable: true })
+  link?: string;
 
-    @Property({ nullable: false })
-    mana!: number;
+  @Property({ nullable: true })
+  rarity?: string;
 
-    @Property({ nullable: false })
-    attack!: number;
+  @Property({ nullable: true })
+  setName?: string;
 
-    @ManyToMany(() => ItemCarta, (item) => item.cartas, {
+  @ManyToOne(() => CartaClass, { nullable: true })
+  cartaClass?: Rel<CartaClass>;
+
+  @ManyToMany(() => ItemCarta, (item) => item.cartas, {
     cascade: [Cascade.ALL],
-    owner: true})
-
-    items!: ItemCarta[]; 
+    owner: true,
+    nullable: true,
+  })
+  items = new Collection<ItemCarta>(this);
 }
-
