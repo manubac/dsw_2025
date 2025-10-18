@@ -6,9 +6,10 @@ import { ItemCarta } from "../../carta/itemCarta.entity.js"
 import { Vendedor } from "../../vendedor/vendedores.entity.js"
 import { VendedorClass } from "../../vendedor/vendedorClass.entity.js"
 import { Item } from "../../vendedor/item.entity.js"
+import { User } from "../../user/user.entity.js"
 
 export const orm = await MikroORM.init({
-    entities: [Carta, CartaClass, ItemCarta, Vendedor, VendedorClass, Item],
+    entities: [Carta, CartaClass, ItemCarta, Vendedor, VendedorClass, Item, User],
     dbName: 'heroclash4geeks',
     /*type: 'mysql',*/
     clientUrl: 'mysql://dsw:dsw@localhost:3306/heroclash4geeks',

@@ -109,7 +109,8 @@ async function login(req: Request, res: Response) {
         if (!vendedor) {
             return res.status(401).json({ message: 'Invalid credentials' })
         }
-        if (vendedor.password !== password) {
+        // Cast to any to access the password field on the loaded entity without type errors
+        if ((vendedor as any).password !== password) {
             return res.status(401).json({ message: 'Invalid credentials' })
         }
         res.status(200).json({ message: 'Login successful', data: vendedor })
