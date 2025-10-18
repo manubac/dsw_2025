@@ -234,3 +234,11 @@
 .logout-item:hover {
   background-color: #fed7d7;
 }
+
+.delete-item {
+  color: #c53030;
+}
+
+.delete-item:hover {
+  background-color: #fed7cc;
+}

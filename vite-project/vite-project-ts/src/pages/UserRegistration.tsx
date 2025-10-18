@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/user';
 import './UserRegistration.css';
 
 interface VendedorClass {
@@ -8,6 +10,8 @@ interface VendedorClass {
 }
 
 export function UserRegistration() {
+  const navigate = useNavigate();
+  const { login } = useUser();
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -101,7 +105,41 @@ export function UserRegistration() {
 
         setSuccess('¡Vendedor creado con éxito!');
         console.log('Vendedor created:', result);
-        // Optionally, redirect the user or clear the form
+        
+        // Automatically log in the new user
+        try {
+          const loginResponse = await fetch('/api/vendedores/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password,
+            }),
+          });
+
+          const loginResult = await loginResponse.json();
+
+          if (loginResponse.ok) {
+            const userData = {
+              id: loginResult.data.id,
+              name: loginResult.data.nombre,
+              email: loginResult.data.email,
+              password: formData.password,
+              role: 'vendedor',
+            };
+            login(userData);
+            navigate('/profile'); // Redirect to profile after login
+          } else {
+            console.error('Auto-login failed:', loginResult);
+            // Still redirect to login page if auto-login fails
+            navigate('/login');
+          }
+        } catch (loginError) {
+          console.error('Auto-login error:', loginError);
+          navigate('/login');
+        }
       } catch (error: any) {
         console.error('Error creating vendedor:', error);
         setError(error.message);

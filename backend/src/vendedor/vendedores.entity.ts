@@ -5,7 +5,7 @@ import { Item } from "./item.entity.js"
 
 @Entity()
 export class Vendedor extends BaseEntity {
-    @Property({nullable:false, unique: true})
+    @Property({nullable:false})
     nombre!: string
 
     @ManyToOne (() => VendedorClass, {nullable: false})

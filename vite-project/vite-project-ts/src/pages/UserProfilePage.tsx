@@ -4,6 +4,7 @@ import "./UserProfilePage.css";
 
 export function UserProfilePage() {
   const { user, updateUser } = useUser();
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -16,10 +17,50 @@ export function UserProfilePage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
-    console.log("Datos actualizados:", formData);
-    updateUser({ name: formData.name, email: formData.email });
-    alert("Datos guardados (simulado)");
+  const handleSave = async () => {
+    if (!user?.id) return;
+
+    setLoading(true);
+    try {
+      const updateData: any = {
+        nombre: formData.name,
+        email: formData.email,
+      };
+
+      // Only include password if it was changed (not ********)
+      if (formData.password !== "********") {
+        updateData.password = formData.password;
+      }
+
+      const response = await fetch(`/api/vendedores/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Update local state
+        updateUser({ 
+          name: formData.name, 
+          email: formData.email,
+          ...(formData.password !== "********" && { password: formData.password })
+        });
+        // Reset password field to masked
+        setFormData(prev => ({ ...prev, password: "********" }));
+        alert("Datos actualizados exitosamente");
+      } else {
+        alert("Error al actualizar: " + (result.message || "Error desconocido"));
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Error al actualizar el perfil");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!user) {
@@ -71,8 +112,8 @@ export function UserProfilePage() {
           />
         </div>
 
-        <button className="save-button" onClick={handleSave}>
-          Guardar Cambios
+        <button className="save-button" onClick={handleSave} disabled={loading}>
+          {loading ? "Guardando..." : "Guardar Cambios"}
         </button>
       </div>
     </div>

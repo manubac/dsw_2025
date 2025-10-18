@@ -102,8 +102,29 @@ async function remove(req: Request, res: Response) {
     }
 }
 
+async function login(req: Request, res: Response) {
+    try {
+        const { email, password } = req.body
+        const vendedor = await em.findOne(Vendedor, { email }, { populate: ['vendedorClass'] })
+        if (!vendedor) {
+            return res.status(401).json({ message: 'Invalid credentials' })
+        }
+        if (vendedor.password !== password) {
+            return res.status(401).json({ message: 'Invalid credentials' })
+        }
+        res.status(200).json({ message: 'Login successful', data: vendedor })
+    } catch (error: any) {
+        res.status(500).json({ message: 'Error logging in', error: error.message })
+    }
+}
+
+async function logout(req: Request, res: Response) {
+    // For stateless logout, just return success
+    res.status(200).json({ message: 'Logout successful' })
+}
 
 
 
-export { sanitiseVendedorInput, findAll, findOne, add, update, remove };
+
+export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout };
 

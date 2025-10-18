@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import './PublicarCarta.css';
 
 
 interface Carta {
@@ -44,30 +45,30 @@ export default function PublicarCartaPage() {
   };
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Publicar nueva carta</h2>
+    <div className="publicar-carta-container">
+      <h2 className="publicar-carta-title">Publicar nueva carta</h2>
 
-      <div className="flex gap-2 mb-4">
+      <div className="search-section">
         <input
           type="text"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Buscar Pokémon (ej. pikachu)"
-          className="border p-2 flex-1 rounded"
+          placeholder="Buscar Pokémon (ej. Pikachu)"
+          className="search-input"
         />
-        <button onClick={buscarCarta} className="bg-blue-500 text-white px-4 py-2 rounded">
+        <button onClick={buscarCarta} className="search-button">
           Buscar
         </button>
       </div>
 
-      {mensaje && <p className="mb-4 text-sm text-gray-700">{mensaje}</p>}
+      {mensaje && <p className="message-text">{mensaje}</p>}
 
       {carta && (
-        <div className="border rounded p-4 mb-4 shadow-md">
-          <img src={carta.imagen} alt={carta.nombre} className="w-32 mx-auto" />
-          <h3 className="text-xl font-semibold text-center mt-2 capitalize">{carta.nombre}</h3>
-          <p className="text-center text-gray-600">{carta.tipo}</p>
-          <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+        <div className="card-preview">
+          <img src={carta.imagen} alt={carta.nombre} className="card-image" />
+          <h3 className="card-name">{carta.nombre}</h3>
+          <p className="card-type">{carta.tipo}</p>
+          <div className="card-stats">
             <p>HP: {carta.hp}</p>
             <p>Ataque: {carta.ataque}</p>
             <p>Defensa: {carta.defensa}</p>
@@ -75,7 +76,7 @@ export default function PublicarCartaPage() {
           </div>
           <button
             onClick={publicarCarta}
-            className="bg-green-500 text-white px-4 py-2 mt-4 w-full rounded"
+            className="publish-button"
           >
             Publicar carta
           </button>

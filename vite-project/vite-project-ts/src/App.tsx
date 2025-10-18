@@ -11,6 +11,7 @@ import { UserProfilePage } from "./pages/UserProfilePage";
 import { Checkout } from "./pages/Checkout";
 import { CardDetail } from "./pages/CardDetail"; 
 import PublicarCartaPage from "./pages/PublicarCarta";
+import { ContactPage } from "./pages/ContactPage";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
                 <Route path="profile" element={<UserProfilePage />} />
                 <Route path="checkout" element={<Checkout />} />
                 <Route path="/publicar" element={<PublicarCartaPage />} />
+                <Route path="contact" element={<ContactPage />} />
               </Route>
             </Routes>
           </Router>

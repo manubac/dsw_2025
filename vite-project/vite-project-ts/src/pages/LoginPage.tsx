@@ -40,6 +40,7 @@ export function LoginPage() {
 
       // Login successful - save user data
       const userData = {
+        id: result.data.id,
         name: result.data.name,
         email: result.data.email,
         password: formData.password, // Keep password in context if needed

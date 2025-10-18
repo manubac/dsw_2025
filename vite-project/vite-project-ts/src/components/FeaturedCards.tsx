@@ -44,6 +44,15 @@ export function FeaturedCards({ cards }: FeaturedCardsProps) {
                     className='card-image'
                     onClick={() => navigate(`/card/${card.id}`)}
                     style={{ cursor: 'pointer' }}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://via.placeholder.com/300x250/667eea/ffffff?text=${encodeURIComponent(card.title.substring(0, 20))}`;
+                      target.style.objectFit = 'contain';
+                    }}
+                    onLoad={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.background = 'transparent';
+                    }}
                   />
                   <div className='card-badge'>{card.rarity}</div>
                 </div>

@@ -63,11 +63,19 @@ export function Cart () {
 
         {cart.length > 0 && (
           <div className="cart-footer">
+            <button onClick={() => navigate('/checkout')} className="checkout-btn">
+              Ir al Checkout
+            </button>
             <button onClick={clearCart} className="clear-cart-btn">
               <ClearCartIcon />
             </button>
-            <button onClick={handleCheckout} className="checkout-btn">
-              Proceder al Checkout
+          </div>
+        )}
+
+        {cart.length === 0 && (
+          <div className="cart-footer">
+            <button onClick={() => navigate('/checkout')} className="checkout-btn">
+              Ir al Checkout
             </button>
           </div>
         )}

@@ -97,6 +97,33 @@ export function Header() {
     navigate("/");
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user?.id) return;
+    
+    const confirmDelete = window.confirm(
+      '¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.'
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+      const response = await fetch(`/api/vendedores/${user.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        logout();
+        navigate('/');
+        alert('Cuenta eliminada exitosamente.');
+      } else {
+        alert('Error al eliminar la cuenta.');
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('Error al eliminar la cuenta.');
+    }
+  };
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -173,6 +200,9 @@ export function Header() {
             <div className="user-dropdown">
               <button onClick={handleProfileClick} className="dropdown-item">
                 👤 Mi Perfil
+              </button>
+              <button onClick={handleDeleteAccount} className="dropdown-item delete-item">
+                🗑️ Eliminar Cuenta
               </button>
               <button onClick={handleLogout} className="dropdown-item logout-item">
                 🚪 Cerrar Sesión
