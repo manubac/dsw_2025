@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useContext, useEffect } from 'react'
-import { products } from '../mocks/cartas.json'
 import { CartContext } from '../context/cart'
 import { AddToCartIcon } from '../components/Icons'
 import '../components/CardDetail.css'
@@ -11,17 +10,38 @@ export function CardDetail() {
   const { addToCart, cart } = useContext(CartContext)
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
-
-  const card = products.find(p => p.id === parseInt(id || '0'))
+  const [card, setCard] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!card) {
-      navigate('/cards')
+    const fetchCard = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/cartas/${id}`)
+        if (!response.ok) {
+          throw new Error('Card not found')
+        }
+        const result = await response.json()
+        setCard(result.data)
+      } catch (error) {
+        console.error('Error fetching card:', error)
+        navigate('/cards')
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [card, navigate])
+
+    if (id) {
+      fetchCard()
+    }
+  }, [id, navigate])
+
+  if (loading) {
+    return <div className="loading">Loading...</div>
+  }
 
   if (!card) {
-    return <div>Loading...</div>
+    return <div>Card not found</div>
   }
 
   const isInCart = cart.some((item: any) => item.id === card.id)
@@ -67,29 +87,20 @@ export function CardDetail() {
           <div className="card-header">
             <h1 className="card-title">{card.title}</h1>
             <div className="card-meta">
-              <span className="card-set">{card.set}</span>
-              <span className="card-year">{card.releaseYear}</span>
+              {card.set && <span className="card-set">{card.set}</span>}
             </div>
           </div>
 
           <div className="card-rarity">
-            <span className={`rarity-badge ${card.rarity.toLowerCase().replace(' ', '-')}`}>
-              {card.rarity}
+            <span className={`rarity-badge ${card.rarity ? card.rarity.toLowerCase().replace(/\s+/g, '-') : 'unknown'}`}>
+              {card.rarity || 'Unknown'}
             </span>
           </div>
 
           <div className="card-price-section">
             <div className="price-container">
               <span className="current-price">${card.price}</span>
-              {card.discountPercentage > 0 && (
-                <span className="original-price">
-                  ${(card.price / (1 - card.discountPercentage / 100)).toFixed(0)}
-                </span>
-              )}
             </div>
-            {card.discountPercentage > 0 && (
-              <span className="discount">-{card.discountPercentage}% OFF</span>
-            )}
           </div>
 
           <div className="stock-info">
@@ -175,33 +186,6 @@ export function CardDetail() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="card-description">
-        <h3>Descripción</h3>
-        <p>{card.description}</p>
-      </div>
-
-      <div className="related-cards">
-        <h3>Cartas Relacionadas</h3>
-        <div className="related-grid">
-          {products
-            .filter(p => p.set === card.set && p.id !== card.id)
-            .slice(0, 4)
-            .map(relatedCard => (
-              <div
-                key={relatedCard.id}
-                className="related-card"
-                onClick={() => navigate(`/card/${relatedCard.id}`)}
-              >
-                <img src={relatedCard.thumbnail} alt={relatedCard.title} />
-                <div className="related-info">
-                  <h4>{relatedCard.title}</h4>
-                  <span className="related-price">${relatedCard.price}</span>
-                </div>
-              </div>
-            ))}
         </div>
       </div>
     </div>

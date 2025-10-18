@@ -16,6 +16,11 @@ const em = orm.em;
 function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitisedInput = {
     name: req.body.name,
+    price: req.body.price,
+    image: req.body.image,
+    link: req.body.link,
+    rarity: req.body.rarity,
+    setName: req.body.setName,
     cartaClass: req.body.cartaClass,
     level: req.body.level,
     hp: req.body.hp,
@@ -38,7 +43,22 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 async function findAll(req: Request, res: Response) {
   try {
     const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items"] });
-    res.status(200).json({ message: "Found all cartas", data: cartas });
+    
+    // Map carta fields to match frontend expectations (title, thumbnail, etc.)
+    const cartasFormateadas = cartas.map(carta => ({
+      id: carta.id,
+      title: carta.name,
+      thumbnail: carta.image,
+      price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+      description: carta.rarity || "Carta coleccionable",
+      set: carta.setName || "Unknown Set",
+      rarity: carta.rarity,
+      link: carta.link,
+      cartaClass: carta.cartaClass,
+      items: carta.items
+    }));
+    
+    res.status(200).json({ message: "Found all cartas", data: cartasFormateadas });
   } catch (error: any) {
     console.error("Error fetching cartas:", error);
     res.status(500).json({ message: "Error fetching cartas", error: error.message });
@@ -50,7 +70,27 @@ async function findOne(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
     const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items"] });
-    res.status(200).json({ message: "Found one carta", data: carta });
+    
+    // Map carta fields to match frontend expectations
+    const cartaFormateada = {
+      id: carta.id,
+      title: carta.name,
+      thumbnail: carta.image,
+      images: carta.image ? [carta.image] : [],
+      price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+      description: carta.rarity || "Carta coleccionable",
+      set: carta.setName || "Unknown Set",
+      rarity: carta.rarity,
+      link: carta.link,
+      brand: "Pokémon TCG",
+      category: "trading-cards",
+      rating: 4.5,
+      stock: 10,
+      cartaClass: carta.cartaClass,
+      items: carta.items
+    };
+    
+    res.status(200).json({ message: "Found one carta", data: cartaFormateada });
   } catch (error: any) {
     console.error("Error fetching carta:", error);
     res.status(500).json({ message: "Error fetching carta", error: error.message });
@@ -220,15 +260,64 @@ async function scrapeCartas(req: Request, res: Response) {
         const enlace = (prod.querySelector(".productLink") as HTMLAnchorElement)?.href || "Sin enlace";
         const imagen = (prod.querySelector("img[itemprop='image']") as HTMLImageElement)?.src || null;
 
-        // 🧩 Nuevo: nombre del set
-        const setName =
-          prod.querySelector(".breadcrumb-trail")?.textContent?.trim() || null;
+        // 🧩 Nombre del set - Try multiple selectors
+        let setName = null;
+        const setSelectors = [
+          ".breadcrumb-trail",
+          ".set-name",
+          ".product-set",
+          "[data-set]"
+        ];
+        for (const selector of setSelectors) {
+          const element = prod.querySelector(selector);
+          if (element?.textContent?.trim()) {
+            setName = element.textContent.trim();
+            break;
+          }
+        }
 
-        // 💎 Nuevo: rareza
-        const rareza =
-          prod.querySelector(".large-12.medium-12.small-12:nth-of-type(2)")?.textContent?.trim() || null;
+        // 💎 Rareza - Extract only the rarity value
+        let rareza = "Unknown";
+        
+        // Get all product text
+        const productText = prod.textContent || "";
+        
+        // Define rarity patterns in order of specificity (most specific first)
+        const rarityPatterns = [
+          /\bSecret Rare\b/i,
+          /\bUltra Rare\b/i,
+          /\bHyper Rare\b/i,
+          /\bRainbow Rare\b/i,
+          /\bFull Art\b/i,
+          /\bHolographic\b/i,
+          /\bHolo Rare\b/i,
+          /\bRare Holo\b/i,
+          /\bHolo\b/i,
+          /\bRare\b/i,
+          /\bUncommon\b/i,
+          /\bCommon\b/i,
+          /\bPromo\b/i,
+          /\bSpecial\b/i
+        ];
+        
+        // Find the first matching rarity pattern
+        for (const pattern of rarityPatterns) {
+          const match = productText.match(pattern);
+          if (match) {
+            rareza = match[0];
+            break;
+          }
+        }
 
-        resultados.push({ nombre, precio, enlace, imagen, setName, rareza });
+        // Return data in English format to match frontend expectations
+        resultados.push({ 
+          name: nombre,
+          price: precio,
+          link: enlace,
+          image: imagen,
+          setName: setName,
+          rarity: rareza
+        });
       });
 
       return resultados;
@@ -237,12 +326,14 @@ async function scrapeCartas(req: Request, res: Response) {
     await browser.close();
 
     if (!cartas || cartas.length === 0) {
+      console.log("⚠️ No se encontraron cartas. Verifica que el selector sea correcto.");
       return res.status(404).json({
         message: "No se encontraron cartas o cambió el selector en la web.",
       });
     }
 
     console.log(`✅ Se encontraron ${cartas.length} cartas para "${nombre}".`);
+    console.log("📋 Primeras 3 cartas:", JSON.stringify(cartas.slice(0, 3), null, 2));
 
     return res.status(200).json({
       message: `Scraping completado (${cartas.length} resultados).`,

@@ -190,6 +190,12 @@ export function Header() {
       </div>
 
       <div className="header-right">
+        {user && user.role === 'vendedor' && (
+          <Link to="/publicar-carta" className="nav-button publish-button">
+            📝 Publicar Carta
+          </Link>
+        )}
+        
         <div className="user-menu-container">
           <button onClick={handleUserClick} className="nav-button user-button">
             👤 {user ? user.name : "Usuario"}

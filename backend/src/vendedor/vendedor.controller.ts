@@ -113,7 +113,14 @@ async function login(req: Request, res: Response) {
         if ((vendedor as any).password !== password) {
             return res.status(401).json({ message: 'Invalid credentials' })
         }
-        res.status(200).json({ message: 'Login successful', data: vendedor })
+        
+        // Add role field for frontend
+        const vendedorWithRole = {
+            ...vendedor,
+            role: 'vendedor'
+        }
+        
+        res.status(200).json({ message: 'Login successful', data: vendedorWithRole })
     } catch (error: any) {
         res.status(500).json({ message: 'Error logging in', error: error.message })
     }
