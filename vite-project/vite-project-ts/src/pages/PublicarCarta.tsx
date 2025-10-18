@@ -1,85 +1,108 @@
 import { useState } from "react";
 import axios from "axios";
-import './PublicarCarta.css';
-
 
 interface Carta {
-  nombre: string;
-  tipo: string;
-  hp: number;
-  ataque: number;
-  defensa: number;
-  velocidad: number;
-  imagen: string;
+  name: string;
+  price?: string;
+  image?: string;
+  link?: string;
+  rarity?: string;
+  setName?: string;
 }
 
 export default function PublicarCartaPage() {
   const [nombre, setNombre] = useState("");
-  const [carta, setCarta] = useState<Carta | null>(null);
+  const [resultados, setResultados] = useState<Carta[]>([]);
   const [mensaje, setMensaje] = useState("");
 
-  // Buscar carta desde tu backend
-  const buscarCarta = async () => {
+  // Buscar cartas por nombre usando tu backend (scraping)
+  const buscarCartas = async () => {
     try {
-      const response = await axios.get(`http://localhost:3000/api/cartas/search/${nombre}`);
-      setCarta(response.data);
+      const response = await axios.get(
+        `http://localhost:3000/api/cartas/scrape/${nombre}`
+      );
+      setResultados(response.data.data);
       setMensaje("");
     } catch (error) {
-      setCarta(null);
-      setMensaje("No se encontró ninguna carta con ese nombre.");
+      console.error("Error buscando cartas:", error);
+      setResultados([]);
+      setMensaje("❌ No se encontraron cartas con ese nombre.");
     }
   };
 
-  // Publicar carta en tu base de datos
-  const publicarCarta = async () => {
-    if (!carta) return;
-
+  // Publicar carta seleccionada
+  const publicarCarta = async (carta: Carta) => {
     try {
-      await axios.post("http://localhost:3000/api/cartas", carta);
+      await axios.post("http://localhost:3000/api/cartas", {
+        name: carta.name,
+        price: carta.price,
+        image: carta.image,
+        link: carta.link,
+        rarity: carta.rarity,
+        setName: carta.setName,
+        cartaClass: null, // por ahora no vinculamos clase
+        items: [], // vacío por ahora
+      });
       setMensaje("✅ Carta publicada con éxito.");
-      setCarta(null);
-      setNombre("");
     } catch (error) {
-      setMensaje( "Error al publicar la carta.");
+      console.error("Error al publicar carta:", error);
+      setMensaje("❌ Error al publicar la carta.");
     }
   };
 
   return (
-    <div className="publicar-carta-container">
-      <h2 className="publicar-carta-title">Publicar nueva carta</h2>
+    <div className="p-6 max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold mb-4">Publicar nueva carta</h2>
 
-      <div className="search-section">
+      <div className="flex gap-2 mb-4">
         <input
           type="text"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Buscar Pokémon (ej. Pikachu)"
-          className="search-input"
+          placeholder="Buscar carta (ej. Pikachu)"
+          className="border p-2 flex-1 rounded"
         />
-        <button onClick={buscarCarta} className="search-button">
+        <button
+          onClick={buscarCartas}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
           Buscar
         </button>
       </div>
 
-      {mensaje && <p className="message-text">{mensaje}</p>}
+      {mensaje && (
+        <p className="mb-4 text-sm text-gray-700 text-center">{mensaje}</p>
+      )}
 
-      {carta && (
-        <div className="card-preview">
-          <img src={carta.imagen} alt={carta.nombre} className="card-image" />
-          <h3 className="card-name">{carta.nombre}</h3>
-          <p className="card-type">{carta.tipo}</p>
-          <div className="card-stats">
-            <p>HP: {carta.hp}</p>
-            <p>Ataque: {carta.ataque}</p>
-            <p>Defensa: {carta.defensa}</p>
-            <p>Velocidad: {carta.velocidad}</p>
-          </div>
-          <button
-            onClick={publicarCarta}
-            className="publish-button"
-          >
-            Publicar carta
-          </button>
+      {resultados.length > 0 && (
+        <div className="grid gap-4">
+          {resultados.map((carta, i) => (
+            <div
+              key={i}
+              className="border rounded-lg p-4 shadow-md flex flex-col items-center"
+            >
+              {carta.image && (
+                <img
+                  src={carta.image}
+                  alt={carta.name}
+                  className="w-40 h-56 object-contain mb-2"
+                />
+              )}
+              <h3 className="text-lg font-semibold text-center">{carta.name}</h3>
+              <p className="text-sm text-gray-600 text-center">
+                {carta.rarity || "Rareza desconocida"}
+              </p>
+              {carta.price && (
+                <p className="text-green-600 font-bold mt-1">{carta.price}</p>
+              )}
+              <button
+                onClick={() => publicarCarta(carta)}
+                className="bg-green-500 text-white px-4 py-2 mt-3 rounded"
+              >
+                Publicar
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>
