@@ -1,22 +1,37 @@
 import React, { useState } from "react";
+import { useUser } from "../context/user";
 import "./UserProfilePage.css";
 
 export function UserProfilePage() {
-  const [user, setUser] = useState({
-    name: "Nicolás",
-    email: "nico@example.com",
+  const { user, updateUser } = useUser();
+
+  const [formData, setFormData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
     password: "********",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setUser(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSave = () => {
-    console.log("Datos actualizados:", user);
+    console.log("Datos actualizados:", formData);
+    updateUser({ name: formData.name, email: formData.email });
     alert("Datos guardados (simulado)");
   };
+
+  if (!user) {
+    return (
+      <div className="profile-wrapper">
+        <div className="profile-card">
+          <h2>No has iniciado sesión</h2>
+          <p>Por favor, inicia sesión para ver tu perfil.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-wrapper">
@@ -29,7 +44,7 @@ export function UserProfilePage() {
             id="name"
             type="text"
             name="name"
-            value={user.name}
+            value={formData.name}
             onChange={handleChange}
           />
         </div>
@@ -40,7 +55,7 @@ export function UserProfilePage() {
             id="email"
             type="email"
             name="email"
-            value={user.email}
+            value={formData.email}
             onChange={handleChange}
           />
         </div>
@@ -51,7 +66,7 @@ export function UserProfilePage() {
             id="password"
             type="password"
             name="password"
-            value={user.password}
+            value={formData.password}
             onChange={handleChange}
           />
         </div>
@@ -63,3 +78,4 @@ export function UserProfilePage() {
     </div>
   );
 }
+

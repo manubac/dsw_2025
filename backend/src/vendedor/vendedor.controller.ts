@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { orm } from '../shared/db/orm.js';
 import { Vendedor } from './vendedores.entity.js'
+import { VendedorClass } from './vendedorClass.entity.js'
 
 const em= orm.em
 
@@ -11,15 +12,17 @@ function sanitiseVendedorInput(
 ) {
     req.body.sanitisedInput = {
         nombre: req.body.nombre,
-        vendedorClass: req.body.vendedorClass,
         email: req.body.email,
+        password: req.body.password,
         telefono: req.body.telefono,
+        ciudad: req.body.ciudad,
+        vendedorClass: req.body.vendedorClass,
         items: req.body.items
     };
     //more checks here
 
     Object.keys(req.body.sanitisedInput).forEach(key => {
-        if (req.body.sanitisedInput[key] === undefined || req.body.sanitisedInput[key] === null) {
+        if (req.body.sanitisedInput[key] === undefined) {
         delete req.body.sanitisedInput[key];
         }
     })
@@ -55,15 +58,24 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
     try{
-        const vendedor = em.create(Vendedor, req.body.sanitisedInput)
-    await em.flush()
-    res
-    .status(201)
-    .json({message:'Vendedor created', data:vendedor})
+        console.log('Sanitised input:', req.body.sanitisedInput); // Debug log
+        
+        // Handle vendedorClass relationship
+        const vendedorData = { ...req.body.sanitisedInput };
+        if (vendedorData.vendedorClass) {
+            vendedorData.vendedorClass = em.getReference(VendedorClass, Number(vendedorData.vendedorClass));
+        }
+        
+        const vendedor = em.create(Vendedor, vendedorData)
+        await em.flush()
+        res
+        .status(201)
+        .json({message:'Vendedor created', data:vendedor})
     } catch (error:any) {
+        console.error('Error creating vendedor:', error); // Debug log
         res
         .status(500)
-        .json({message:'Error creating vendedor', error})
+        .json({message:'Error creating vendedor', error: error.message, details: error})
     }
 }
 
@@ -89,6 +101,9 @@ async function remove(req: Request, res: Response) {
         res.status(500).json({message: error.message})
     }
 }
+
+
+
 
 export { sanitiseVendedorInput, findAll, findOne, add, update, remove };
 

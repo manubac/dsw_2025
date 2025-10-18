@@ -6,6 +6,7 @@ export function Filters ({ onChange }: { onChange: any }) {
   const { filters, setFilters } = useContext(FiltersContext)
   const minPriceFilterId = useId()
   const categoryFilterId = useId()
+  const sortFilterId = useId()
 
   const handleChangeMinPrice = (event: any) => {
     onChange((prev: any) => ({ ...prev, minPrice: Number(event.target.value) }))
@@ -13,6 +14,10 @@ export function Filters ({ onChange }: { onChange: any }) {
 
   const handleChangeCategory = (event: any) => {
     onChange((prev: any) => ({ ...prev, category: event.target.value }))
+  }
+
+  const handleChangeSort = (event: any) => {
+    onChange((prev: any) => ({ ...prev, sort: event.target.value }))
   }
 
   return (
@@ -28,6 +33,16 @@ export function Filters ({ onChange }: { onChange: any }) {
           <option value="all">All Categories</option>
           <option value="trading-cards">Trading Cards</option>
           <option value="booster-packs">Booster Packs</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor={sortFilterId}>Sort by</label>
+        <select id={sortFilterId} onChange={handleChangeSort} value={filters.sort}>
+          <option value="default">Default</option>
+          <option value="name-asc">Name (A-Z)</option>
+          <option value="name-desc">Name (Z-A)</option>
+          <option value="price-asc">Price (Low to High)</option>
+          <option value="price-desc">Price (High to Low)</option>
         </select>
       </div>
     </section>

@@ -1,31 +1,70 @@
 import { useState } from "react";
-import { Link } from "react-router-dom"; // 👈 importamos Link
+import { Link, useNavigate } from "react-router-dom";
+import { useUser } from "../context/user";
 import "./LoginPage.css";
 
 export function LoginPage() {
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { login } = useUser();
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login data:", formData);
+    setError(null);
+    setLoading(true);
 
-      // Simulación de login:
-  const fakeUser = { nombre: "Nicolás", email: formData.email };
-  localStorage.setItem("user", JSON.stringify(fakeUser));
+    try {
+      const response = await fetch('/api/vendedores/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
 
-  // Redirigir a /profile
-  window.location.href = "/profile";
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al iniciar sesión');
+      }
+
+      // Login successful - save user data
+      const userData = {
+        name: result.data.name,
+        email: result.data.email,
+        password: formData.password, // Keep password in context if needed
+        role: result.data.role,
+      };
+      
+      login(userData);
+
+      // Redirect to profile
+      navigate("/profile");
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setError(error.message || 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="login-wrapper">
       <div className="login-card">
         <h1>Iniciar sesión</h1>
+
+        {error && <div className="alert error">{error}</div>}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Correo electrónico</label>
@@ -35,6 +74,7 @@ export function LoginPage() {
               value={formData.email}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
 
@@ -46,13 +86,15 @@ export function LoginPage() {
               value={formData.password}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
 
-          <button type="submit">Ingresar</button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Ingresando...' : 'Ingresar'}
+          </button>
         </form>
 
-        {/* 👇 Agregamos esto */}
         <p className="register-link">
           ¿No tenés cuenta?{" "}
           <Link to="/register" className="highlight">
