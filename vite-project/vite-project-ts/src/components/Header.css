@@ -242,3 +242,48 @@
 .delete-item:hover {
   background-color: #fed7cc;
 }
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  padding-right: 42px; /* espacio para el botón */
+}
+
+.clear-search-button {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  background-color: #ff3b30;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.clear-search-button:hover {
+  background-color: #e53935;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.clear-search-button:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.clear-icon {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}

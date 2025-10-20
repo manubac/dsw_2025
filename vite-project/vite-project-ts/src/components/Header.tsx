@@ -3,26 +3,41 @@ import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
-import cartasData from "../mocks/cartas.json";
+import { X } from "lucide-react";
 import "./Header.css";
 
 export function Header() {
   const { cart } = useContext(CartContext);
   const { setFilters } = useContext(FiltersContext);
   const { user, logout } = useUser();
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [cartas, setCartas] = useState<any[]>([]);
   const navigate = useNavigate();
 
-  const cartas = cartasData.products;
+  // ✅ Traer cartas publicadas desde el backend
+  useEffect(() => {
+    async function fetchCartas() {
+      try {
+        const res = await fetch("http://localhost:3000/api/cartas");
+        const json = await res.json();
+        setCartas(json.data || []);
+      } catch (err) {
+        console.error("Error al traer cartas:", err);
+      }
+    }
+    fetchCartas();
+  }, []);
 
+  // ✅ Buscar cartas por título
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
     setFilters((prev: any) => ({ ...prev, query: value }));
-    setSelectedIndex(-1); // Reset selection when search changes
+    setSelectedIndex(-1);
 
     if (value.trim() === "") {
       setResults([]);
@@ -30,19 +45,29 @@ export function Header() {
       const filtered = cartas.filter((carta) =>
         carta.title.toLowerCase().includes(value.toLowerCase())
       );
-      setResults(filtered.slice(0, 5));
+      setResults(filtered.slice(0, 5)); // limitar a 5 resultados
     }
   };
 
+  // ✅ Click sobre una carta en el dropdown
   const handleResultClick = (card: any) => {
     setResults([]);
     setQuery(card.title);
     navigate(`/card/${card.id}`);
   };
 
+  // ✅ Limpiar buscador
+  const handleClearSearch = () => {
+    setQuery("");
+    setResults([]);
+    setSelectedIndex(-1);
+    setFilters((prev: any) => ({ ...prev, query: "" }));
+  };
+
+  // ✅ Enter, flechas, etc.
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (results.length === 0) {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         setResults([]);
         navigate("/cards");
       }
@@ -50,19 +75,19 @@ export function Header() {
     }
 
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
-        setSelectedIndex(prev => 
+        setSelectedIndex((prev) =>
           prev < results.length - 1 ? prev + 1 : 0
         );
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
-        setSelectedIndex(prev => 
+        setSelectedIndex((prev) =>
           prev > 0 ? prev - 1 : results.length - 1
         );
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         if (selectedIndex >= 0 && selectedIndex < results.length) {
           handleResultClick(results[selectedIndex]);
@@ -71,13 +96,14 @@ export function Header() {
           navigate("/cards");
         }
         break;
-      case 'Escape':
+      case "Escape":
         setResults([]);
         setSelectedIndex(-1);
         break;
     }
   };
 
+  // ✅ Usuario
   const handleUserClick = () => {
     if (user) {
       setUserMenuOpen(!userMenuOpen);
@@ -99,52 +125,53 @@ export function Header() {
 
   const handleDeleteAccount = async () => {
     if (!user?.id) return;
-    
+
     const confirmDelete = window.confirm(
-      '¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.'
+      "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer."
     );
-    
+
     if (!confirmDelete) return;
-    
+
     try {
       const response = await fetch(`/api/vendedores/${user.id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
-      
+
       if (response.ok) {
         logout();
-        navigate('/');
-        alert('Cuenta eliminada exitosamente.');
+        navigate("/");
+        alert("Cuenta eliminada exitosamente.");
       } else {
-        alert('Error al eliminar la cuenta.');
+        alert("Error al eliminar la cuenta.");
       }
     } catch (error) {
-      console.error('Error deleting account:', error);
-      alert('Error al eliminar la cuenta.');
+      console.error("Error deleting account:", error);
+      alert("Error al eliminar la cuenta.");
     }
   };
 
-  // Close menu when clicking outside
+  // ✅ Cerrar menú o resultados al hacer click afuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (!target.closest('.user-menu-container')) {
+      if (!target.closest(".user-menu-container")) {
         setUserMenuOpen(false);
       }
-      if (!target.closest('.search-container')) {
+      if (!target.closest(".search-container")) {
         setResults([]);
         setSelectedIndex(-1);
       }
     };
 
     if (userMenuOpen || results.length > 0) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [userMenuOpen, results.length]);
+
   const cartCount = cart.reduce(
     (sum: number, item: any) => sum + (item.quantity || 0),
     0
@@ -160,24 +187,38 @@ export function Header() {
 
       <div className="header-center">
         <div className="search-container">
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Buscar cartas..."
-            value={query}
-            onChange={handleSearch}
-            onKeyDown={handleSearchSubmit}
-          />
+          <div className="search-input-wrapper">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Buscar cartas..."
+              value={query}
+              onChange={handleSearch}
+              onKeyDown={handleSearchSubmit}
+            />
+            {query && (
+              <button
+                className="clear-search-button"
+                onClick={handleClearSearch}
+                title="Limpiar búsqueda"
+              >
+                <X className="clear-icon" />
+              </button>
+            )}
+          </div>
+
           {results.length > 0 && (
             <ul className="search-dropdown">
               {results.map((card, index) => (
                 <li
                   key={card.id}
                   onClick={() => handleResultClick(card)}
-                  className={`search-item ${selectedIndex === index ? 'selected' : ''}`}
+                  className={`search-item ${
+                    selectedIndex === index ? "selected" : ""
+                  }`}
                 >
                   <img
-                    src={card.thumbnail}
+                    src={card.thumbnail || card.image || "/no-image.png"}
                     alt={card.title}
                     className="search-item-image"
                   />
@@ -190,27 +231,43 @@ export function Header() {
       </div>
 
       <div className="header-right">
-        {user && user.role === 'vendedor' && (
+        {user && user.role === "vendedor" && (
           <Link to="/publicar-carta" className="nav-button publish-button">
             📝 Publicar Carta
           </Link>
         )}
-        
+
+        <Link to="/cart" className="nav-button cart-button">
+          🛒 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+        </Link>
+
         <div className="user-menu-container">
           <button onClick={handleUserClick} className="nav-button user-button">
             👤 {user ? user.name : "Usuario"}
-            {user && <span className={`dropdown-arrow ${userMenuOpen ? 'open' : ''}`}>▼</span>}
+            {user && (
+              <span
+                className={`dropdown-arrow ${userMenuOpen ? "open" : ""}`}
+              >
+                ▼
+              </span>
+            )}
           </button>
-          
+
           {user && userMenuOpen && (
             <div className="user-dropdown">
               <button onClick={handleProfileClick} className="dropdown-item">
                 👤 Mi Perfil
               </button>
-              <button onClick={handleDeleteAccount} className="dropdown-item delete-item">
+              <button
+                onClick={handleDeleteAccount}
+                className="dropdown-item delete-item"
+              >
                 🗑️ Eliminar Cuenta
               </button>
-              <button onClick={handleLogout} className="dropdown-item logout-item">
+              <button
+                onClick={handleLogout}
+                className="dropdown-item logout-item"
+              >
                 🚪 Cerrar Sesión
               </button>
             </div>
@@ -220,3 +277,4 @@ export function Header() {
     </header>
   );
 }
+ 

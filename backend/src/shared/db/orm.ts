@@ -12,7 +12,7 @@ export const orm = await MikroORM.init({
     entities: [Carta, CartaClass, ItemCarta, Vendedor, VendedorClass, Item, User],
     dbName: 'heroclash4geeks',
     /*type: 'mysql',*/
-    clientUrl: 'mysql://dsw:dsw@localhost:3306/heroclash4geeks',
+    clientUrl: 'mysql://dsw:dsw@localhost:3307/heroclash4geeks',
     highlighter: new SqlHighlighter(),
     debug: true,
     schemaGenerator: {

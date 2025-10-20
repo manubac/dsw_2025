@@ -1,11 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { UserRepository } from "./users.repository.js";
+import { orm } from "../shared/db/orm.js";
 import { User } from "./user.entity.js";
 
-// /api/users/
-const repository = new UserRepository();
+const em = orm.em;
 
-// 🧼 Función básica de sanitización
+// 🧼 Sanitización
 function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizedInput = {
     username: req.body.username,
@@ -14,7 +13,6 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
     role: req.body.role,
   };
 
-  // Eliminar campos undefined
   Object.keys(req.body.sanitizedInput).forEach((key) => {
     if (req.body.sanitizedInput[key] === undefined) {
       delete req.body.sanitizedInput[key];
@@ -25,86 +23,102 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
 }
 
 // 📌 Obtener todos los usuarios
-function findAll(req: Request, res: Response) {
-  res.json({ data: repository.findAll() });
+async function findAll(req: Request, res: Response) {
+  try {
+    const users = await em.find(User, {});
+    res.status(200).json({ message: "Found all users", data: users });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching users", error });
+  }
 }
 
 // 📌 Obtener un usuario por ID
-function findOne(req: Request, res: Response) {
-  const id = req.params.id;
-  const user = repository.findOne({ id });
-  if (!user) {
-    return res.status(404).send({ message: "User not found" });
+async function findOne(req: Request, res: Response) {
+  try {
+    const id = Number.parseInt(req.params.id);
+    const user = await em.findOne(User, { id });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ message: "Found one user", data: user });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
-  res.json({ data: user });
 }
 
-// ➕ Registrar usuario nuevo
-function add(req: Request, res: Response) {
-  const input = req.body.sanitizedInput;
+// ➕ Crear nuevo usuario
+async function add(req: Request, res: Response) {
+  try {
+    const input = req.body.sanitizedInput;
 
-  // Validación simple
-  if (!input.username || !input.email || !input.password) {
-    return res.status(400).send({ message: "username, email y password son obligatorios" });
+    if (!input.username || !input.email || !input.password) {
+      return res
+        .status(400)
+        .json({ message: "username, email y password son obligatorios" });
+    }
+
+    const existing = await em.findOne(User, { email: input.email });
+    if (existing) {
+      return res.status(400).json({ message: "El email ya está registrado" });
+    }
+
+    const user = em.create(User, input);
+    await em.flush();
+
+    res.status(201).json({ message: "User created", data: user });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error creating user", error: error.message });
   }
-
-  // Chequear duplicado por email
-  const existing = repository.findByEmail(input.email);
-  if (existing) {
-    return res.status(400).send({ message: "El email ya está registrado" });
-  }
-
-  const userInput = new User(
-    input.username,
-    input.email,
-    input.password,
-    input.role ?? "user"
-  );
-
-  const user = repository.add(userInput);
-  return res.status(201).send({ message: "User created", data: user });
 }
 
 // ✍️ Actualizar usuario
-function update(req: Request, res: Response) {
-  req.body.sanitizedInput.id = req.params.id;
-  const user = repository.update(req.body.sanitizedInput);
-  if (!user) {
-    return res.status(404).send({ message: "User not found" });
+async function update(req: Request, res: Response) {
+  try {
+    const id = Number.parseInt(req.params.id);
+    const userToUpdate = await em.findOne(User, { id });
+    if (!userToUpdate) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    em.assign(userToUpdate, req.body.sanitizedInput);
+    await em.flush();
+
+    res.status(200).json({ message: "User updated successfully", data: userToUpdate });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
-  return res.status(200).send({ message: "User updated successfully", data: user });
 }
 
 // ❌ Eliminar usuario
-function remove(req: Request, res: Response) {
-  const id = req.params.id;
-  const deleted = repository.delete({ id });
+async function remove(req: Request, res: Response) {
+  try {
+    const id = Number.parseInt(req.params.id);
+    const user = await em.findOne(User, { id });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-  if (!deleted) {
-    res.status(404).send({ message: "User not found" });
-  } else {
-    res.status(200).send({ message: "User deleted successfully" });
+    await em.removeAndFlush(user);
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 }
 
-// 🔐 Inicio de sesión básico
-function login(req: Request, res: Response) {
-  const { email, password } = req.body;
+// 🔐 Login
+async function login(req: Request, res: Response) {
+  try {
+    const { email, password } = req.body;
+    const user = await em.findOne(User, { email });
 
-  const user = repository.findByEmail(email);
-  if (!user || user.password !== password) {
-    return res.status(401).send({ message: "Invalid credentials" });
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    res.status(200).json({ message: "Login successful", data: user });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error logging in", error: error.message });
   }
-
-  return res.status(200).send({ message: "Login successful", data: user });
 }
 
-export {
-  sanitizeUserInput,
-  findAll,
-  findOne,
-  add,
-  update,
-  remove,
-  login
-};
+export { sanitizeUserInput, findAll, findOne, add, update, remove, login };

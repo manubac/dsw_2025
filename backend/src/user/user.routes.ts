@@ -6,20 +6,15 @@ import {
   add,
   update,
   remove,
-  login
+  login,
 } from "./user.controler.js";
 
 export const userRouter = Router();
 
-// 📌 CRUD de usuarios
+userRouter.post("/login", login);
 userRouter.get("/", findAll);
 userRouter.get("/:id", findOne);
 userRouter.post("/", sanitizeUserInput, add);
 userRouter.put("/:id", sanitizeUserInput, update);
 userRouter.patch("/:id", sanitizeUserInput, update);
 userRouter.delete("/:id", remove);
-
-// 🔐 Login
-userRouter.post("/login", login);
-
-
