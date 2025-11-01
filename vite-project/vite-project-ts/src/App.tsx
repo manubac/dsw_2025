@@ -12,6 +12,7 @@ import { Checkout } from "./pages/Checkout";
 import { CardDetail } from "./pages/CardDetail";
 import PublicarCartaPage from "./pages/PublicarCarta";
 import { ContactPage } from "./pages/ContactPage";
+import EditarCartaPage from "./pages/EditarCartaPage"; // 👈 import nuevo
 
 /**
  * RUTA PROTEGIDA:
@@ -67,12 +68,22 @@ function App() {
                   }
                 />
 
-                {/* Página de publicación (solo vendedores/intermediarios) */}
+                {/* Página de publicación */}
                 <Route
                   path="publicar"
                   element={
                     <ProtectedRoute>
                       <PublicarCartaPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* ✅ Nueva página para editar publicación */}
+                <Route
+                  path="editar-carta"
+                  element={
+                    <ProtectedRoute>
+                      <EditarCartaPage />
                     </ProtectedRoute>
                   }
                 />
