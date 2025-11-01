@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "../context/user";
 import "../components/CardForm.css";
 
 interface Carta {
@@ -17,6 +18,7 @@ export default function PublicarCartaPage() {
   const [resultados, setResultados] = useState<Carta[]>([]);
   const [mensaje, setMensaje] = useState("");
   const navigate = useNavigate();
+  const { user } = useUser();
 
   const buscarCartas = async () => {
     try {
@@ -32,8 +34,35 @@ export default function PublicarCartaPage() {
     }
   };
 
-  const irAEditarCarta = (carta: Carta) => {
-    navigate("/editar-carta", { state: { carta } });
+  const irAEditarCarta = async (carta: Carta) => {
+    if (!user) {
+      setMensaje("Debes iniciar sesión como vendedor para publicar una carta.");
+      return;
+    }
+
+    try {
+      // Create Carta on backend and include vendedor id so uploader is linked
+      const res = await axios.post("http://localhost:3000/api/cartas", {
+        name: carta.name,
+        price: carta.price ?? null,
+        image: carta.image ?? null,
+        link: carta.link ?? null,
+        rarity: carta.rarity ?? null,
+        setName: carta.setName ?? null,
+        userId: user.id,
+      });
+
+      const created = res.data?.data;
+      if (!created) {
+        setMensaje("No se pudo crear la carta en el servidor.");
+        return;
+      }
+
+      navigate("/editar-carta", { state: { carta: created } });
+    } catch (err) {
+      console.error("Error creating carta:", err);
+      setMensaje("Error al crear la carta. Revisa la consola del servidor.");
+    }
   };
 
   return (

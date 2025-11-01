@@ -2,6 +2,7 @@ import { Entity, Property, ManyToOne, ManyToMany, Collection, Cascade, Rel } fro
 import { BaseEntity } from "../shared/db/baseEntity.js";
 import {CartaClass } from "./cartaClass.entity.js";
 import { ItemCarta } from "./itemCarta.entity.js";
+import { Vendedor } from "../vendedor/vendedores.entity.js";
 
 @Entity()
 export class Carta extends BaseEntity {
@@ -32,4 +33,7 @@ export class Carta extends BaseEntity {
     nullable: true,
   })
   items = new Collection<ItemCarta>(this);
+
+  @ManyToOne(() => Vendedor, { nullable: true })
+  uploader?: Rel<Vendedor>;
 }

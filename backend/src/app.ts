@@ -2,7 +2,7 @@ import "reflect-metadata";
 import express from "express";
 import cors from "cors";
 import { RequestContext } from "@mikro-orm/core";
-import { orm /* , syncSchema */ } from "./shared/db/orm.js"; // 👈 ya no importamos syncSchema
+import { orm , syncSchema } from "./shared/db/orm.js"; 
 
 // Routers
 import { vendedorRouter } from "./vendedor/vendedor.routes.js";
@@ -13,9 +13,11 @@ import { cartaClassRouter } from "./carta/cartaClass.routes.js";
 import { itemCartaRouter } from "./carta/itemCarta.routes.js";
 import { userRouter } from "./user/user.routes.js"; // 👈 nuevo import
 
+
 const app = express();
 
 // ✅ Middlewares base
+app.use('/uploads', express.static('uploads'));
 app.use(cors());
 app.use(express.json());
 
@@ -44,10 +46,10 @@ app.use((req, res) => {
   res.status(404).send({ message: "Ruta no encontrada" });
 });
 
-/* 
+
 // ✅ Sincronizar esquema SOLO en desarrollo
 // ⚠️ Comentado porque la base ya tiene las tablas creadas y genera errores de duplicado.
-// Si alguna vez necesitás recrear el esquema desde cero, descomentá este bloque temporalmente.
+
 
 if (process.env.NODE_ENV !== "production") {
   (async () => {
@@ -59,7 +61,7 @@ if (process.env.NODE_ENV !== "production") {
     }
   })();
 }  
-*/
+
 
 // ✅ Iniciar servidor
 app.listen(3000, () => {

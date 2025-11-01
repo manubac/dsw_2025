@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { orm } from "../shared/db/orm.js";
 import { Carta } from "./carta.entity.js";
 import { CartaClass } from "./cartaClass.entity.js";
+import { Vendedor } from "../vendedor/vendedores.entity.js";
 import axios from "axios";
 import puppeteer from "puppeteer-core";
 import * as chrome from "chrome-launcher"; // ✅ Import correcto para ESM
@@ -69,7 +70,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
-    const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items"] });
+    const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items", "uploader"] });
     
     // Map carta fields to match frontend expectations
     const cartaFormateada = {
@@ -88,7 +89,12 @@ async function findOne(req: Request, res: Response) {
       stock: 10,
       cartaClass: carta.cartaClass,
       items: carta.items
-    };
+    } as any;
+
+    // include uploader id if present
+    if ((carta as any).uploader) {
+      cartaFormateada.uploader = { id: (carta as any).uploader.id };
+    }
     
     res.status(200).json({ message: "Found one carta", data: cartaFormateada });
   } catch (error: any) {
@@ -104,11 +110,17 @@ async function add(req: Request, res: Response) {
 
     const cartaData = { ...req.body.sanitisedInput };
 
-    if (cartaData.cartaClass) {
-      cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
-    }
+      if (cartaData.cartaClass) {
+        cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
+      }
 
-    const carta = em.create(Carta, cartaData);
+      // If frontend provided vendedorId (logged vendedor), link uploader
+      const vendedorId = req.body.userId ?? req.body.vendedorId;
+      if (vendedorId) {
+        cartaData.uploader = em.getReference(Vendedor, Number(vendedorId));
+      }
+
+      const carta = em.create(Carta, cartaData);
     await em.flush();
 
     res.status(201).json({ message: "Carta created", data: carta });
@@ -145,7 +157,18 @@ async function update(req: Request, res: Response) {
 async function remove(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
-    const carta = await em.findOneOrFail(Carta, { id });
+    const vendedorId = Number(req.body.userId ?? req.body.vendedorId);
+    if (!vendedorId) return res.status(400).json({ message: "vendedorId required for deletion" });
+
+    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader'] });
+
+    if (!carta.uploader) {
+      return res.status(403).json({ message: "You are not authorized to delete this carta" });
+    }
+
+    if (carta.uploader.id !== vendedorId) {
+      return res.status(403).json({ message: "You are not authorized to delete this carta" });
+    }
 
     await em.removeAndFlush(carta);
     res.status(200).json({ message: "Carta deleted" });
