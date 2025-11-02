@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useUser } from "../context/user";
 import "../components/CardForm.css"; // 👈 estilos compartidos
@@ -24,10 +24,48 @@ export default function EditarCartaPage() {
   const [carta, setCarta] = useState<Carta>(cartaInicial || { name: "" });
   const [mensaje, setMensaje] = useState("");
   const [nuevaImagen, setNuevaImagen] = useState<string | null>(null);
-
   if (!cartaInicial) {
     return (
       <p className="p-6 text-center">No hay carta seleccionada para editar.</p>
+    );
+  }
+
+  // Fetch latest carta data from backend (by id) so editor shows current DB values
+  useEffect(() => {
+    if (!cartaInicial?.id) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await axios.get(`http://localhost:3000/api/cartas/${cartaInicial.id}`);
+        const data = res.data?.data;
+        if (!data) return;
+
+        const mapped: Carta = {
+          id: data.id,
+          name: data.title ?? data.name ?? "",
+          price: typeof data.price === 'number' ? `$${data.price}` : (data.price ?? ""),
+          image: (data.images && data.images[0]) || data.thumbnail || data.image || undefined,
+          link: data.link ?? undefined,
+          rarity: data.rarity ?? undefined,
+          setName: data.set ?? data.setName ?? undefined,
+          uploader: data.uploader ? { id: data.uploader.id } : undefined,
+        };
+
+        if (mounted) setCarta(mapped);
+      } catch (err) {
+        console.error('Error fetching carta for edit', err);
+        setMensaje('Error al cargar la carta.');
+      }
+    })();
+
+    return () => { mounted = false };
+  }, [cartaInicial?.id]);
+
+  // Only the uploader vendedor can edit — check after fetching the real carta
+  if (carta && user && carta.uploader && carta.uploader.id !== user.id) {
+    return (
+      <p className="p-6 text-center">No estás autorizado para editar esta carta.</p>
     );
   }
 
@@ -49,9 +87,16 @@ export default function EditarCartaPage() {
   const publicarCarta = async () => {
     try {
       const cartaConImagen = { ...carta, image: nuevaImagen || carta.image };
-      // include userId so backend links uploader when creating from editor
-      await axios.post("http://localhost:3000/api/cartas", { ...cartaConImagen, userId: user?.id });
-      setMensaje("✅ Carta publicada con éxito.");
+      // If editing an existing carta, do PUT to update
+      if (carta.id) {
+        await axios.put(`http://localhost:3000/api/cartas/${carta.id}`, { ...cartaConImagen, userId: user?.id });
+        setMensaje("✅ Carta actualizada con éxito.");
+      } else {
+        // include userId so backend links uploader when creating from editor
+        await axios.post("http://localhost:3000/api/cartas", { ...cartaConImagen, userId: user?.id });
+        setMensaje("✅ Carta publicada con éxito.");
+      }
+
       setTimeout(() => navigate("/cards"), 1500);
     } catch (error) {
       console.error("Error al publicar carta:", error);

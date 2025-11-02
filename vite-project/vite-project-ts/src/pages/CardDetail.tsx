@@ -186,9 +186,14 @@ export function CardDetail() {
           {/* Show delete button only to the uploader vendedor */}
           {user && card?.uploader && user.id === card.uploader.id && (
             <div style={{ marginTop: '1rem' }}>
-              <button onClick={handleDelete} className="delete-btn" style={{ background: '#e53e3e', color: '#fff' }}>
-                Eliminar carta
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => navigate('/editar-carta', { state: { carta: card } })} className="save-btn">
+                  Editar carta
+                </button>
+                <button onClick={handleDelete} className="delete-btn" style={{ background: '#e53e3e', color: '#fff' }}>
+                  Eliminar carta
+                </button>
+              </div>
             </div>
           )}
 

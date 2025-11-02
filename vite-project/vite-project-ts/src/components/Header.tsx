@@ -231,11 +231,7 @@ export function Header() {
       </div>
 
       <div className="header-right">
-        {user && user.role === "vendedor" && (
-          <Link to="/publicar-carta" className="nav-button publish-button">
-            📝 Publicar Carta
-          </Link>
-        )}
+        
 
         <Link to="/cart" className="nav-button cart-button">
           🛒 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}

@@ -346,21 +346,24 @@ async function scrapeCartas(req: Request, res: Response) {
       return resultados;
     });
 
+    // Limit to up to 5 cards
+    const topCartas = Array.isArray(cartas) ? cartas.slice(0, 5) : [];
+
     await browser.close();
 
-    if (!cartas || cartas.length === 0) {
+    if (!topCartas || topCartas.length === 0) {
       console.log("⚠️ No se encontraron cartas. Verifica que el selector sea correcto.");
       return res.status(404).json({
         message: "No se encontraron cartas o cambió el selector en la web.",
       });
     }
 
-    console.log(`✅ Se encontraron ${cartas.length} cartas para "${nombre}".`);
-    console.log("📋 Primeras 3 cartas:", JSON.stringify(cartas.slice(0, 3), null, 2));
+    console.log(`✅ Se encontraron ${topCartas.length} cartas para "${nombre}".`);
+    console.log("📋 Primeras 3 cartas:", JSON.stringify(topCartas.slice(0, 3), null, 2));
 
     return res.status(200).json({
-      message: `Scraping completado (${cartas.length} resultados).`,
-      data: cartas,
+      message: `Scraping completado (${topCartas.length} resultados).`,
+      data: topCartas,
     });
   } catch (error: any) {
     console.error("❌ Error durante el scraping:", error.message);
