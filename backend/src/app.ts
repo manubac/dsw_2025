@@ -11,7 +11,8 @@ import { itemRouter } from "./vendedor/item.routes.js";
 import { cartaRouter } from "./carta/carta.routes.js";
 import { cartaClassRouter } from "./carta/cartaClass.routes.js";
 import { itemCartaRouter } from "./carta/itemCarta.routes.js";
-import { userRouter } from "./user/user.routes.js"; // 👈 nuevo import
+import { userRouter } from "./user/user.routes.js";
+import { compraRouter } from "./compra/compra.routes.js";
 
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/cartas/classes", cartaClassRouter);
 app.use("/api/cartas", cartaRouter);
 app.use("/api/itemsCarta", itemCartaRouter);
 app.use("/api/users", userRouter); // 👈 nueva ruta para usuarios
+app.use("/api/compras", compraRouter);
 
 // ✅ 404 fallback
 app.use((req, res) => {
