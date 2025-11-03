@@ -8,13 +8,37 @@ export class Compra extends BaseEntity {
   @ManyToOne(() => User)
   comprador!: User;
 
-@ManyToMany(() => Carta, undefined, { owner: true })
-cartas = new Collection<Carta>(this);
-
+  @ManyToMany(() => Carta, undefined, { owner: true })
+  cartas = new Collection<Carta>(this);
 
   @Property({ type: "number" })
   total!: number;
 
   @Property({ default: "pendiente" })
   estado!: string;
+
+  // 🧾 Datos de checkout (agregados)
+  @Property({ nullable: true })
+  nombre?: string;
+
+  @Property({ nullable: true })
+  email?: string;
+
+  @Property({ nullable: true })
+  telefono?: string;
+
+  @Property({ nullable: true })
+  direccion?: string;
+
+  @Property({ nullable: true })
+  ciudad?: string;
+
+  @Property({ nullable: true })
+  provincia?: string;
+
+  @Property({ nullable: true })
+  codigoPostal?: string;
+
+  @Property({ nullable: true })
+  metodoPago?: string;
 }
