@@ -43,24 +43,25 @@ export function UserProfilePage() {
     try {
       let endpoint = "";
 
+      // controlador backend que expone `/api/users`.
       switch (user.role) {
         case "vendedor":
           endpoint = `/api/vendedores/${user.id}`;
           break;
         case "usuario":
-          endpoint = `/api/usuarios/${user.id}`;
-          break;
         case "intermediario":
-          endpoint = `/api/intermediarios/${user.id}`;
+          endpoint = `/api/users/${user.id}`;
           break;
         default:
           throw new Error("Rol de usuario desconocido o no configurado.");
       }
 
-      const updateData: Record<string, any> = {
-        nombre: formData.name,
-        email: formData.email,
-      };
+      // El backend de vendedores espera campos con nombre/telefono/etc.
+      // El backend de usuarios espera `username` en lugar de `nombre`.
+      const updateData: Record<string, any> =
+        user.role === "vendedor"
+          ? { nombre: formData.name, email: formData.email }
+          : { username: formData.name, email: formData.email };
 
       // Solo incluir contraseña si se modificó
       if (formData.password !== "********" && formData.password.trim() !== "") {

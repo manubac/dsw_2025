@@ -9,6 +9,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { CardsPage } from "./pages/CardsPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { Checkout } from "./pages/Checkout";
+import Purchases from "./pages/Purchases";
 import { CardDetail } from "./pages/CardDetail";
 import PublicarCartaPage from "./pages/PublicarCarta";
 import { ContactPage } from "./pages/ContactPage";
@@ -64,6 +65,16 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Checkout />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Mis compras */}
+                <Route
+                  path="purchases"
+                  element={
+                    <ProtectedRoute>
+                      <Purchases />
                     </ProtectedRoute>
                   }
                 />

@@ -41,4 +41,8 @@ export class Compra extends BaseEntity {
 
   @Property({ nullable: true })
   metodoPago?: string;
+
+  
+  @Property({ type: 'json', nullable: true })
+  items?: { cartaId: number; quantity: number; price?: number; title?: string }[];
 }

@@ -133,7 +133,16 @@ export function Header() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`/api/vendedores/${user.id}`, {
+      // elegir endpoint según rol
+      let endpoint = "";
+      if (user.role === "vendedor") {
+        endpoint = `/api/vendedores/${user.id}`;
+      } else {
+        // usuarios e intermediarios usan el mismo controlador, despues lo tenemos que cambiar
+        endpoint = `/api/users/${user.id}`;
+      }
+
+      const response = await fetch(endpoint, {
         method: "DELETE",
       });
 
@@ -253,6 +262,12 @@ export function Header() {
             <div className="user-dropdown">
               <button onClick={handleProfileClick} className="dropdown-item">
                 👤 Mi Perfil
+              </button>
+              <button
+                onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
+                className="dropdown-item"
+              >
+                🧾 Mis Compras
               </button>
               <button
                 onClick={handleDeleteAccount}

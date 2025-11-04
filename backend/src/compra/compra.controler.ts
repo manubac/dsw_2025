@@ -21,6 +21,7 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     provincia,
     codigoPostal,
     metodoPago,
+    items,
   } = req.body;
 
   req.body.sanitizedInput = {
@@ -36,6 +37,7 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     provincia,
     codigoPostal,
     metodoPago,
+      items,
   };
 
   next();
@@ -92,6 +94,7 @@ async function add(req: Request, res: Response) {
       provincia: input.provincia,
       codigoPostal: input.codigoPostal,
       metodoPago: input.metodoPago,
+      items: input.items ?? undefined,
     });
 
     await em.flush();
@@ -118,6 +121,11 @@ async function update(req: Request, res: Response) {
       const cartas = await em.find(Carta, { id: { $in: input.cartasIds } });
       compra.cartas.removeAll();
       cartas.forEach((c) => compra.cartas.add(c));
+    }
+
+    // update items JSON if provided
+    if (input.items) {
+      compra.items = input.items;
     }
 
     compra.total = input.total ?? compra.total;

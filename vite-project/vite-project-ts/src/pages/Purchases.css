@@ -1,0 +1,9 @@
+.purchases-wrapper { display:flex; justify-content:center; padding:24px; }
+.purchases-card { width:980px; background:#fff; border-radius:8px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.order-card { border:1px solid #eee; margin:12px 0; padding:12px; border-radius:6px; }
+.order-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.order-status { background:#f0f0f0; padding:4px 8px; border-radius:6px; font-size:12px; }
+.order-body p { margin:6px 0; }
+.order-items ul { margin:6px 0 0 18px; }
+.btn-primary { background:#2b8aef; color:#fff; padding:8px 12px; border-radius:6px; border:none; cursor:pointer }
+.alert.error { color:#9b1c1c; background:#ffecec; padding:8px; border-radius:6px }

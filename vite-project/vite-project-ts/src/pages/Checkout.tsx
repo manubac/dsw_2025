@@ -6,7 +6,7 @@ import '../components/Checkout.css'
 
 export function Checkout() {
   const { cart, clearCart } = useContext(CartContext)
-  const { user } = useUser()
+  const { user, login } = useUser()
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
@@ -31,20 +31,88 @@ export function Checkout() {
   const envio = subtotal > 100 ? 0 : 10
   const total = subtotal + envio
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Simulate order placement
-    console.log('Order placed:', { cart, formData, total })
+    try {
+      let compradorId: number | undefined = user?.id
 
-    // Clear cart and show success
-    clearCart()
-    setOrderPlaced(true)
+      if (!compradorId) {
+        const usersRes = await fetch('http://localhost:3000/api/users')
+        const usersJson = await usersRes.json()
+        const existing = (usersJson.data || []).find((u: any) => u.email === formData.email)
 
-    // Redirect after 3 seconds
-    setTimeout(() => {
-      navigate('/')
-    }, 3000)
+        if (existing) {
+          compradorId = existing.id
+          login({ id: existing.id, name: existing.username || existing.name || '', email: existing.email, password: existing.password || '', role: existing.role })
+        } else {
+          
+          const username = formData.nombre.split(' ')[0] || formData.email.split('@')[0]
+          const password = Math.random().toString(36).slice(-8)
+          const createRes = await fetch('http://localhost:3000/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email: formData.email, password, role: 'user' })
+          })
+
+          if (!createRes.ok) {
+            const err = await createRes.json()
+            throw new Error(err.message || 'Error creating user')
+          }
+
+          const created = await createRes.json()
+          compradorId = created.data.id
+          const u = created.data
+          login({ id: u.id, name: u.username || u.name || '', email: u.email, password: u.password || '', role: u.role })
+        }
+      }
+
+      // 2) Prepare compra payload
+      const items = cart.map((item: any) => ({ cartaId: item.id, quantity: item.quantity, price: item.price, title: item.title }))
+      const cartasIds = Array.from(new Set(cart.map((i: any) => i.id)))
+
+      const payload = {
+        compradorId,
+        cartasIds,
+        items,
+        total,
+        estado: 'pendiente',
+        nombre: formData.nombre,
+        email: formData.email,
+        telefono: formData.telefono,
+        direccion: formData.direccion,
+        ciudad: formData.ciudad,
+        provincia: formData.provincia,
+        codigoPostal: formData.codigoPostal,
+        metodoPago: formData.metodoPago,
+      }
+
+      const compraRes = await fetch('http://localhost:3000/api/compras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!compraRes.ok) {
+        const err = await compraRes.json()
+        throw new Error(err.message || 'Error creating compra')
+      }
+
+      const compraJson = await compraRes.json()
+      console.log('Compra created:', compraJson)
+
+      // Clear cart and show success
+      clearCart()
+      setOrderPlaced(true)
+
+      // Redirect after 3 seconds
+      setTimeout(() => {
+        navigate('/')
+      }, 3000)
+    } catch (error: any) {
+      console.error('Error placing order:', error)
+      alert('Error al procesar el pedido: ' + (error.message || 'unknown'))
+    }
   }
 
   if (cart.length === 0 && !orderPlaced) {

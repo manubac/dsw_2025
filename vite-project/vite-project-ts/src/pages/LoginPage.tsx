@@ -3,15 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
 import "./LoginPage.css";
 
-/**
- * Página de inicio de sesión para todos los roles:
- * - Vendedor
- * - Usuario regular
- * - Intermediario
- *
- * Envía la solicitud al backend, guarda los datos del usuario en el contexto global
- * y redirige al perfil correspondiente.
- */
+
 
 export function LoginPage() {
   // Estado local del formulario
@@ -38,11 +30,7 @@ export function LoginPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  /**
-   * Enviar el formulario de login
-   * - Hace la petición al endpoint adecuado según el rol seleccionado.
-   * - Maneja errores y redirección post-login.
-   */
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -55,9 +43,10 @@ export function LoginPage() {
       if (formData.rol === "vendedor") {
         endpoint = "/api/vendedores/login";
       } else if (formData.rol === "usuario") {
-        endpoint = "/api/usuarios/login";
+        
+        endpoint = "/api/users/login";
       } else if (formData.rol === "intermediario") {
-        endpoint = "/api/intermediarios/login";
+        endpoint = "/api/users/login";
       } else {
         throw new Error("Rol de usuario no válido.");
       }
