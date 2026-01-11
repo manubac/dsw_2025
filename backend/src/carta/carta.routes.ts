@@ -12,10 +12,10 @@ import {
 
 export const cartaRouter = Router();
 
-// 🔹 Scraping con Puppeteer
+// Scraping con Puppeteer
 cartaRouter.get("/scrape/:nombre", scrapeCartas);
 
-// 🔍 Buscar Pokémon desde PokeAPI
+// Buscar Pokémon desde PokeAPI
 cartaRouter.get("/search/:nombre", findFromAPI);
 
 // CRUD básico

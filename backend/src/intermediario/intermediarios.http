@@ -1,0 +1,53 @@
+### Obtener todos los intermediarios
+GET http://localhost:3000/api/intermediarios
+
+### Obtener intermediario por ID
+GET http://localhost:3000/api/intermediarios/1
+
+### Crear un nuevo intermediario
+POST http://localhost:3000/api/intermediarios
+Content-Type: application/json
+
+{
+  "nombre": "Intermediario Express",
+  "email": "contacto@intermediarioexpress.com",
+  "telefono": "3415551234",
+  "descripcion": "Servicio de entrega confiable en todo el país",
+  "activo": true
+}
+
+### Crear otro intermediario
+POST http://localhost:3000/api/intermediarios
+Content-Type: application/json
+
+{
+  "nombre": "Logistica Segura",
+  "email": "info@logisticasegura.com",
+  "telefono": "3415555678",
+  "descripcion": "Especialistas en entregas seguras de productos de colección",
+  "activo": true
+}
+
+### Actualizar intermediario (PUT - reemplaza recursos)
+PUT http://localhost:3000/api/intermediarios/1
+Content-Type: application/json
+
+{
+  "nombre": "Intermediario Express Plus",
+  "email": "contacto@intermediarioexpress.com",
+  "telefono": "3415551234",
+  "descripcion": "Servicio premium de entrega en todo el país",
+  "activo": true
+}
+
+### Actualizar intermediario (PATCH - parcial)
+PATCH http://localhost:3000/api/intermediarios/1
+Content-Type: application/json
+
+{
+  "telefono": "3415559999",
+  "descripcion": "Servicio actualizado de entrega"
+}
+
+### Eliminar intermediario
+DELETE http://localhost:3000/api/intermediarios/1

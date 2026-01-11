@@ -1,11 +1,11 @@
 @baseUrl = http://localhost:3000/api/cartas
 
-### 🟢 1. GET - Obtener todas las cartas
+### GET - Obtener todas las cartas
 # @name getAllCartas
 GET {{baseUrl}}
 Content-Type: application/json
 
-### 🟢 2. POST - Crear una nueva carta
+### POST - Crear una nueva carta
 # @name createCarta
 POST {{baseUrl}}
 Content-Type: application/json
@@ -43,7 +43,7 @@ Content-Type: application/json
   "level": 12
 }
 
-### 🔴 5. DELETE - Eliminar una carta
+### DELETE - Eliminar una carta
 # @name deleteCarta
 DELETE {{baseUrl}}/{{id}}
 Content-Type: application/json

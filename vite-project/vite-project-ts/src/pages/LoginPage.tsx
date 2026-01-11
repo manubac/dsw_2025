@@ -43,10 +43,9 @@ export function LoginPage() {
       if (formData.rol === "vendedor") {
         endpoint = "/api/vendedores/login";
       } else if (formData.rol === "usuario") {
-        
         endpoint = "/api/users/login";
       } else if (formData.rol === "intermediario") {
-        endpoint = "/api/users/login";
+        endpoint = "/api/intermediarios/login";
       } else {
         throw new Error("Rol de usuario no válido.");
       }
@@ -77,7 +76,7 @@ export function LoginPage() {
       // Login exitoso
       const userData = {
         id: result.data.id,
-        name: result.data.nombre || result.data.name || "Usuario",
+        name: result.data.username || result.data.nombre || result.data.name || "Usuario",
         email: result.data.email,
         password: formData.password, // Guardamos solo temporalmente en contexto
         role: formData.rol,
@@ -91,7 +90,7 @@ export function LoginPage() {
 
       // Redirigir después de un breve delay
       setTimeout(() => {
-        navigate("/profile");
+        navigate("/");
       }, 1200);
     } catch (error: any) {
       console.error("Error en login:", error);

@@ -5,10 +5,10 @@ import { CartaClass } from "./cartaClass.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
 import axios from "axios";
 import puppeteer from "puppeteer-core";
-import * as chrome from "chrome-launcher"; // ✅ Import correcto para ESM
+import * as chrome from "chrome-launcher"; 
 
 
-import fs from "fs"; // opcional si querés guardar en archivo
+import fs from "fs"; // opcional para guardar en archivo
 
 
 const em = orm.em;
@@ -218,7 +218,7 @@ async function findFromAPI(req: Request, res: Response) {
 
 
 // ============================
-// 🔹 Scrape cartas desde CoolStuffInc
+// Scrape cartas desde CoolStuffInc
 // ============================
 async function scrapeCartas(req: Request, res: Response) {
   try {
@@ -232,7 +232,7 @@ async function scrapeCartas(req: Request, res: Response) {
       nombre
     )}`;
 
-    console.log(`🔎 Buscando cartas con nombre "${nombre}" en CoolStuffInc...`);
+  console.log(`Buscando cartas con nombre "${nombre}" en CoolStuffInc...`);
 
     // Detectar instalación de Chrome
     const chromePaths = chrome.Launcher.getInstallations();
@@ -243,7 +243,7 @@ async function scrapeCartas(req: Request, res: Response) {
     }
 
     const chromePath = chromePaths[0];
-    console.log("🟢 Chrome detectado en:", chromePath);
+  console.log("Chrome detectado en:", chromePath);
 
     // Iniciar Puppeteer
     const browser = await puppeteer.launch({
@@ -255,14 +255,14 @@ async function scrapeCartas(req: Request, res: Response) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-    console.log("⌛ Esperando que carguen los resultados...");
+  console.log("Esperando que carguen los resultados...");
     await page.waitForSelector(".row.product-search-row.main-container", {
       timeout: 60000,
     });
 
-    // =============================
-    // 📦 Extraer datos
-    // =============================
+  // =============================
+  // Extraer datos
+  // =============================
     const cartas = await page.evaluate(() => {
       const productos = document.querySelectorAll(
         ".row.product-search-row.main-container"
@@ -283,7 +283,7 @@ async function scrapeCartas(req: Request, res: Response) {
         const enlace = (prod.querySelector(".productLink") as HTMLAnchorElement)?.href || "Sin enlace";
         const imagen = (prod.querySelector("img[itemprop='image']") as HTMLImageElement)?.src || null;
 
-        // 🧩 Nombre del set - Try multiple selectors
+  // Nombre del set - Try multiple selectors
         let setName = null;
         const setSelectors = [
           ".breadcrumb-trail",
@@ -299,7 +299,7 @@ async function scrapeCartas(req: Request, res: Response) {
           }
         }
 
-        // 💎 Rareza - Extract only the rarity value
+  // Rareza - Extract only the rarity value
         let rareza = "Unknown";
         
         // Get all product text
@@ -352,21 +352,21 @@ async function scrapeCartas(req: Request, res: Response) {
     await browser.close();
 
     if (!topCartas || topCartas.length === 0) {
-      console.log("⚠️ No se encontraron cartas. Verifica que el selector sea correcto.");
+  console.log("No se encontraron cartas. Verifica que el selector sea correcto.");
       return res.status(404).json({
         message: "No se encontraron cartas o cambió el selector en la web.",
       });
     }
 
-    console.log(`✅ Se encontraron ${topCartas.length} cartas para "${nombre}".`);
-    console.log("📋 Primeras 3 cartas:", JSON.stringify(topCartas.slice(0, 3), null, 2));
+  console.log(`Se encontraron ${topCartas.length} cartas para "${nombre}".`);
+  console.log("Primeras 3 cartas:", JSON.stringify(topCartas.slice(0, 3), null, 2));
 
     return res.status(200).json({
       message: `Scraping completado (${topCartas.length} resultados).`,
       data: topCartas,
     });
   } catch (error: any) {
-    console.error("❌ Error durante el scraping:", error.message);
+  console.error("Error durante el scraping:", error.message);
     return res.status(500).json({
       message: "Error al realizar scraping de CoolStuffInc.",
       error: error.message,

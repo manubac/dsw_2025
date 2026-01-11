@@ -13,7 +13,7 @@ import Purchases from "./pages/Purchases";
 import { CardDetail } from "./pages/CardDetail";
 import PublicarCartaPage from "./pages/PublicarCarta";
 import { ContactPage } from "./pages/ContactPage";
-import EditarCartaPage from "./pages/EditarCartaPage"; // 👈 import nuevo
+import EditarCartaPage from "./pages/EditarCartaPage"; // import nuevo
 
 /**
  * RUTA PROTEGIDA:
@@ -89,7 +89,7 @@ function App() {
                   }
                 />
 
-                {/* ✅ Nueva página para editar publicación */}
+                {/* Nueva página para editar publicación */}
                 <Route
                   path="editar-carta"
                   element={

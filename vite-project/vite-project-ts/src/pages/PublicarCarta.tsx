@@ -31,7 +31,7 @@ export default function PublicarCartaPage() {
     } catch (error) {
       console.error("Error buscando cartas:", error);
       setResultados([]);
-      setMensaje("❌ No se encontraron cartas con ese nombre.");
+      setMensaje("No se encontraron cartas con ese nombre.");
     }
   };
 

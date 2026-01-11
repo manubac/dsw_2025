@@ -1,0 +1,66 @@
+### Obtener todas las compras
+GET http://localhost:3000/api/compras
+
+
+### Obtener compra por ID
+GET http://localhost:3000/api/compras/1
+
+
+### Crear una nueva compra
+POST http://localhost:3000/api/compras
+Content-Type: application/json
+
+{
+  "compradorId": 1,
+  "cartasIds": [101, 102],
+  "items": [
+    { "cartaId": 101, "quantity": 2, "price": 9.99, "title": "Charizard" },
+    { "cartaId": 102, "quantity": 1, "price": 4.5, "title": "Pikachu" }
+  ],
+  "total": 24.48,
+  "estado": "pendiente",
+  "nombre": "Juan Perez",
+  "email": "juan@example.com",
+  "telefono": "3412345678",
+  "direccion": "Calle Falsa 123",
+  "ciudad": "Rosario",
+  "provincia": "Santa Fe",
+  "codigoPostal": "2000",
+  "metodoPago": "tarjeta"
+}
+
+
+### Actualizar compra (PUT - reemplaza recursos)
+PUT http://localhost:3000/api/compras/1
+Content-Type: application/json
+
+{
+  "compradorId": 1,
+  "cartasIds": [101],
+  "items": [
+    { "cartaId": 101, "quantity": 3, "price": 9.99, "title": "Charizard" }
+  ],
+  "total": 29.97,
+  "estado": "pagado",
+  "nombre": "Juan Perez",
+  "email": "juan@example.com",
+  "telefono": "3412345678",
+  "direccion": "Calle Falsa 123",
+  "ciudad": "Rosario",
+  "provincia": "Santa Fe",
+  "codigoPostal": "2000",
+  "metodoPago": "tarjeta"
+}
+
+
+### Modificar compra (PATCH - parcial)
+PATCH http://localhost:3000/api/compras/1
+Content-Type: application/json
+
+{
+  "estado": "enviado"
+}
+
+
+### Eliminar compra
+DELETE http://localhost:3000/api/compras/1

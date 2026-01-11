@@ -1,12 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import './UserRegistration.css';
-
-interface VendedorClass {
-  id: string;
-  name: string;
-}
 
 export function UserRegistration() {
   const navigate = useNavigate();
@@ -21,35 +16,9 @@ export function UserRegistration() {
     provincia: '',
     pais: '',
     codigoPostal: '',
-    vendedorClass: '',
   });
-
-  const [vendedorClasses, setVendedorClasses] = useState<VendedorClass[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  // 🔹 Cargar clases de vendedor cuando el rol sea vendedor
-  useEffect(() => {
-    if (formData.rol === 'vendedor') {
-      fetch('/api/vendedores/classes')
-        .then(res => {
-          if (!res.ok) throw new Error('Network response was not ok');
-          return res.json();
-        })
-        .then(data => {
-          if (Array.isArray(data.data)) {
-            setVendedorClasses(data.data);
-          } else {
-            console.error("Expected data.data to be an array, but got:", data.data);
-            setVendedorClasses([]);
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching vendedor classes:', error);
-          setError('No se pudieron cargar las clases de vendedor. Por favor, asegúrese de que el backend esté funcionando y que haya clases de vendedor creadas.');
-        });
-    }
-  }, [formData.rol]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -59,7 +28,7 @@ export function UserRegistration() {
     }));
   };
 
-  // 🔹 Enviar formulario
+  // Enviar formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -69,15 +38,10 @@ export function UserRegistration() {
       let endpoint = '';
       let requestData: Record<string, any> = {};
 
-      // ================================
-      // 📦 REGISTRO DE VENDEDOR
-      // ================================
+  // ================================
+  // REGISTRO DE VENDEDOR
+  // ================================
       if (formData.rol === 'vendedor') {
-        if (!formData.vendedorClass) {
-          setError('Por favor, seleccione una clase de vendedor.');
-          return;
-        }
-
         endpoint = '/api/vendedores';
         requestData = {
           nombre: formData.nombre,
@@ -88,14 +52,13 @@ export function UserRegistration() {
           provincia: formData.provincia,
           pais: formData.pais,
           codigoPostal: formData.codigoPostal,
-          vendedorClass: formData.vendedorClass,
         };
       }
 
-      // ================================
-      // 👤 REGISTRO DE USUARIO NORMAL
-      // ================================
-      else if (formData.rol === 'usuario' || formData.rol === 'intermediario') {
+  // ================================
+  // REGISTRO DE USUARIO NORMAL
+  // ================================
+      else if (formData.rol === 'usuario') {
         endpoint = '/api/users';
         requestData = {
           username: formData.nombre,
@@ -105,9 +68,24 @@ export function UserRegistration() {
         };
       }
 
-      // ================================
-      // 📤 Enviar request al backend
-      // ================================
+  // ================================
+  // REGISTRO DE INTERMEDIARIO
+  // ================================
+      else if (formData.rol === 'intermediario') {
+        endpoint = '/api/intermediarios';
+        requestData = {
+          nombre: formData.nombre,
+          email: formData.email,
+          password: formData.password,
+          telefono: formData.telefono,
+          descripcion: formData.ciudad, // Using ciudad as description for now
+          activo: true,
+        };
+      }
+
+  // ================================
+  // Enviar request al backend
+  // ================================
       console.log('Sending registration to:', endpoint, requestData);
 
       const response = await fetch(endpoint, {
@@ -124,11 +102,13 @@ export function UserRegistration() {
 
       setSuccess('¡Cuenta creada con éxito!');
 
-      // ================================
-      // 🔐 Login automático
-      // ================================
+  // ================================
+  // Login automático
+  // ================================
       const loginEndpoint =
-        formData.rol === 'vendedor' ? '/api/vendedores/login' : '/api/users/login';
+        formData.rol === 'vendedor' ? '/api/vendedores/login' :
+        formData.rol === 'intermediario' ? '/api/intermediarios/login' :
+        '/api/users/login';
 
       const loginResponse = await fetch(loginEndpoint, {
         method: 'POST',
@@ -233,31 +213,6 @@ export function UserRegistration() {
               <option value="intermediario">Intermediario</option>
             </select>
           </div>
-
-          {formData.rol === 'vendedor' && (
-            <div className="form-group">
-              <label htmlFor="vendedorClass">Clase de Vendedor</label>
-              <select
-                id="vendedorClass"
-                name="vendedorClass"
-                value={formData.vendedorClass}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Seleccione una clase</option>
-                {vendedorClasses.map((vc) => (
-                  <option key={vc.id} value={vc.id}>
-                    {vc.name}
-                  </option>
-                ))}
-              </select>
-              {vendedorClasses.length === 0 && (
-                <small>
-                  No hay clases de vendedor disponibles. Cree una primero en el backend.
-                </small>
-              )}
-            </div>
-          )}
 
           <div className="form-row">
             <div className="form-group half">

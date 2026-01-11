@@ -18,7 +18,7 @@ export function Header() {
   const [cartas, setCartas] = useState<any[]>([]);
   const navigate = useNavigate();
 
-  // ✅ Traer cartas publicadas desde el backend
+  //  Traer cartas publicadas desde el backend
   useEffect(() => {
     async function fetchCartas() {
       try {
@@ -32,7 +32,7 @@ export function Header() {
     fetchCartas();
   }, []);
 
-  // ✅ Buscar cartas por título
+  //  Buscar cartas por título
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
@@ -49,14 +49,14 @@ export function Header() {
     }
   };
 
-  // ✅ Click sobre una carta en el dropdown
+  //  Click sobre una carta en el dropdown
   const handleResultClick = (card: any) => {
     setResults([]);
     setQuery(card.title);
     navigate(`/card/${card.id}`);
   };
 
-  // ✅ Limpiar buscador
+  //  Limpiar buscador
   const handleClearSearch = () => {
     setQuery("");
     setResults([]);
@@ -64,7 +64,7 @@ export function Header() {
     setFilters((prev: any) => ({ ...prev, query: "" }));
   };
 
-  // ✅ Enter, flechas, etc.
+  //  Enter, flechas, etc.
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (results.length === 0) {
       if (e.key === "Enter") {
@@ -103,7 +103,7 @@ export function Header() {
     }
   };
 
-  // ✅ Usuario
+  //  Usuario
   const handleUserClick = () => {
     if (user) {
       setUserMenuOpen(!userMenuOpen);
@@ -137,8 +137,9 @@ export function Header() {
       let endpoint = "";
       if (user.role === "vendedor") {
         endpoint = `/api/vendedores/${user.id}`;
+      } else if (user.role === "intermediario") {
+        endpoint = `/api/intermediarios/${user.id}`;
       } else {
-        // usuarios e intermediarios usan el mismo controlador, despues lo tenemos que cambiar
         endpoint = `/api/users/${user.id}`;
       }
 
@@ -159,7 +160,7 @@ export function Header() {
     }
   };
 
-  // ✅ Cerrar menú o resultados al hacer click afuera
+  //  Cerrar menú o resultados al hacer click afuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -243,12 +244,12 @@ export function Header() {
         
 
         <Link to="/cart" className="nav-button cart-button">
-          🛒 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+          {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
         </Link>
 
         <div className="user-menu-container">
           <button onClick={handleUserClick} className="nav-button user-button">
-            👤 {user ? user.name : "Usuario"}
+            {user ? user.name : "Usuario"}
             {user && (
               <span
                 className={`dropdown-arrow ${userMenuOpen ? "open" : ""}`}
@@ -261,25 +262,27 @@ export function Header() {
           {user && userMenuOpen && (
             <div className="user-dropdown">
               <button onClick={handleProfileClick} className="dropdown-item">
-                👤 Mi Perfil
+                Mi Perfil
               </button>
-              <button
-                onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
-                className="dropdown-item"
-              >
-                🧾 Mis Compras
-              </button>
+              {user.role === 'usuario' && (
+                <button
+                  onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
+                  className="dropdown-item"
+                >
+                  Mis Compras
+                </button>
+              )}
               <button
                 onClick={handleDeleteAccount}
                 className="dropdown-item delete-item"
               >
-                🗑️ Eliminar Cuenta
+                Eliminar Cuenta
               </button>
               <button
                 onClick={handleLogout}
                 className="dropdown-item logout-item"
               >
-                🚪 Cerrar Sesión
+                Cerrar Sesión
               </button>
             </div>
           )}

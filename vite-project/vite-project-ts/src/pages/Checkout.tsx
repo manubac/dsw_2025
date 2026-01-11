@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react'
+import { useContext, useState, useEffect } from 'react'
 import { CartContext } from '../context/cart'
 import { useUser } from '../context/user'
 import { useNavigate } from 'react-router-dom'
@@ -6,21 +6,81 @@ import '../components/Checkout.css'
 
 export function Checkout() {
   const { cart, clearCart } = useContext(CartContext)
-  const { user, login } = useUser()
+  const { user, login, loadDirecciones, addDireccion } = useUser()
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
     nombre: user?.name || '',
     email: user?.email || '',
     telefono: '',
-    direccion: '',
-    ciudad: '',
-    provincia: '',
-    codigoPostal: '',
     metodoPago: 'tarjeta'
   })
 
+  const [selectedDireccionId, setSelectedDireccionId] = useState<number | null>(null)
+  const [showNewDireccionForm, setShowNewDireccionForm] = useState(false)
+  const [newDireccion, setNewDireccion] = useState({
+    provincia: '',
+    ciudad: '',
+    codigoPostal: '',
+    calle: '',
+    altura: '',
+    departamento: '',
+  })
+
   const [orderPlaced, setOrderPlaced] = useState(false)
+
+  // Cargar direcciones al montar
+  useEffect(() => {
+    if (user?.id) {
+      loadDirecciones()
+    }
+  }, [user?.id, loadDirecciones])
+
+  // Si el usuario tiene direcciones, seleccionar la primera por defecto
+  useEffect(() => {
+    if (user?.direcciones && user.direcciones.length > 0 && !selectedDireccionId) {
+      setSelectedDireccionId(user.direcciones[0].id)
+    }
+  }, [user?.direcciones, selectedDireccionId])
+
+  const handleNewDireccionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setNewDireccion(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSaveNewDireccion = async () => {
+    if (!user?.id) return
+
+    try {
+      const response = await fetch('/api/direcciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newDireccion,
+          usuarioId: user.id,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        addDireccion(result.data)
+        setSelectedDireccionId(result.data.id)
+        setShowNewDireccionForm(false)
+        setNewDireccion({
+          provincia: '',
+          ciudad: '',
+          codigoPostal: '',
+          calle: '',
+          altura: '',
+          departamento: '',
+        })
+      } else {
+        alert('Error al guardar la dirección')
+      }
+    } catch (error) {
+      alert('Error al guardar la dirección')
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -80,10 +140,7 @@ export function Checkout() {
         nombre: formData.nombre,
         email: formData.email,
         telefono: formData.telefono,
-        direccion: formData.direccion,
-        ciudad: formData.ciudad,
-        provincia: formData.provincia,
-        codigoPostal: formData.codigoPostal,
+        direccionEntregaId: selectedDireccionId,
         metodoPago: formData.metodoPago,
       }
 
@@ -188,52 +245,142 @@ export function Checkout() {
 
             <div className="form-section">
               <h3>Dirección de Envío</h3>
-              <div className="form-group">
-                <label htmlFor="direccion">Dirección *</label>
-                <input
-                  type="text"
-                  id="direccion"
-                  name="direccion"
-                  value={formData.direccion}
-                  onChange={handleInputChange}
-                  placeholder="Calle y número"
-                  required
-                />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="ciudad">Ciudad *</label>
-                  <input
-                    type="text"
-                    id="ciudad"
-                    name="ciudad"
-                    value={formData.ciudad}
-                    onChange={handleInputChange}
+              
+              {user?.direcciones && user.direcciones.length > 0 ? (
+                <div className="direccion-selector">
+                  <label>Seleccionar Dirección:</label>
+                  <select
+                    value={selectedDireccionId || ''}
+                    onChange={(e) => setSelectedDireccionId(Number(e.target.value))}
                     required
-                  />
+                  >
+                    {user.direcciones.map((direccion) => (
+                      <option key={direccion.id} value={direccion.id}>
+                        {direccion.calle} {direccion.altura}{direccion.departamento && `, ${direccion.departamento}`} - {direccion.ciudad}, {direccion.provincia}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="provincia">Provincia *</label>
-                  <input
-                    type="text"
-                    id="provincia"
-                    name="provincia"
-                    value={formData.provincia}
-                    onChange={handleInputChange}
-                    required
-                  />
+              ) : (
+                <p>No tienes direcciones registradas.</p>
+              )}
+
+              {!showNewDireccionForm ? (
+                <button 
+                  type="button"
+                  className="add-direccion-btn"
+                  onClick={() => setShowNewDireccionForm(true)}
+                >
+                  {user?.direcciones && user.direcciones.length > 0 ? 'Agregar Nueva Dirección' : 'Crear Dirección de Envío'}
+                </button>
+              ) : (
+                <div className="new-direccion-form">
+                  <h4>Nueva Dirección</h4>
+                  
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="provincia">Provincia *</label>
+                      <input
+                        type="text"
+                        id="provincia"
+                        name="provincia"
+                        value={newDireccion.provincia}
+                        onChange={handleNewDireccionChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="ciudad">Ciudad *</label>
+                      <input
+                        type="text"
+                        id="ciudad"
+                        name="ciudad"
+                        value={newDireccion.ciudad}
+                        onChange={handleNewDireccionChange}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="codigoPostal">Código Postal</label>
+                      <input
+                        type="text"
+                        id="codigoPostal"
+                        name="codigoPostal"
+                        value={newDireccion.codigoPostal}
+                        onChange={handleNewDireccionChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="calle">Calle *</label>
+                      <input
+                        type="text"
+                        id="calle"
+                        name="calle"
+                        value={newDireccion.calle}
+                        onChange={handleNewDireccionChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="altura">Altura *</label>
+                      <input
+                        type="text"
+                        id="altura"
+                        name="altura"
+                        value={newDireccion.altura}
+                        onChange={handleNewDireccionChange}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="departamento">Departamento (opcional)</label>
+                      <input
+                        type="text"
+                        id="departamento"
+                        name="departamento"
+                        value={newDireccion.departamento}
+                        onChange={handleNewDireccionChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="direccion-actions">
+                    <button 
+                      type="button"
+                      className="save-direccion-btn"
+                      onClick={handleSaveNewDireccion}
+                    >
+                      Guardar Dirección
+                    </button>
+                    <button 
+                      type="button"
+                      className="cancel-direccion-btn"
+                      onClick={() => {
+                        setShowNewDireccionForm(false)
+                        setNewDireccion({
+                          provincia: '',
+                          ciudad: '',
+                          codigoPostal: '',
+                          calle: '',
+                          altura: '',
+                          departamento: '',
+                        })
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="codigoPostal">Código Postal</label>
-                <input
-                  type="text"
-                  id="codigoPostal"
-                  name="codigoPostal"
-                  value={formData.codigoPostal}
-                  onChange={handleInputChange}
-                />
-              </div>
+              )}
             </div>
 
             <div className="form-section">

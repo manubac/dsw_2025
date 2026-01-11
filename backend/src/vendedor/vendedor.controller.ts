@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { orm } from '../shared/db/orm.js';
 import { Vendedor } from './vendedores.entity.js'
-import { VendedorClass } from './vendedorClass.entity.js'
 
 const em= orm.em
 
@@ -16,7 +15,6 @@ function sanitiseVendedorInput(
         password: req.body.password,
         telefono: req.body.telefono,
         ciudad: req.body.ciudad,
-        vendedorClass: req.body.vendedorClass,
         items: req.body.items
     };
     //more checks here
@@ -34,7 +32,7 @@ async function findAll(req: Request, res: Response) {
         const vendedores = await em.find(
             Vendedor, 
             {}, 
-            {populate:['vendedorClass', 'items']}
+            {populate:['items']}
         )
         res
         .status(200)
@@ -49,7 +47,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
     try {
         const id= Number.parseInt(req.params.id)
-        const vendedor = await em.findOne(Vendedor, {id}, {populate:['vendedorClass', 'items']})
+        const vendedor = await em.findOne(Vendedor, {id}, {populate:['items']})
         res.status(200).json({message:'Found one vendedor', data:vendedor})
     } catch (error: any) {
         res.status(500).json({message: error.message})
@@ -60,13 +58,7 @@ async function add(req: Request, res: Response) {
     try{
         console.log('Sanitised input:', req.body.sanitisedInput); // Debug log
         
-        // Handle vendedorClass relationship
-        const vendedorData = { ...req.body.sanitisedInput };
-        if (vendedorData.vendedorClass) {
-            vendedorData.vendedorClass = em.getReference(VendedorClass, Number(vendedorData.vendedorClass));
-        }
-        
-        const vendedor = em.create(Vendedor, vendedorData)
+        const vendedor = em.create(Vendedor, req.body.sanitisedInput)
         await em.flush()
         res
         .status(201)
@@ -105,7 +97,7 @@ async function remove(req: Request, res: Response) {
 async function login(req: Request, res: Response) {
     try {
         const { email, password } = req.body
-        const vendedor = await em.findOne(Vendedor, { email }, { populate: ['vendedorClass'] })
+        const vendedor = await em.findOne(Vendedor, { email }, { populate: ['items'] })
         if (!vendedor) {
             return res.status(401).json({ message: 'Invalid credentials' })
         }

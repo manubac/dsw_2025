@@ -29,6 +29,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "nodemailer": "^7.0.12",
     "puppeteer": "^24.25.0",
     "puppeteer-core": "^24.25.0",
     "reflect-metadata": "0.2.2"
@@ -40,6 +41,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.13",
     "@types/node-fetch": "^2.6.13",
+    "@types/nodemailer": "^7.0.4",
     "@types/puppeteer-core": "^7.0.4",
     "ts-node-dev": "^2.0.0",
     "tsc-watch": "^6.0.0",

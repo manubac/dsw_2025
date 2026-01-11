@@ -19,12 +19,28 @@ export function ContactPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate sending the message
-    setTimeout(() => {
-      alert("¡Mensaje enviado exitosamente! Te responderemos pronto.");
-      setFormData({ name: "", email: "", subject: "", message: "" });
-      setLoading(false);
-    }, 1000);
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        alert("¡Mensaje enviado exitosamente! Te responderemos pronto.");
+        setFormData({ name: "", email: "", subject: "", message: "" });
+      } else {
+        const errorData = await response.json();
+        alert(`Error al enviar el mensaje: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert("Error al enviar el mensaje. Por favor intenta nuevamente más tarde.");
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (

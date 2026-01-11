@@ -4,7 +4,7 @@ import { User } from "./user.entity.js";
 
 const em = orm.em;
 
-// 🧼 Sanitización
+//  Sanitización
 function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizedInput = {
     username: req.body.username,
@@ -22,7 +22,7 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// 📌 Obtener todos los usuarios
+//  Obtener todos los usuarios
 async function findAll(req: Request, res: Response) {
   try {
     const users = await em.find(User, {});
@@ -32,7 +32,7 @@ async function findAll(req: Request, res: Response) {
   }
 }
 
-// 📌 Obtener un usuario por ID
+//  Obtener un usuario por ID
 async function findOne(req: Request, res: Response) {
   try {
     const id = Number.parseInt(req.params.id);
@@ -46,7 +46,7 @@ async function findOne(req: Request, res: Response) {
   }
 }
 
-// ➕ Crear nuevo usuario
+//  Crear nuevo usuario
 async function add(req: Request, res: Response) {
   try {
     const input = req.body.sanitizedInput;
@@ -71,7 +71,7 @@ async function add(req: Request, res: Response) {
   }
 }
 
-// ✍️ Actualizar usuario
+//  Actualizar usuario
 async function update(req: Request, res: Response) {
   try {
     const id = Number.parseInt(req.params.id);
@@ -89,7 +89,7 @@ async function update(req: Request, res: Response) {
   }
 }
 
-// ❌ Eliminar usuario
+//  Eliminar usuario
 async function remove(req: Request, res: Response) {
   try {
     const id = Number.parseInt(req.params.id);
@@ -105,7 +105,7 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-// 🔐 Login
+//  Login
 async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body;

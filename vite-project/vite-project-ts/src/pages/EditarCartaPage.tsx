@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useUser } from "../context/user";
-import "../components/CardForm.css"; // 👈 estilos compartidos
+import "../components/CardForm.css"; // estilos compartidos
 
 interface Carta {
   id?: number;
@@ -88,19 +88,19 @@ export default function EditarCartaPage() {
     try {
       const cartaConImagen = { ...carta, image: nuevaImagen || carta.image };
       // If editing an existing carta, do PUT to update
-      if (carta.id) {
+        if (carta.id) {
         await axios.put(`http://localhost:3000/api/cartas/${carta.id}`, { ...cartaConImagen, userId: user?.id });
-        setMensaje("✅ Carta actualizada con éxito.");
+        setMensaje("Carta actualizada con éxito.");
       } else {
         // include userId so backend links uploader when creating from editor
         await axios.post("http://localhost:3000/api/cartas", { ...cartaConImagen, userId: user?.id });
-        setMensaje("✅ Carta publicada con éxito.");
+        setMensaje("Carta publicada con éxito.");
       }
 
       setTimeout(() => navigate("/cards"), 1500);
     } catch (error) {
       console.error("Error al publicar carta:", error);
-      setMensaje("❌ Error al publicar la carta.");
+      setMensaje("Error al publicar la carta.");
     }
   };
 
@@ -129,7 +129,7 @@ export default function EditarCartaPage() {
 
   return (
     <div className="card-form">
-      {/* 📸 Imagen a la izquierda */}
+  {/* Imagen a la izquierda */}
       <div className="card-form-left">
         <img
           src={nuevaImagen || carta.image}
@@ -147,7 +147,7 @@ export default function EditarCartaPage() {
         </label>
       </div>
 
-      {/* 🧾 Formulario a la derecha */}
+  {/* Formulario a la derecha */}
       <div className="card-form-right">
         <h2 className="text-2xl font-bold mb-2">Editar publicación</h2>
 

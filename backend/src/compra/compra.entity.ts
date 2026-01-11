@@ -2,6 +2,8 @@ import { Entity, Property, ManyToOne, ManyToMany, Collection } from "@mikro-orm/
 import { BaseEntity } from "../shared/db/baseEntity.js";
 import { User } from "../user/user.entity.js";
 import { Carta } from "../carta/carta.entity.js";
+import { Direccion } from "../direccion/direccion.entity.js";
+import { Envio } from "../envio/envio.entity.js";
 
 @Entity()
 export class Compra extends BaseEntity {
@@ -17,7 +19,7 @@ export class Compra extends BaseEntity {
   @Property({ default: "pendiente" })
   estado!: string;
 
-  // 🧾 Datos de checkout (agregados)
+  // Datos de checkout (agregados)
   @Property({ nullable: true })
   nombre?: string;
 
@@ -27,17 +29,11 @@ export class Compra extends BaseEntity {
   @Property({ nullable: true })
   telefono?: string;
 
-  @Property({ nullable: true })
-  direccion?: string;
+  @ManyToOne(() => Direccion, { nullable: true })
+  direccionEntrega?: Direccion;
 
-  @Property({ nullable: true })
-  ciudad?: string;
-
-  @Property({ nullable: true })
-  provincia?: string;
-
-  @Property({ nullable: true })
-  codigoPostal?: string;
+  @ManyToOne(() => Envio, { nullable: true })
+  envio?: Envio;
 
   @Property({ nullable: true })
   metodoPago?: string;
