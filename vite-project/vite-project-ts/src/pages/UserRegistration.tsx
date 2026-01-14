@@ -134,7 +134,7 @@ export function UserRegistration() {
         role: loginResult.data.role || formData.rol,
       };
 
-      login(userData);
+      login(userData, loginResult.token);
       navigate('/profile');
     } catch (error: any) {
       console.error('Error creating user:', error);

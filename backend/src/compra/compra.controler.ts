@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { orm } from "../shared/db/orm.js";
 import { Compra } from "./compra.entity.js";
 import { User } from "../user/user.entity.js";
-import { Carta } from "../carta/carta.entity.js";
+import { ItemCarta } from "../carta/itemCarta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 
 const em = orm.em;
@@ -46,7 +46,7 @@ async function findAll(req: Request, res: Response) {
     // Si se proporciona compradorId, filtrar por ese comprador
     const whereClause = compradorId ? { comprador: { id: Number(compradorId) } } : {};
 
-    const compras = await em.find(Compra, whereClause, { populate: ["comprador", "cartas", "cartas.uploader", "direccionEntrega"] });
+    const compras = await em.find(Compra, whereClause, { populate: ["comprador", "itemCartas", "itemCartas.cartas", "direccionEntrega"] });
     res.status(200).json({ message: "Found all compras", data: compras });
   } catch (error) {
     res.status(500).json({ message: "Error fetching compras", error });
@@ -65,7 +65,7 @@ async function findOne(req: Request, res: Response) {
       whereClause.comprador = { id: Number(compradorId) };
     }
 
-    const compra = await em.findOne(Compra, whereClause, { populate: ["comprador", "cartas", "cartas.uploader", "direccionEntrega"] });
+    const compra = await em.findOne(Compra, whereClause, { populate: ["comprador", "itemCartas", "itemCartas.cartas", "direccionEntrega"] });
 
     if (!compra) return res.status(404).json({ message: "Compra not found or access denied" });
 
@@ -81,18 +81,18 @@ async function add(req: Request, res: Response) {
     const input = req.body.sanitizedInput;
 
     const comprador = await em.findOne(User, { id: input.compradorId });
-    const cartas = await em.find(Carta, { id: { $in: input.cartasIds } });
+    const itemCartas = await em.find(ItemCarta, { id: { $in: input.cartasIds } });
     const direccionEntrega = input.direccionEntregaId ? await em.findOne(Direccion, { id: input.direccionEntregaId }) : undefined;
 
-    if (!comprador || cartas.length === 0) {
+    if (!comprador || itemCartas.length === 0) {
       return res.status(400).json({ message: "Datos inválidos: faltan comprador o cartas" });
     }
 
-    const total = input.total ?? cartas.reduce((sum, c) => sum + Number(c.price || 0), 0);
+    const total = input.total ?? itemCartas.reduce((sum, ic) => sum + Number(ic.cartas[0]?.price || 0), 0);
 
     const compra = em.create(Compra, {
       comprador,
-      cartas,
+      itemCartas,
       total,
       estado: input.estado || "pendiente",
       nombre: input.nombre,
@@ -124,7 +124,7 @@ async function update(req: Request, res: Response) {
       whereClause.comprador = { id: Number(compradorId) };
     }
 
-    const compra = await em.findOne(Compra, whereClause, { populate: ["cartas", "direccionEntrega"] });
+    const compra = await em.findOne(Compra, whereClause, { populate: ["itemCartas", "direccionEntrega"] });
 
     if (!compra) return res.status(404).json({ message: "Compra not found or access denied" });
 
@@ -132,9 +132,9 @@ async function update(req: Request, res: Response) {
 
     if (input.compradorId) compra.comprador = em.getReference(User, input.compradorId);
     if (input.cartasIds?.length) {
-      const cartas = await em.find(Carta, { id: { $in: input.cartasIds } });
-      compra.cartas.removeAll();
-      cartas.forEach((c) => compra.cartas.add(c));
+      const itemCartas = await em.find(ItemCarta, { id: { $in: input.cartasIds } });
+      compra.itemCartas.removeAll();
+      itemCartas.forEach((ic) => compra.itemCartas.add(ic));
     }
 
     // update items JSON if provided

@@ -43,21 +43,33 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todas las cartas
 async function findAll(req: Request, res: Response) {
   try {
-    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items"] });
+    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios", "uploader"] });
     
     // Map carta fields to match frontend expectations (title, thumbnail, etc.)
-    const cartasFormateadas = cartas.map(carta => ({
-      id: carta.id,
-      title: carta.name,
-      thumbnail: carta.image,
-      price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
-      description: carta.rarity || "Carta coleccionable",
-      set: carta.setName || "Unknown Set",
-      rarity: carta.rarity,
-      link: carta.link,
-      cartaClass: carta.cartaClass,
-      items: carta.items
-    }));
+    const cartasFormateadas = cartas.map(carta => {
+        // Recolectar todos los intermediarios de todos los items vinculados a esta carta
+        const intermediarios = carta.items.getItems().flatMap(item => item.intermediarios.getItems());
+        
+        const cartaFormateada: any = {
+            id: carta.id,
+            title: carta.name,
+            thumbnail: carta.image,
+            price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+            description: carta.rarity || "Carta coleccionable",
+            set: carta.setName || "Unknown Set",
+            rarity: carta.rarity,
+            link: carta.link,
+            cartaClass: carta.cartaClass,
+            items: carta.items,
+            intermediarios: intermediarios.map(i => ({ id: i.id, nombre: i.nombre }))
+        };
+        
+        if (carta.uploader) {
+            cartaFormateada.uploader = { id: carta.uploader.id}
+        }
+        
+        return cartaFormateada;
+    });
     
     res.status(200).json({ message: "Found all cartas", data: cartasFormateadas });
   } catch (error: any) {

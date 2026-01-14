@@ -1,7 +1,7 @@
 import { Entity, Property, ManyToOne, ManyToMany, Collection } from "@mikro-orm/core";
 import { BaseEntity } from "../shared/db/baseEntity.js";
 import { User } from "../user/user.entity.js";
-import { Carta } from "../carta/carta.entity.js";
+import { ItemCarta } from "../carta/itemCarta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio } from "../envio/envio.entity.js";
 
@@ -10,8 +10,8 @@ export class Compra extends BaseEntity {
   @ManyToOne(() => User)
   comprador!: User;
 
-  @ManyToMany(() => Carta, undefined, { owner: true })
-  cartas = new Collection<Carta>(this);
+  @ManyToMany(() => ItemCarta, undefined, { owner: true })
+  itemCartas = new Collection<ItemCarta>(this);
 
   @Property({ type: "number" })
   total!: number;

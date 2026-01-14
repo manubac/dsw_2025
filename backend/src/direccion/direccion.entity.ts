@@ -1,4 +1,4 @@
-import { Entity, Property, ManyToOne, Rel } from "@mikro-orm/core";
+import { Entity, Property, ManyToOne, Rel, OneToOne } from "@mikro-orm/core";
 import { BaseEntity } from "../shared/db/baseEntity.js";
 import { User } from "../user/user.entity.js";
 import { Intermediario } from "../intermediario/intermediario.entity.js";
@@ -26,6 +26,6 @@ export class Direccion extends BaseEntity {
     @ManyToOne(() => User, { nullable: true })
     usuario?: Rel<User>;
 
-    @ManyToOne(() => Intermediario, { nullable: true })
+    @OneToOne({ entity: () => Intermediario, mappedBy: 'direccion' })
     intermediario?: Rel<Intermediario>;
 }

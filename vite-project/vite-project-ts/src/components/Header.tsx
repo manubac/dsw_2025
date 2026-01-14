@@ -264,12 +264,28 @@ export function Header() {
               <button onClick={handleProfileClick} className="dropdown-item">
                 Mi Perfil
               </button>
+              {user.role === 'vendedor' && (
+                <button
+                  onClick={() => { setUserMenuOpen(false); navigate('/mis-publicaciones') }}
+                  className="dropdown-item"
+                >
+                  Mis Publicaciones
+                </button>
+              )}
               {user.role === 'usuario' && (
                 <button
                   onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
                   className="dropdown-item"
                 >
                   Mis Compras
+                </button>
+              )}
+              {user.role === 'intermediario' && (
+                <button
+                  onClick={() => { setUserMenuOpen(false); navigate('/intermediario') }}
+                  className="dropdown-item"
+                >
+                  Panel de Intermediario
                 </button>
               )}
               <button

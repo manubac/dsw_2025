@@ -17,16 +17,18 @@ export interface User {
   password: string
   role?: string // 'user' o 'vendedor'
   direcciones?: Direccion[]
+  token?: string
 }
 
 interface UserContextType {
   user: User | null
-  login: (userData: User) => void
+  login: (userData: User, token: string) => void
   logout: () => void
   updateUser: (updated: Partial<User>) => void
   addDireccion: (direccion: Direccion) => void
   removeDireccion: (id: number) => void
   loadDirecciones: () => Promise<void>
+  getAuthHeaders: () => Record<string, string | undefined>
 }
 
 const UserContext = createContext<UserContextType | null>(null)
@@ -37,9 +39,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return stored ? JSON.parse(stored) : null
   })
 
-  const login = (userData: User) => {
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
+  const login = (userData: User, token: string) => {
+    const userWithToken = { ...userData, token }
+    setUser(userWithToken)
+    localStorage.setItem('user', JSON.stringify(userWithToken))
   }
 
   const logout = () => {
@@ -83,8 +86,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const getAuthHeaders = () => {
+    if (user?.token) {
+      return { Authorization: `Bearer ${user.token}` }
+    }
+    return {}
+  }
+
   return (
-    <UserContext.Provider value={{ user, login, logout, updateUser, addDireccion, removeDireccion, loadDirecciones }}>
+    <UserContext.Provider value={{ user, login, logout, updateUser, addDireccion, removeDireccion, loadDirecciones, getAuthHeaders }}>
       {children}
     </UserContext.Provider>
   )

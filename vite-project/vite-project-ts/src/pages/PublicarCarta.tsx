@@ -35,6 +35,16 @@ export default function PublicarCartaPage() {
     }
   };
 
+  const crearCartaManual = () => {
+    if (!user) {
+      setMensaje("Debes iniciar sesión como vendedor para crear una carta.");
+      return;
+    }
+
+    // Navigate to edit page with empty carta
+    navigate("/editar-carta", { state: { carta: { name: "", uploader: { id: user.id } } } });
+  };
+
   const irAEditarCarta = async (carta: Carta) => {
     if (!user) {
       setMensaje("Debes iniciar sesión como vendedor para publicar una carta.");
@@ -89,6 +99,20 @@ export default function PublicarCartaPage() {
         />
         <button onClick={buscarCartas} className="publish-btn">
           Buscar
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          justifyContent: "center",
+          width: "100%",
+          marginTop: "1rem",
+        }}
+      >
+        <button onClick={crearCartaManual} className="publish-btn" style={{ backgroundColor: "#28a745" }}>
+          Crear Carta Manual
         </button>
       </div>
 

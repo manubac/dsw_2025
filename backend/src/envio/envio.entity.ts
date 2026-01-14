@@ -4,10 +4,13 @@ import { Intermediario } from "../intermediario/intermediario.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 
 export enum EstadoEnvio {
+  PLANIFICADO = 'planificado',
+  ACTIVO = 'activo',
   ORDEN_GENERADA = 'orden_generada',
   VENDEDOR_ENVIO = 'vendedor_envio',
   INTERMEDIARIO_RECIBIO = 'intermediario_recibio',
-  RETIRADO = 'retirado'
+  RETIRADO = 'retirado',
+  CANCELADO = 'cancelado'
 }
 
 @Entity()
@@ -26,6 +29,15 @@ export class Envio extends BaseEntity {
 
     @ManyToOne(() => Intermediario, { nullable: false })
     intermediario!: Rel<Intermediario>;
+
+    @ManyToOne(() => Intermediario, { nullable: true })
+    destinoIntermediario?: Rel<Intermediario>;
+
+    @Property({ nullable: true })
+    minimoCompras?: number;
+
+    @Property({ nullable: true })
+    precioPorCompra?: number;
 
     @OneToMany(() => Compra, compra => compra.envio)
     compras!: Rel<Compra>[];

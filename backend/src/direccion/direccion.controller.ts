@@ -99,9 +99,22 @@ async function add(req: Request, res: Response) {
     }
 
     if (input.intermediarioId) {
-      intermediario = await em.findOne(Intermediario, { id: input.intermediarioId });
+      intermediario = await em.findOne(Intermediario, { id: input.intermediarioId }, { populate: ['direccion'] });
       if (!intermediario) {
         return res.status(400).json({ message: "Intermediario no encontrado" });
+      }
+      // Si el intermediario ya tiene una dirección, actualízala en lugar de crear una nueva
+      if (intermediario.direccion) {
+        em.assign(intermediario.direccion, {
+          provincia: input.provincia,
+          ciudad: input.ciudad,
+          codigoPostal: input.codigoPostal,
+          calle: input.calle,
+          altura: input.altura,
+          departamento: input.departamento,
+        });
+        await em.flush();
+        return res.status(200).json({ message: "Dirección actualizada para intermediario", data: intermediario.direccion });
       }
     }
 

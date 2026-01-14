@@ -13,7 +13,17 @@ export function CardsPage() {
       try {
         const res = await fetch("http://localhost:3000/api/cartas");
         const json = await res.json();
-        setProducts(json.data); // tu backend devuelve { message, data }
+        // Transform cartas data to match the expected format
+        const transformedData = json.data.map((carta: any) => ({
+          id: carta.id,
+          title: carta.title,
+          thumbnail: carta.thumbnail,
+          price: typeof carta.price === 'string' ? parseFloat(carta.price.replace('$', '')) : carta.price,
+          description: carta.description,
+          intermediarios: carta.intermediarios, // Pass intermediarios to the product
+          uploader: carta.uploader,
+        }));
+        setProducts(transformedData);
       } catch (err) {
         console.error("Error al traer cartas:", err);
       }

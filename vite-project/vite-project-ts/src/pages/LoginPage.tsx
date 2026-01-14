@@ -83,7 +83,7 @@ export function LoginPage() {
       };
 
       // Guardar usuario en el contexto global
-      login(userData);
+      login(userData, result.token);
 
       setSuccess("¡Inicio de sesión exitoso! Redirigiendo...");
       console.log("Usuario logueado:", userData);

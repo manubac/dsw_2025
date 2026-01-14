@@ -17,6 +17,7 @@ import { contactRouter } from "./contact/contact.routes.js";
 import { direccionRouter } from "./direccion/direccion.routes.js";
 import { intermediarioRouter } from "./intermediario/intermediario.routes.js";
 import envioRouter from "./envio/envio.router.js";
+import valoracionRouter from "./valoracion/valoracion.routes.js";
 
 
 const app = express();
@@ -49,6 +50,7 @@ app.use("/api/contact", contactRouter);
 app.use("/api/direcciones", direccionRouter);
 app.use("/api/intermediarios", intermediarioRouter);
 app.use("/api/envios", envioRouter);
+app.use("/api/valoraciones", valoracionRouter);
 
 //  404 fallback
 app.use((req, res) => {
@@ -60,7 +62,7 @@ app.use((req, res) => {
 if (process.env.NODE_ENV !== "production") {
   (async () => {
     try {
-      // await syncSchema();
+      await syncSchema();
       console.log("Esquema de la base actualizado (dev).");
     } catch (err) {
       console.error("Error al sincronizar esquema:", err);

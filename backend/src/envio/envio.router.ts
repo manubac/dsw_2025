@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sanitizeEnvioInput, findAll, findOne, add, update, remove, addCompra, removeCompra } from "./envio.controller.js";
+import { sanitizeEnvioInput, findAll, findOne, add, update, remove, addCompra, removeCompra, planEnvio, activateEnvio } from "./envio.controller.js";
 
 const envioRouter = Router();
 
@@ -17,6 +17,12 @@ envioRouter.put("/:id", sanitizeEnvioInput, update);
 
 // DELETE /api/envios/:id - Eliminar envio
 envioRouter.delete("/:id", remove);
+
+// POST /api/envios/plan - Planificar envio
+envioRouter.post("/plan", planEnvio);
+
+// POST /api/envios/:id/activate - Activar envio planificado
+envioRouter.post("/:id/activate", activateEnvio);
 
 // POST /api/envios/:id/compras - Agregar compra a envio
 envioRouter.post("/:id/compras", addCompra);

@@ -1,6 +1,7 @@
-import { Entity, PrimaryKey, Property, OneToMany, Collection, Cascade } from "@mikro-orm/core";
+import { Entity, PrimaryKey, Property, OneToMany, Collection, Cascade, ManyToMany, OneToOne, Rel } from "@mikro-orm/core";
 import { BaseEntity } from "../shared/db/baseEntity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
+import { ItemCarta } from "../carta/itemCarta.entity.js";
 
 @Entity()
 export class Intermediario extends BaseEntity {
@@ -22,7 +23,10 @@ export class Intermediario extends BaseEntity {
     @Property({ default: true })
     activo!: boolean;
 
-    // Direcciones de recogida/entrega
-    @OneToMany(() => Direccion, (direccion) => direccion.intermediario, { cascade: [Cascade.PERSIST, Cascade.REMOVE] })
-    direcciones = new Collection<Direccion>(this);
+    // Dirección única de recogida/entrega
+    @OneToOne(() => Direccion, { nullable: true, cascade: [Cascade.PERSIST, Cascade.REMOVE] })
+    direccion?: Rel<Direccion>;
+
+    @ManyToMany({ entity: () => ItemCarta, mappedBy: 'intermediarios' })
+    itemCartas = new Collection<ItemCarta>(this);
 }

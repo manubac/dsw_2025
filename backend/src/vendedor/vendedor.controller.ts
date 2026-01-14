@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { orm } from '../shared/db/orm.js';
 import { Vendedor } from './vendedores.entity.js'
+import jwt from 'jsonwebtoken';
 
 const em= orm.em
 
@@ -112,7 +113,9 @@ async function login(req: Request, res: Response) {
             role: 'vendedor'
         }
         
-        res.status(200).json({ message: 'Login successful', data: vendedorWithRole })
+        const token = jwt.sign({ userId: vendedor.id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+        
+        res.status(200).json({ message: 'Login successful', data: vendedorWithRole, token })
     } catch (error: any) {
         res.status(500).json({ message: 'Error logging in', error: error.message })
     }

@@ -13,7 +13,10 @@ import Purchases from "./pages/Purchases";
 import { CardDetail } from "./pages/CardDetail";
 import PublicarCartaPage from "./pages/PublicarCarta";
 import { ContactPage } from "./pages/ContactPage";
-import EditarCartaPage from "./pages/EditarCartaPage"; // import nuevo
+import EditarCartaPage from "./pages/EditarCartaPage";
+import EditarItemPage from "./pages/EditarItemPage";
+import IntermediarioDashboard from "./pages/IntermediarioDashboard";
+import MisPublicacionesPage from "./pages/MisPublicacionesPage";
 
 /**
  * RUTA PROTEGIDA:
@@ -25,6 +28,42 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+/**
+ * RUTA PROTEGIDA PARA VENDEDORES:
+ * Solo permite acceso a usuarios con rol 'vendedor'.
+ */
+function VendedorRoute({ children }: { children: JSX.Element }) {
+  const { user } = useUser();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'vendedor') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+/**
+ * RUTA PROTEGIDA PARA INTERMEDIARIOS:
+ * Solo permite acceso a usuarios con rol 'intermediario'.
+ */
+function IntermediarioRoute({ children }: { children: JSX.Element }) {
+  const { user } = useUser();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'intermediario') {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -99,8 +138,38 @@ function App() {
                   }
                 />
 
+                {/* Página para editar item existente */}
+                <Route
+                  path="editar-item"
+                  element={
+                    <ProtectedRoute>
+                      <EditarItemPage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* Contacto */}
                 <Route path="contact" element={<ContactPage />} />
+
+                {/* Panel de intermediario */}
+                <Route
+                  path="intermediario"
+                  element={
+                    <IntermediarioRoute>
+                      <IntermediarioDashboard />
+                    </IntermediarioRoute>
+                  }
+                />
+
+                {/* Mis publicaciones para vendedores */}
+                <Route
+                  path="mis-publicaciones"
+                  element={
+                    <VendedorRoute>
+                      <MisPublicacionesPage />
+                    </VendedorRoute>
+                  }
+                />
 
                 {/* Ruta fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

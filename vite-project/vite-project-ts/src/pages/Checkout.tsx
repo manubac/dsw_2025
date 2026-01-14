@@ -28,20 +28,81 @@ export function Checkout() {
   })
 
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [availableEnvios, setAvailableEnvios] = useState<any[]>([])
+  const [selectedEnvioId, setSelectedEnvioId] = useState<string | null>(null)
+  
+  // Nuevo estado para la selección de destino
+  const [availableCities, setAvailableCities] = useState<string[]>([])
+  const [selectedCity, setSelectedCity] = useState<string>("")
+  const [intermediariosDestino, setIntermediariosDestino] = useState<any[]>([])
+  const [selectedDestinoId, setSelectedDestinoId] = useState<number | null>(null)
 
   // Cargar direcciones al montar
   useEffect(() => {
     if (user?.id) {
       loadDirecciones()
     }
-  }, [user?.id, loadDirecciones])
+  }, [user?.id])
 
   // Si el usuario tiene direcciones, seleccionar la primera por defecto
   useEffect(() => {
     if (user?.direcciones && user.direcciones.length > 0 && !selectedDireccionId) {
       setSelectedDireccionId(user.direcciones[0].id)
     }
-  }, [user?.direcciones, selectedDireccionId])
+  }, [user?.direcciones])
+
+  // Obtener envíos disponibles y destinos
+  useEffect(() => {
+    // 1. Obtener TODOS los intermediarios para poblar las ciudades de destino
+    const fetchDestinations = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/intermediarios');
+        const json = await res.json();
+        const data = json.data || [];
+        setIntermediariosDestino(data);
+        
+        // Extraer ciudades únicas
+        const cities = Array.from(new Set(data
+            .map((i: any) => i?.direccion?.ciudad?.trim())
+            .filter((c: string) => c)
+        )) as string[];
+        setAvailableCities(cities.sort());
+      } catch (error) {
+        console.error('Error fetching destinations:', error);
+      }
+    };
+    fetchDestinations();
+
+    // 2. Obtener envíos de origen basados en los items del carrito
+    const fetchEnvios = async () => {
+      if (cart.length === 0) {
+        setAvailableEnvios([]);
+        return;
+      }
+
+      const intermediariosIds = cart.flatMap(item => item.intermediarios?.map((i: any) => i.id) || []);
+      const uniqueIntermediarios = [...new Set(intermediariosIds)];
+      
+      console.log('Fetching envios for intermediarios:', uniqueIntermediarios);
+
+      if (uniqueIntermediarios.length === 0) {
+         // Fallback a envío directo si no hay intermediarios
+         setAvailableEnvios([]);
+         return;
+      }
+
+      try {
+        const res = await fetch(`http://localhost:3000/api/envios?intermediarios=${uniqueIntermediarios.join(',')}`);
+        const json = await res.json();
+        console.log('Envios loaded:', json.data?.length);
+        setAvailableEnvios(json.data || []);
+      } catch (error) {
+         console.error('Error fetching envios:', error);
+      }
+    };
+
+    fetchEnvios();
+  }, [cart])
 
   const handleNewDireccionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -88,8 +149,22 @@ export function Checkout() {
   }
 
   const subtotal = cart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0)
-  const envio = subtotal > 100 ? 0 : 10
-  const total = subtotal + envio
+  
+  // Lógica para determinar el costo. Si es 'direct', son $10 (fallback).
+  // Si se selecciona un envío, usamos su precio.
+  
+  let envioCost = 0;
+  let selectedEnvio: any = null;
+
+  if (selectedEnvioId === 'direct') {
+      envioCost = 10;
+      selectedEnvio = { id: 'direct', name: 'Envío directo', precioPorCompra: 10 };
+  } else {
+      selectedEnvio = availableEnvios.find(e => String(e.id) === selectedEnvioId);
+      envioCost = selectedEnvio?.precioPorCompra || 0;
+  }
+  
+  const total = subtotal + envioCost
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,7 +179,7 @@ export function Checkout() {
 
         if (existing) {
           compradorId = existing.id
-          login({ id: existing.id, name: existing.username || existing.name || '', email: existing.email, password: existing.password || '', role: existing.role })
+          login({ id: existing.id, name: existing.username || existing.name || '', email: existing.email, password: existing.password || '', role: existing.role }, '')
         } else {
           
           const username = formData.nombre.split(' ')[0] || formData.email.split('@')[0]
@@ -123,11 +198,11 @@ export function Checkout() {
           const created = await createRes.json()
           compradorId = created.data.id
           const u = created.data
-          login({ id: u.id, name: u.username || u.name || '', email: u.email, password: u.password || '', role: u.role })
+          login({ id: u.id, name: u.username || u.name || '', email: u.email, password: u.password || '', role: u.role }, '')
         }
       }
 
-      // 2) Prepare compra payload
+      // 2) Preparar payload de la compra
       const items = cart.map((item: any) => ({ cartaId: item.id, quantity: item.quantity, price: item.price, title: item.title }))
       const cartasIds = Array.from(new Set(cart.map((i: any) => i.id)))
 
@@ -244,35 +319,104 @@ export function Checkout() {
             </div>
 
             <div className="form-section">
-              <h3>Dirección de Envío</h3>
+              <h3>Método de Entrega / Retiro</h3>
               
-              {user?.direcciones && user.direcciones.length > 0 ? (
-                <div className="direccion-selector">
-                  <label>Seleccionar Dirección:</label>
+              <div className="form-group">
+                  <label>Ciudad de retiro (Seleccioná donde querés recibir):</label>
                   <select
-                    value={selectedDireccionId || ''}
-                    onChange={(e) => setSelectedDireccionId(Number(e.target.value))}
+                    value={selectedCity}
+                    onChange={(e) => {
+                        setSelectedCity(e.target.value);
+                        setSelectedEnvioId(null); // Resetear selección
+                    }}
                     required
+                    style={{ width: '100%', padding: '0.5rem' }}
                   >
-                    {user.direcciones.map((direccion) => (
-                      <option key={direccion.id} value={direccion.id}>
-                        {direccion.calle} {direccion.altura}{direccion.departamento && `, ${direccion.departamento}`} - {direccion.ciudad}, {direccion.provincia}
-                      </option>
+                    <option value="">Selecciona una ciudad...</option>
+                    {availableCities.map(city => (
+                        <option key={city} value={city}>{city}</option>
                     ))}
                   </select>
-                </div>
-              ) : (
-                <p>No tienes direcciones registradas.</p>
+              </div>
+
+              {selectedCity && (
+                  <div className="shipping-options">
+                    <h4>Envios Disponibles a {selectedCity}:</h4>
+                    {availableEnvios.filter(e => e.destinoIntermediario?.direccion?.ciudad?.trim() === selectedCity.trim()).length > 0 ? (
+                        availableEnvios
+                        .filter(e => e.destinoIntermediario?.direccion?.ciudad?.trim() === selectedCity.trim())
+                        .map((envio) => (
+                        <div key={envio.id} className="shipping-option">
+                            <input
+                            type="radio"
+                            id={`envio-${envio.id}`}
+                            name="envio"
+                            value={envio.id}
+                            checked={selectedEnvioId === String(envio.id)}
+                            onChange={(e) => setSelectedEnvioId(e.target.value)}
+                            required
+                            />
+                            <label htmlFor={`envio-${envio.id}`}>
+                                <span>Desde <strong>{envio.intermediario?.nombre}</strong> (Origen)</span>
+                                <span>Llega el {new Date(envio.fechaEntrega).toLocaleDateString()}</span>
+                                <span className="price">${envio.precioPorCompra}</span>
+                            </label>
+                        </div>
+                        ))
+                    ) : (
+                        <p>No hay envíos disponibles desde el origen hasta {selectedCity}.</p>
+                    )}
+                    
+                    <div className="shipping-option">
+                         <input
+                            type="radio"
+                            id="envio-direct"
+                            name="envio"
+                            value="direct"
+                            checked={selectedEnvioId === 'direct'}
+                            onChange={(e) => setSelectedEnvioId(e.target.value)}
+                         />
+                         <label htmlFor="envio-direct">
+                            <span>Envío Directo (Correo)</span>
+                            <span className="price">$10</span>
+                         </label>
+                    </div>
+                  </div>
               )}
+            </div>
+
+            <div className="form-section">
+              <h3>Dirección de Facturación</h3>
 
               {!showNewDireccionForm ? (
-                <button 
+                <div>
+                  {user?.direcciones && user.direcciones.length > 0 ? (
+                    <div className="direccion-selector">
+                      <label>Seleccionar Dirección:</label>
+                      <select
+                        value={selectedDireccionId || ''}
+                        onChange={(e) => setSelectedDireccionId(Number(e.target.value))}
+                        required
+                      >
+                        {user.direcciones.map((direccion) => (
+                          <option key={direccion.id} value={direccion.id}>
+                            {direccion.calle} {direccion.altura}{direccion.departamento && `, ${direccion.departamento}`} - {direccion.ciudad}, {direccion.provincia}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <p>No tienes direcciones registradas.</p>
+                  )}
+                  
+                  <button 
                   type="button"
                   className="add-direccion-btn"
                   onClick={() => setShowNewDireccionForm(true)}
                 >
-                  {user?.direcciones && user.direcciones.length > 0 ? 'Agregar Nueva Dirección' : 'Crear Dirección de Envío'}
+                  {user?.direcciones && user.direcciones.length > 0 ? 'Agregar Nueva Dirección' : 'Crear Dirección de Facturación'}
                 </button>
+                </div>
               ) : (
                 <div className="new-direccion-form">
                   <h4>Nueva Dirección</h4>
@@ -304,18 +448,16 @@ export function Checkout() {
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label htmlFor="codigoPostal">Código Postal</label>
+                      <label htmlFor="codigoPostal">Código Postal *</label>
                       <input
                         type="text"
                         id="codigoPostal"
                         name="codigoPostal"
                         value={newDireccion.codigoPostal}
                         onChange={handleNewDireccionChange}
+                        required
                       />
                     </div>
-                  </div>
-
-                  <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="calle">Calle *</label>
                       <input
@@ -327,6 +469,9 @@ export function Checkout() {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="altura">Altura *</label>
                       <input
@@ -338,9 +483,6 @@ export function Checkout() {
                         required
                       />
                     </div>
-                  </div>
-
-                  <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="departamento">Departamento (opcional)</label>
                       <input
@@ -352,37 +494,17 @@ export function Checkout() {
                       />
                     </div>
                   </div>
-
+                  
                   <div className="direccion-actions">
-                    <button 
-                      type="button"
-                      className="save-direccion-btn"
-                      onClick={handleSaveNewDireccion}
-                    >
-                      Guardar Dirección
-                    </button>
-                    <button 
-                      type="button"
-                      className="cancel-direccion-btn"
-                      onClick={() => {
-                        setShowNewDireccionForm(false)
-                        setNewDireccion({
-                          provincia: '',
-                          ciudad: '',
-                          codigoPostal: '',
-                          calle: '',
-                          altura: '',
-                          departamento: '',
-                        })
-                      }}
-                    >
-                      Cancelar
-                    </button>
+                    <button type="button" onClick={handleSaveNewDireccion} className="save-direccion-btn">Guardar Dirección</button>
+                    <button type="button" onClick={() => setShowNewDireccionForm(false)} className="cancel-direccion-btn">Cancelar</button>
                   </div>
                 </div>
               )}
             </div>
 
+            {/* Old Option de Envio removed as it's now handled in Delivery Method */}
+            
             <div className="form-section">
               <h3>Método de Pago</h3>
               <div className="form-group">
@@ -428,7 +550,7 @@ export function Checkout() {
             </div>
             <div className="total-row">
               <span>Envío:</span>
-              <span>{envio === 0 ? 'Gratis' : `$${envio.toFixed(2)}`}</span>
+              <span>{selectedEnvio ? `${selectedEnvio.name} - $${envioCost.toFixed(2)}` : 'Selecciona envío'}</span>
             </div>
             <div className="total-row total">
               <span>Total:</span>
@@ -438,7 +560,7 @@ export function Checkout() {
 
           <div className="shipping-info">
             <p>🚚 Envío gratuito en pedidos mayores a $100</p>
-            <p>📦 Tiempo de entrega: 3-5 días hábiles</p>
+            <p>📦 Tiempo de entrega: {selectedEnvio?.id === 'direct' ? '5-7 días hábiles' : '3-5 días hábiles'}</p>
           </div>
         </div>
       </div>

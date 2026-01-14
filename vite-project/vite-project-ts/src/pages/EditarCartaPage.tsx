@@ -15,6 +15,26 @@ interface Carta {
   uploader?: { id: number };
 }
 
+interface Direccion {
+  id: number;
+  provincia: string;
+  ciudad: string;
+  codigoPostal: string;
+  calle: string;
+  altura: string;
+  departamento?: string;
+}
+
+interface Intermediario {
+  id: number;
+  nombre: string;
+  email: string;
+  telefono: string;
+  descripcion?: string;
+  activo: boolean;
+  direccion?: Direccion;
+}
+
 export default function EditarCartaPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -24,11 +44,36 @@ export default function EditarCartaPage() {
   const [carta, setCarta] = useState<Carta>(cartaInicial || { name: "" });
   const [mensaje, setMensaje] = useState("");
   const [nuevaImagen, setNuevaImagen] = useState<string | null>(null);
-  if (!cartaInicial) {
-    return (
-      <p className="p-6 text-center">No hay carta seleccionada para editar.</p>
-    );
-  }
+  const [description, setDescription] = useState("");
+  const [intermediarios, setIntermediarios] = useState<Intermediario[]>([]);
+  const [selectedIntermediarios, setSelectedIntermediarios] = useState<number[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [itemCartaId, setItemCartaId] = useState<number | null>(null);
+  
+  // Allow manual creation even with minimal cartaInicial
+
+  // Fetch intermediarios
+  useEffect(() => {
+    const fetchIntermediarios = async () => {
+      try {
+        const res = await axios.get('http://localhost:3000/api/intermediarios');
+        const data = res.data.data || [];
+        setIntermediarios(data);
+        
+        // Extract unique cities
+        const uniqueCities = Array.from(new Set(data
+            .map((i: Intermediario) => i.direccion?.ciudad)
+            .filter((c: string | undefined) => c)
+        )) as string[];
+        setCities(uniqueCities.sort());
+        
+      } catch (error) {
+        console.error('Error fetching intermediarios:', error);
+      }
+    };
+    fetchIntermediarios();
+  }, []);
 
   // Fetch latest carta data from backend (by id) so editor shows current DB values
   useEffect(() => {
@@ -52,7 +97,30 @@ export default function EditarCartaPage() {
           uploader: data.uploader ? { id: data.uploader.id } : undefined,
         };
 
-        if (mounted) setCarta(mapped);
+        if (mounted) {
+          setCarta(mapped);
+          
+          // Check if there is an existing ItemCarta for this card
+          if (data.items && data.items.length > 0) {
+            // Use the first associated item (assuming 1:1 for this use case or picking the first valid one)
+            const existingItem = data.items[0];
+            setItemCartaId(existingItem.id);
+            setDescription(existingItem.description || "");
+            
+            // To get intermediarios, we need to fetch the specific item details because 
+            // the carta endpoint might not deeply populate them
+            try {
+              const itemRes = await axios.get(`http://localhost:3000/api/itemsCarta/${existingItem.id}`);
+              const itemData = itemRes.data?.data;
+              if (itemData && itemData.intermediarios) {
+                 const ids = itemData.intermediarios.map((i: Intermediario) => i.id);
+                 setSelectedIntermediarios(ids);
+              }
+            } catch (e) {
+              console.error("Error fetching ItemCarta details", e);
+            }
+          }
+        }
       } catch (err) {
         console.error('Error fetching carta for edit', err);
         setMensaje('Error al cargar la carta.');
@@ -86,21 +154,53 @@ export default function EditarCartaPage() {
 
   const publicarCarta = async () => {
     try {
-      const cartaConImagen = { ...carta, image: nuevaImagen || carta.image };
-      // If editing an existing carta, do PUT to update
-        if (carta.id) {
-        await axios.put(`http://localhost:3000/api/cartas/${carta.id}`, { ...cartaConImagen, userId: user?.id });
-        setMensaje("Carta actualizada con éxito.");
-      } else {
-        // include userId so backend links uploader when creating from editor
-        await axios.post("http://localhost:3000/api/cartas", { ...cartaConImagen, userId: user?.id });
-        setMensaje("Carta publicada con éxito.");
+      let cartaId = carta.id;
+
+      // If no carta.id (manual creation), create the carta first
+      if (!cartaId) {
+        const cartaResponse = await axios.post("http://localhost:3000/api/cartas", {
+          name: carta.name,
+          price: carta.price,
+          image: nuevaImagen || carta.image,
+          link: carta.link,
+          rarity: carta.rarity,
+          setName: carta.setName,
+          userId: user?.id,
+        });
+        cartaId = cartaResponse.data?.data?.id;
+        if (!cartaId) {
+          setMensaje("Error al crear la carta.");
+          return;
+        }
       }
 
+      // Create or Update ItemCarta
+      if (itemCartaId) {
+        // Update existing ItemCarta
+        await axios.put(`http://localhost:3000/api/itemsCarta/${itemCartaId}`, {
+          name: carta.name,
+          description,
+          cartasIds: cartaId ? [cartaId] : [],
+          intermediariosIds: selectedIntermediarios,
+          userId: user?.id, // required for permission check
+        });
+        setMensaje("Item actualizado con éxito.");
+      } else {
+        // Create new ItemCarta
+        await axios.post("http://localhost:3000/api/itemsCarta", {
+            name: carta.name,
+            description,
+            cartasIds: cartaId ? [cartaId] : [],
+            intermediariosIds: selectedIntermediarios,
+            uploaderId: user?.id,
+        });
+        setMensaje("Item publicado con éxito.");
+      }
+      
       setTimeout(() => navigate("/cards"), 1500);
     } catch (error) {
-      console.error("Error al publicar carta:", error);
-      setMensaje("Error al publicar la carta.");
+      console.error("Error al publicar item:", error);
+      setMensaje("Error al publicar el item.");
     }
   };
 
@@ -149,14 +249,14 @@ export default function EditarCartaPage() {
 
   {/* Formulario a la derecha */}
       <div className="card-form-right">
-        <h2 className="text-2xl font-bold mb-2">Editar publicación</h2>
+        <h2 className="text-2xl font-bold mb-2">Configurar Publicación</h2>
 
         <div>
           <label>Nombre:</label>
           <input
             type="text"
             name="name"
-            value={carta.name}
+            value={carta.name || ""}
             onChange={handleChange}
           />
         </div>
@@ -191,13 +291,98 @@ export default function EditarCartaPage() {
           />
         </div>
 
+        <div>
+          <label>Descripción:</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            placeholder="Describe tu item..."
+          />
+        </div>
+
+        <div>
+          <label>Intermediarios permitidos:</label>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <select 
+              value={selectedCity} 
+              onChange={(e) => setSelectedCity(e.target.value)}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+            >
+              <option value="">-- Seleccionar Ciudad --</option>
+              {cities.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+              <option value="all">Ver todos</option>
+            </select>
+          </div>
+
+          <div 
+            style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+              gap: '10px',
+              maxHeight: '400px', 
+              overflowY: 'auto',
+              border: '1px solid #e0e0e0',
+              padding: '10px',
+              borderRadius: '8px',
+              backgroundColor: '#f9f9f9'
+            }}
+          >
+            {intermediarios
+              .filter(inter => !selectedCity || selectedCity === "all" || inter.direccion?.ciudad === selectedCity)
+              .map((inter) => {
+                const isSelected = selectedIntermediarios.includes(inter.id);
+                return (
+                  <div 
+                    key={inter.id}
+                    onClick={() => {
+                        if (isSelected) {
+                          setSelectedIntermediarios(selectedIntermediarios.filter(id => id !== inter.id));
+                        } else {
+                          setSelectedIntermediarios([...selectedIntermediarios, inter.id]);
+                        }
+                    }}
+                    style={{
+                      border: isSelected ? '2px solid #28a745' : '1px solid #ddd',
+                      borderRadius: '6px',
+                      padding: '10px',
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#e6ffe6' : 'white',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{inter.nombre}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '4px' }}>
+                        {inter.direccion?.ciudad}, {inter.direccion?.provincia}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                        {inter.direccion?.calle} {inter.direccion?.altura}
+                    </div>
+                  </div>
+                );
+              })}
+            
+            {intermediarios.filter(inter => !selectedCity || selectedCity === "all" || inter.direccion?.ciudad === selectedCity).length === 0 && (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '1rem', color: '#666' }}>
+                    {selectedCity ? 'No hay intermediarios en esta ciudad.' : 'Selecciona una ciudad para ver intermediarios.'}
+                </div>
+            )}
+          </div>
+        </div>
+
         <div className="card-form-actions">
           <button onClick={publicarCarta} className="save-btn">
             Confirmar publicación
           </button>
-          <button onClick={handleDelete} className="delete-btn" style={{ marginLeft: '0.5rem', background: '#e53e3e' }}>
-            Eliminar carta
-          </button>
+          {carta.id && (
+            <button onClick={handleDelete} className="delete-btn" style={{ marginLeft: '0.5rem', background: '#e53e3e' }}>
+              Eliminar carta
+            </button>
+          )}
         </div>
 
         {mensaje && (

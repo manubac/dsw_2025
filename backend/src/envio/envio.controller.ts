@@ -10,18 +10,24 @@ const em = orm.em;
 function sanitizeEnvioInput(req: Request, res: Response, next: NextFunction) {
   const {
     intermediarioId,
+    destinoIntermediarioId,
     estado,
     fechaEnvio,
     fechaEntrega,
     notas,
+    minimoCompras,
+    precioPorCompra,
   } = req.body;
 
   req.body.sanitizedInput = {
     intermediarioId,
+    destinoIntermediarioId,
     estado,
     fechaEnvio,
     fechaEntrega,
     notas,
+    minimoCompras,
+    precioPorCompra,
   };
 
   next();
@@ -30,15 +36,19 @@ function sanitizeEnvioInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todos los envios
 async function findAll(req: Request, res: Response) {
   try {
-    const { intermediarioId } = req.query;
+    const { intermediarioId, intermediarios } = req.query;
 
     let whereClause: any = {};
     if (intermediarioId) {
       whereClause.intermediario = { id: Number(intermediarioId) };
     }
+    if (intermediarios) {
+      const ids = (intermediarios as string).split(',').map(id => Number(id));
+      whereClause.intermediario = { id: { $in: ids } };
+    }
 
     const envios = await em.find(Envio, whereClause, {
-      populate: ["intermediario", "compras", "compras.comprador", "compras.cartas"]
+      populate: ["intermediario", "destinoIntermediario", "destinoIntermediario.direccion", "compras", "compras.comprador", "compras.itemCartas"]
     });
 
     res.status(200).json({ message: "Found all envios", data: envios });
@@ -54,7 +64,7 @@ async function findOne(req: Request, res: Response) {
     const { intermediarioId } = req.query;
 
     const envio = await em.findOne(Envio, { id }, {
-      populate: ["intermediario", "compras", "compras.comprador", "compras.cartas"]
+      populate: ["intermediario", "compras", "compras.comprador", "compras.itemCartas"]
     });
 
     if (!envio) return res.status(404).json({ message: "Envio not found" });
@@ -81,13 +91,24 @@ async function add(req: Request, res: Response) {
       return res.status(400).json({ message: "Intermediario no encontrado" });
     }
 
+    let destinoIntermediario;
+    if (input.destinoIntermediarioId) {
+      destinoIntermediario = await em.findOne(Intermediario, { id: input.destinoIntermediarioId });
+      if (!destinoIntermediario) {
+        return res.status(400).json({ message: "Destino intermediario no encontrado" });
+      }
+    }
+
     const envio = em.create(Envio, {
       intermediario,
+      destinoIntermediario,
       estado: input.estado || EstadoEnvio.ORDEN_GENERADA,
       fechaEnvio: input.fechaEnvio ? new Date(input.fechaEnvio) : undefined,
       fechaEntrega: input.fechaEntrega ? new Date(input.fechaEntrega) : undefined,
       notas: input.notas,
-      compras: [], // Initialize empty array
+      minimoCompras: input.minimoCompras,
+      precioPorCompra: input.precioPorCompra,
+      compras: [], // Inicializar colección vacía
     });
 
     await em.flush();
@@ -201,4 +222,61 @@ async function removeCompra(req: Request, res: Response) {
   }
 }
 
-export { sanitizeEnvioInput, findAll, findOne, add, update, remove, addCompra, removeCompra };
+// Planificar un envio
+async function planEnvio(req: Request, res: Response) {
+  try {
+    const { intermediarioId, destinoIntermediarioId, minimoCompras, precioPorCompra, fechaEnvio } = req.body;
+
+    const intermediario = await em.findOne(Intermediario, { id: intermediarioId });
+    if (!intermediario) {
+      return res.status(400).json({ message: "Intermediario no encontrado" });
+    }
+
+    const destinoIntermediario = await em.findOne(Intermediario, { id: destinoIntermediarioId });
+    if (!destinoIntermediario) {
+      return res.status(400).json({ message: "Destino intermediario no encontrado" });
+    }
+
+    const envio = em.create(Envio, {
+      intermediario,
+      destinoIntermediario,
+      estado: EstadoEnvio.PLANIFICADO,
+      minimoCompras,
+      precioPorCompra,
+      fechaEnvio: fechaEnvio ? new Date(fechaEnvio) : undefined,
+      compras: [],
+    });
+
+    await em.flush();
+    res.status(201).json({ message: "Envio planificado con éxito", data: envio });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+// Activar un envio planificado
+async function activateEnvio(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const envio = await em.findOne(Envio, { id }, { populate: ['compras'] });
+
+    if (!envio) return res.status(404).json({ message: "Envio not found" });
+
+    if (envio.estado !== EstadoEnvio.PLANIFICADO) {
+      return res.status(400).json({ message: "El envio no está planificado" });
+    }
+
+    if (!envio.minimoCompras || envio.compras.length < envio.minimoCompras) {
+      return res.status(400).json({ message: "No hay suficientes compras para activar el envio" });
+    }
+
+    envio.estado = EstadoEnvio.ACTIVO;
+    await em.flush();
+
+    res.status(200).json({ message: "Envio activado con éxito", data: envio });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export { sanitizeEnvioInput, findAll, findOne, add, update, remove, addCompra, removeCompra, planEnvio, activateEnvio };
