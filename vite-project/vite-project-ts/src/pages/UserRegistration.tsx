@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import './UserRegistration.css';
+import { fetchApi } from "../services/api";
 
 export function UserRegistration() {
   const navigate = useNavigate();
@@ -88,7 +89,7 @@ export function UserRegistration() {
   // ================================
       console.log('Sending registration to:', endpoint, requestData);
 
-      const response = await fetch(endpoint, {
+      const response = await fetchApi(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData),
@@ -110,7 +111,7 @@ export function UserRegistration() {
         formData.rol === 'intermediario' ? '/api/intermediarios/login' :
         '/api/users/login';
 
-      const loginResponse = await fetch(loginEndpoint, {
+      const loginResponse = await fetchApi(loginEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

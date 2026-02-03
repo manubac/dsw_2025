@@ -144,7 +144,7 @@ export function Header() {
         endpoint = `/api/users/${user.id}`;
       }
 
-      const response = await fetch(endpoint, {
+      const response = await fetchApi(endpoint, {
         method: "DELETE",
       });
 

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
-import axios from "axios";
+// import axios from "axios";
 import "../components/Products.css";
+import { fetchApi } from "../services/api";
 
 interface ItemCarta {
   id: number;
@@ -31,8 +32,9 @@ export default function MisPublicacionesPage() {
 
   const fetchMisPublicaciones = async () => {
     try {
-      const res = await axios.get('http://localhost:3000/api/cartas');
-      const allPublicaciones = res.data.data || [];
+      const res = await fetchApi('/api/cartas');
+      const json = await res.json();
+      const allPublicaciones = json.data || [];
       
       // Filter to show only publications by the current user
       const misPublicaciones = allPublicaciones.filter((pub: ItemCarta) =>

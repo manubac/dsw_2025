@@ -1,9 +1,10 @@
 
 import { useState } from "react";
-import axios from "axios";
+// import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
 import "../components/CardForm.css";
+import { api, fetchApi } from "../services/api";
 
 interface Carta {
   name: string;
@@ -23,10 +24,9 @@ export default function PublicarCartaPage() {
 
   const buscarCartas = async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:3000/api/cartas/scrape/${nombre}`
-      );
-      setResultados(response.data.data);
+      const response = await fetchApi(`/api/cartas/scrape/${nombre}`);
+      const data = await response.json();
+      setResultados(data.data);
       setMensaje("");
     } catch (error) {
       console.error("Error buscando cartas:", error);
@@ -53,7 +53,7 @@ export default function PublicarCartaPage() {
 
     try {
       // Create Carta on backend and include vendedor id so uploader is linked
-      const res = await axios.post("http://localhost:3000/api/cartas", {
+      const res = await api.post("/api/cartas", {
         name: carta.name,
         price: carta.price ?? null,
         image: carta.image ?? null,

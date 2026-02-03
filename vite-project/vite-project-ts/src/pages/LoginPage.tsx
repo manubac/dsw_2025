@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
 import "./LoginPage.css";
+import { fetchApi } from "../services/api";
 
 
 
@@ -53,7 +54,7 @@ export function LoginPage() {
       console.log("Iniciando sesión en:", endpoint);
 
       // Hacer petición al backend
-      const response = await fetch(endpoint, {
+      const response = await fetchApi(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -64,7 +65,15 @@ export function LoginPage() {
         }),
       });
 
-      const result = await response.json();
+      const text = await response.text();
+      let result;
+      try {
+          result = text ? JSON.parse(text) : {};
+      } catch (e) {
+         console.error("Respuesta inválida:", text);
+         throw new Error("Respuesta inválida del servidor");
+      }
+      
       console.log("Respuesta del backend:", result);
 
       if (!response.ok) {

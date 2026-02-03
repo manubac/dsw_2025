@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./ContactPage.css";
+import { fetchApi } from "../services/api";
 
 export function ContactPage() {
   const [formData, setFormData] = useState({
@@ -20,7 +21,7 @@ export function ContactPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/contact', {
+      const response = await fetchApi('/api/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

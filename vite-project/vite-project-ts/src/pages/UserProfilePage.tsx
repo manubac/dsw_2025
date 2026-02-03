@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useUser, Direccion } from "../context/user";
 import "./UserProfilePage.css";
+import { fetchApi } from "../services/api";
 
 /**
  * Página de perfil del usuario.
@@ -56,7 +57,7 @@ export function UserProfilePage() {
         ...(user.role === 'intermediario' ? { intermediarioId: user.id } : { usuarioId: user.id }),
       };
 
-      const response = await fetch('/api/direcciones', {
+      const response = await fetchApi('/api/direcciones', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +107,7 @@ export function UserProfilePage() {
 
     try {
       const queryParam = user.role === 'intermediario' ? 'intermediarioId' : 'usuarioId';
-      const response = await fetch(`/api/direcciones/${editingDireccion.id}?${queryParam}=${user.id}`, {
+      const response = await fetchApi(`/api/direcciones/${editingDireccion.id}?${queryParam}=${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +162,7 @@ export function UserProfilePage() {
 
     try {
       const queryParam = user?.role === 'intermediario' ? 'intermediarioId' : 'usuarioId';
-      const response = await fetch(`/api/direcciones/${id}?${queryParam}=${user?.id}`, {
+      const response = await fetchApi(`/api/direcciones/${id}?${queryParam}=${user?.id}`, {
         method: 'DELETE',
       });
 
@@ -226,7 +227,7 @@ export function UserProfilePage() {
         updateData.password = formData.password;
       }
 
-      const response = await fetch(endpoint, {
+      const response = await fetchApi(endpoint, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

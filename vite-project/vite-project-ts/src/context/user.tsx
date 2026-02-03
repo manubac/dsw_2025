@@ -1,4 +1,5 @@
 import { createContext, useState, useContext, ReactNode } from 'react'
+import { fetchApi } from "../services/api"
 
 export interface Direccion {
   id: number
@@ -75,7 +76,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return
     try {
       const queryParam = user.role === 'intermediario' ? 'intermediarioId' : 'usuarioId'
-      const response = await fetch(`/api/direcciones?${queryParam}=${user.id}`)
+      const response = await fetchApi(`/api/direcciones?${queryParam}=${user.id}`)
       if (response.ok) {
         const data = await response.json()
         const direcciones = data.data || []
