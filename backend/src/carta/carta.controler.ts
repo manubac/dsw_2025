@@ -229,7 +229,7 @@ async function remove(req: Request, res: Response) {
 // Buscar cartas Pokémon (PokeAPI)
 async function findFromAPI(req: Request, res: Response) {
   try {
-    const { nombre } = req.params;
+    const nombre = req.params.nombre as string;
     const url = `https://pokeapi.co/api/v2/pokemon/${nombre.toLowerCase()}`;
 
     const response = await axios.get(url);
@@ -270,7 +270,7 @@ async function findFromAPI(req: Request, res: Response) {
 // ============================
 async function scrapeCartas(req: Request, res: Response) {
   try {
-    const { nombre } = req.params;
+    const nombre = req.params.nombre as string;
 
     if (!nombre) {
       return res.status(400).json({ message: "Debe indicar un nombre de carta." });

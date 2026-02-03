@@ -50,7 +50,7 @@ async function findAll(req: Request, res: Response) {
 
 async function findOne(req: Request, res: Response) {
     try {
-        const id= Number.parseInt(req.params.id)
+        const id= Number.parseInt(req.params.id as string)
         const vendedor = await em.findOne(Vendedor, {id}, {populate:['items', 'itemCartas', 'itemCartas.cartas']})
         res.status(200).json({message:'Found one vendedor', data:vendedor})
     } catch (error: any) {
@@ -80,7 +80,7 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
     try {
-        const id= Number.parseInt(req.params.id)
+        const id= Number.parseInt(req.params.id as string)
         const vendedorToUpdate = await em.findOneOrFail(Vendedor, {id})
         em.assign(vendedorToUpdate, req.body.sanitisedInput)
         await em.flush()
@@ -92,7 +92,7 @@ async function update(req: Request, res: Response) {
 
 async function remove(req: Request, res: Response) {
     try {
-        const id= Number.parseInt(req.params.id)
+        const id= Number.parseInt(req.params.id as string)
         const vendedor = await em.getReference(Vendedor, id)
         await em.removeAndFlush(vendedor)
         res.status(200).json({message:'Vendedor deleted'})

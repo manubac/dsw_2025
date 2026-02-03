@@ -84,7 +84,7 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
     try {
-        const id=Number.parseInt(req.params.id)
+        const id=Number.parseInt(req.params.id as string)
         const { userId, intermediariosIds, cartasIds, ...updateData } = req.body;
         
         const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['uploaderVendedor'] });
@@ -130,7 +130,7 @@ async function update(req: Request, res: Response) {
 
 async function remove(req: Request, res: Response) {
     try {
-        const id=Number.parseInt(req.params.id)
+        const id=Number.parseInt(req.params.id as string)
         const item =  em.getReference(ItemCarta, id )
         await em.removeAndFlush(item)
         res.status(200).json({message: 'Item removed', data: item})

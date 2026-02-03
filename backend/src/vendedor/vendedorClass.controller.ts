@@ -37,7 +37,7 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
     try {
-        const id=Number.parseInt(req.params.id)
+        const id=Number.parseInt(req.params.id as string)
         const vendedorClass = await em.findOneOrFail(VendedorClass, { id })
         em.assign(vendedorClass, req.body)
         await em.flush()
@@ -51,7 +51,7 @@ async function update(req: Request, res: Response) {
 
 async function remove(req: Request, res: Response) {
     try {
-        const id=Number.parseInt(req.params.id)
+        const id=Number.parseInt(req.params.id as string)
         const vendedorClass =  em.getReference(VendedorClass, id )
         await em.removeAndFlush(vendedorClass)
         res.status(200).json({message: 'VendedorClass removed', data: vendedorClass})

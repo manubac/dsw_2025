@@ -34,9 +34,11 @@
     "nodemailer": "^7.0.12",
     "puppeteer": "^24.25.0",
     "puppeteer-core": "^24.25.0",
-    "reflect-metadata": "0.2.2"
+    "reflect-metadata": "0.2.2",
+    "bcrypt": "^5.1.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@mikro-orm/cli": "6.5.3",
     "@types/cheerio": "^1.0.0",
     "@types/cors": "^2.8.19",

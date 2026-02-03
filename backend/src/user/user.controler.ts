@@ -43,7 +43,7 @@ async function findAll(req: Request, res: Response) {
 //  Obtener un usuario por ID
 async function findOne(req: Request, res: Response) {
   try {
-    const id = Number.parseInt(req.params.id);
+    const id = Number.parseInt(req.params.id as string);
     const user = await em.findOne(User, { id });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -85,7 +85,7 @@ async function add(req: Request, res: Response) {
 //  Actualizar usuario
 async function update(req: Request, res: Response) {
   try {
-    const id = Number.parseInt(req.params.id);
+    const id = Number.parseInt(req.params.id as string);
     const userToUpdate = await em.findOne(User, { id });
     if (!userToUpdate) {
       return res.status(404).json({ message: "User not found" });
@@ -103,7 +103,7 @@ async function update(req: Request, res: Response) {
 //  Eliminar usuario
 async function remove(req: Request, res: Response) {
   try {
-    const id = Number.parseInt(req.params.id);
+    const id = Number.parseInt(req.params.id as string);
     const user = await em.findOne(User, { id });
     if (!user) {
       return res.status(404).json({ message: "User not found" });

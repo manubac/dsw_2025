@@ -16,7 +16,7 @@ async function findAll(req: Request, res: Response) {
 
 async function findOne (req: Request, res: Response) {
    try {
-       const id = Number.parseInt(req.params.id)
+       const id = Number.parseInt(req.params.id as string)
        const cartaClass = await em.findOneOrFail(CartaClass, {id})
          res.status(200).json({message: 'found one carta class', data: cartaClass})
 
@@ -37,7 +37,7 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
     try {
-        const id = Number.parseInt(req.params.id)
+        const id = Number.parseInt(req.params.id as string)
         const cartaClass = await em.getReference(CartaClass, id)
         em.assign(cartaClass, req.body)
         await em.flush()
@@ -49,7 +49,7 @@ async function update(req: Request, res: Response) {
 
 async function remove(req: Request, res: Response) {
    try{
-    const id = Number.parseInt(req.params.id)
+    const id = Number.parseInt(req.params.id as string)
     const cartaClass = await em.getReference(CartaClass, id)
     await em.removeAndFlush(cartaClass)
     res.status(200).json({message: 'carta class removed'})
