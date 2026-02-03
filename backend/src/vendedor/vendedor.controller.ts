@@ -4,7 +4,7 @@ import { Vendedor } from './vendedores.entity.js'
 import { Compra } from '../compra/compra.entity.js';
 import { EstadoEnvio } from '../envio/envio.entity.js';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const em= orm.em
 

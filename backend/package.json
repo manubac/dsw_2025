@@ -35,10 +35,10 @@
     "puppeteer": "^24.25.0",
     "puppeteer-core": "^24.25.0",
     "reflect-metadata": "0.2.2",
-    "bcrypt": "^5.1.1"
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
     "@mikro-orm/cli": "6.5.3",
     "@types/cheerio": "^1.0.0",
     "@types/cors": "^2.8.19",

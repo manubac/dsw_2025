@@ -5,7 +5,7 @@ import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio, EstadoEnvio } from "../envio/envio.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const em = orm.em;
 

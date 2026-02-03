@@ -2,7 +2,7 @@ import { MikroORM } from "@mikro-orm/core";
 import { User } from "../user/user.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Intermediario } from "../intermediario/intermediario.entity.js";
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { orm } from "../shared/db/orm.js";
 
 async function hashPasswords() {

@@ -6,7 +6,7 @@ import { Intermediario } from "../intermediario/intermediario.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendEmail } from '../shared/mailer.js';
 
