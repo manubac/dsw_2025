@@ -3,6 +3,7 @@ import { useState, useContext, useEffect } from 'react'
 import { CartContext } from '../context/cart'
 import { AddToCartIcon } from '../components/Icons'
 import axios from 'axios'
+import { fetchApi, api } from '../services/api'
 import { useUser } from '../context/user'
 import '../components/CardDetail.css'
 
@@ -20,7 +21,7 @@ export function CardDetail() {
     const fetchCard = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/cartas/${id}`)
+        const response = await fetchApi(`/api/cartas/${id}`)
         if (!response.ok) {
           throw new Error('Card not found')
         }
@@ -65,7 +66,7 @@ export function CardDetail() {
     if (!ok) return
 
     try {
-      await axios.delete(`http://localhost:3000/api/cartas/${card.id}`, { data: { userId: user.id } })
+      await api.delete(`/api/cartas/${card.id}`, { data: { userId: user.id } })
       navigate('/cards')
     } catch (err: any) {
       console.error('Error deleting carta', err)

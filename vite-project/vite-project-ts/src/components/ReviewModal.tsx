@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../services/api';
 import { useUser } from '../context/user';
 import './ReviewModal.css';
 
@@ -31,7 +31,7 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
          throw new Error("No estás autenticado");
       }
       
-      await axios.post('http://localhost:3000/api/valoraciones', {
+      await api.post('/api/valoraciones', {
         puntuacion: rating,
         comentario: comment,
         tipoObjeto: targetType,

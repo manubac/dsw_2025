@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 import { FiltersProvider } from './context/filters'
 import { UserProvider } from './context/user'
+import './services/api'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <UserProvider>

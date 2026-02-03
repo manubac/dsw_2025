@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../services/api';
 import './LoginPage.css';
 
 export default function ResetPasswordPage() {
@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
     setError('');
 
     try {
-      await axios.post('http://localhost:3000/api/users/reset-password', { 
+        await api.post('/api/users/reset-password', { 
           token, 
           newPassword: password 
       });

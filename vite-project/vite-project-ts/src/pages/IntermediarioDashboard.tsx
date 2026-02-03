@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/user';
-import axios from 'axios';
+import { api } from '../services/api';
 import './IntermediarioDashboard.css';
 
 interface Envio {
@@ -44,15 +44,15 @@ export default function IntermediarioDashboard() {
       setLoading(true);
       try {
           // 1. Load Peers
-          const resPeers = await axios.get('http://localhost:3000/api/intermediarios');
+          const resPeers = await api.get('/api/intermediarios');
           setIntermediarios(resPeers.data.data || []);
 
           // 2. Load Envios (Salientes/Origen)
-          const resSalientes = await axios.get(`http://localhost:3000/api/intermediarios/${user?.id}/envios?type=origen`);
+          const resSalientes = await api.get(`/api/intermediarios/${user?.id}/envios?type=origen`);
           setEnviosSalientes(resSalientes.data.data || []);
 
           // 3. Load Envios (Entrantes/Destino)
-          const resEntrantes = await axios.get(`http://localhost:3000/api/intermediarios/${user?.id}/envios?type=destino`);
+          const resEntrantes = await api.get(`/api/intermediarios/${user?.id}/envios?type=destino`);
           setEnviosEntrantes(resEntrantes.data.data || []);
 
       } catch (err) {
@@ -68,7 +68,7 @@ export default function IntermediarioDashboard() {
     if (!selectedDestino || !user?.id) return;
 
     try {
-      await axios.post('http://localhost:3000/api/intermediarios/envios/plan', {
+      await api.post('/api/intermediarios/envios/plan', {
           intermediarioId: user.id,
           destinoIntermediarioId: selectedDestino,
           ...planForm
@@ -86,7 +86,7 @@ export default function IntermediarioDashboard() {
   // --- MANAGE SALIENTES (ORIGIN) ---
   const handleConfirmItemReceived = async (compraId: number) => {
       try {
-          await axios.post(`http://localhost:3000/api/intermediarios/compras/${compraId}/status`, {
+          await api.post(`/api/intermediarios/compras/${compraId}/status`, {
               status: 'EN_MANOS_INTERMEDIARIO_ORIGEN'
           });
           loadData();
@@ -97,7 +97,7 @@ export default function IntermediarioDashboard() {
       try {
           const notas = prompt("Numero de seguimiento / Notas:");
           if (notas === null) return;
-          await axios.post(`http://localhost:3000/api/intermediarios/envios/${envioId}/despachar`, { notas });
+          await api.post(`/api/intermediarios/envios/${envioId}/despachar`, { notas });
           loadData();
       } catch (e: any) { alert(e.message) }
   }
@@ -107,7 +107,7 @@ export default function IntermediarioDashboard() {
   const handleReceiveEnvio = async (envioId: number) => {
     try {
         if(!confirm("¿Confirmar llegada del envío?")) return;
-        await axios.post(`http://localhost:3000/api/intermediarios/envios/${envioId}/recibir`);
+        await api.post(`/api/intermediarios/envios/${envioId}/recibir`);
         loadData();
     } catch (e: any) { alert(e.message) }
   }
@@ -115,7 +115,7 @@ export default function IntermediarioDashboard() {
   const handleItemDeliveredToUser = async (compraId: number) => {
       try {
         if(!confirm("¿Confirmar entrega al usuario final?")) return;
-        await axios.post(`http://localhost:3000/api/intermediarios/compras/${compraId}/status`, {
+        await api.post(`/api/intermediarios/compras/${compraId}/status`, {
             status: 'ENTREGADO'
         });
         loadData();
@@ -125,7 +125,7 @@ export default function IntermediarioDashboard() {
   const handleDeleteEnvio = async (envioId: number) => {
     try {
         if(!confirm("¿Estás seguro de que deseas eliminar este envío? Esta acción no se puede deshacer.")) return;
-        await axios.delete(`http://localhost:3000/api/intermediarios/envios/${envioId}`);
+        await api.delete(`/api/intermediarios/envios/${envioId}`);
         loadData();
     } catch (e: any) { 
         alert(e.response?.data?.message || e.message) 

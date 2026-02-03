@@ -3,6 +3,7 @@ import { CartContext } from '../context/cart'
 import { useUser } from '../context/user'
 import { useNavigate } from 'react-router-dom'
 import '../components/Checkout.css'
+import { fetchApi } from '../services/api'
 
 export function Checkout() {
   const { cart, clearCart } = useContext(CartContext)
@@ -56,7 +57,7 @@ export function Checkout() {
     // 1. Obtener TODOS los intermediarios para poblar las ciudades de destino
     const fetchDestinations = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/intermediarios');
+        const res = await fetchApi('/api/intermediarios');
         const json = await res.json();
         const data = json.data || [];
         setIntermediariosDestino(data);
@@ -92,7 +93,7 @@ export function Checkout() {
       }
 
       try {
-        const res = await fetch(`http://localhost:3000/api/envios?intermediarios=${uniqueIntermediarios.join(',')}`);
+        const res = await fetchApi(`/api/envios?intermediarios=${uniqueIntermediarios.join(',')}`);
         const json = await res.json();
         console.log('Envios loaded:', json.data?.length);
         setAvailableEnvios(json.data || []);
@@ -113,7 +114,7 @@ export function Checkout() {
     if (!user?.id) return
 
     try {
-      const response = await fetch('/api/direcciones', {
+      const response = await fetchApi('/api/direcciones', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -173,7 +174,7 @@ export function Checkout() {
       let compradorId: number | undefined = user?.id
 
       if (!compradorId) {
-        const usersRes = await fetch('http://localhost:3000/api/users')
+        const usersRes = await fetchApi('/api/users')
         const usersJson = await usersRes.json()
         const existing = (usersJson.data || []).find((u: any) => u.email === formData.email)
 
@@ -184,7 +185,7 @@ export function Checkout() {
           
           const username = formData.nombre.split(' ')[0] || formData.email.split('@')[0]
           const password = Math.random().toString(36).slice(-8)
-          const createRes = await fetch('http://localhost:3000/api/users', {
+          const createRes = await fetchApi('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, email: formData.email, password, role: 'user' })
@@ -220,7 +221,7 @@ export function Checkout() {
         envioId: selectedEnvioId,
       }
 
-      const compraRes = await fetch('http://localhost:3000/api/compras', {
+      const compraRes = await fetchApi('/api/compras', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

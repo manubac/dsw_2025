@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api, fetchApi } from "../services/api";
 import { useUser } from "../context/user";
 import "../components/CardForm.css"; // estilos compartidos
 
@@ -57,8 +57,9 @@ export default function EditarCartaPage() {
   useEffect(() => {
     const fetchIntermediarios = async () => {
       try {
-        const res = await axios.get('http://localhost:3000/api/intermediarios');
-        const data = res.data.data || [];
+        const res = await fetchApi('/api/intermediarios');
+        const json = await res.json();
+        const data = json.data || [];
         setIntermediarios(data);
         
         // Extract unique cities
@@ -82,8 +83,9 @@ export default function EditarCartaPage() {
     let mounted = true;
     (async () => {
       try {
-        const res = await axios.get(`http://localhost:3000/api/cartas/${cartaInicial.id}`);
-        const data = res.data?.data;
+        const res = await fetchApi(`/api/cartas/${cartaInicial.id}`);
+        const json = await res.json();
+        const data = json?.data;
         if (!data) return;
 
         const mapped: Carta = {
@@ -110,8 +112,9 @@ export default function EditarCartaPage() {
             // To get intermediarios, we need to fetch the specific item details because 
             // the carta endpoint might not deeply populate them
             try {
-              const itemRes = await axios.get(`http://localhost:3000/api/itemsCarta/${existingItem.id}`);
-              const itemData = itemRes.data?.data;
+              const itemRes = await fetchApi(`/api/itemsCarta/${existingItem.id}`);
+              const itemJson = await itemRes.json();
+              const itemData = itemJson?.data;
               if (itemData && itemData.intermediarios) {
                  const ids = itemData.intermediarios.map((i: Intermediario) => i.id);
                  setSelectedIntermediarios(ids);
@@ -158,7 +161,7 @@ export default function EditarCartaPage() {
 
       // If no carta.id (manual creation), create the carta first
       if (!cartaId) {
-        const cartaResponse = await axios.post("http://localhost:3000/api/cartas", {
+        const cartaResponse = await api.post("/api/cartas", {
           name: carta.name,
           price: carta.price,
           image: nuevaImagen || carta.image,
@@ -177,7 +180,7 @@ export default function EditarCartaPage() {
       // Create or Update ItemCarta
       if (itemCartaId) {
         // Update existing ItemCarta
-        await axios.put(`http://localhost:3000/api/itemsCarta/${itemCartaId}`, {
+        await api.put(`/api/itemsCarta/${itemCartaId}`, {
           name: carta.name,
           description,
           cartasIds: cartaId ? [cartaId] : [],
@@ -187,7 +190,7 @@ export default function EditarCartaPage() {
         setMensaje("Item actualizado con éxito.");
       } else {
         // Create new ItemCarta
-        await axios.post("http://localhost:3000/api/itemsCarta", {
+        await api.post("/api/itemsCarta", {
             name: carta.name,
             description,
             cartasIds: cartaId ? [cartaId] : [],
@@ -214,7 +217,7 @@ export default function EditarCartaPage() {
     if (!ok) return;
 
     try {
-      await axios.delete(`http://localhost:3000/api/cartas/${carta.id}`, { data: { userId: user.id } });
+      await api.delete(`/api/cartas/${carta.id}`, { data: { userId: user.id } });
       setMensaje('Carta eliminada');
       setTimeout(() => navigate('/cards'), 1000);
     } catch (err: any) {

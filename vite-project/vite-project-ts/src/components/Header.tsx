@@ -5,6 +5,7 @@ import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
 import { X } from "lucide-react";
 import "./Header.css";
+import { fetchApi } from "../services/api";
 
 export function Header() {
   const { cart } = useContext(CartContext);
@@ -22,7 +23,7 @@ export function Header() {
   useEffect(() => {
     async function fetchCartas() {
       try {
-        const res = await fetch("http://localhost:3000/api/cartas"); //variable de ambiente 
+        const res = await fetchApi('/api/cartas');
         const json = await res.json();
         setCartas(json.data || []);
       } catch (err) {

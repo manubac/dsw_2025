@@ -3,6 +3,7 @@ import { useFilters } from '../hooks/useFilters'
 import { Products } from '../components/Products'
 import { ProductFilters } from '../components/ProductFilters'
 import { Hero } from '../components/Hero'
+import { fetchApi } from '../services/api'
 import { FeaturedCards } from '../components/FeaturedCards'
 
 interface Card {
@@ -26,7 +27,7 @@ export function HomePage () {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/cartas')
+        const response = await fetchApi('/api/cartas')
         if (!response.ok) {
           throw new Error('Failed to fetch cards')
         }

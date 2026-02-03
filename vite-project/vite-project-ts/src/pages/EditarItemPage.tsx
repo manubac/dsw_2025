@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from '../services/api';
 import { useUser } from "../context/user";
 import "../components/CardForm.css";
 
@@ -45,7 +45,7 @@ export default function EditarItemPage() {
   useEffect(() => {
     const fetchIntermediarios = async () => {
       try {
-        const res = await axios.get('http://localhost:3000/api/intermediarios');
+        const res = await api.get('/api/intermediarios');
         setIntermediarios(res.data.data || []);
       } catch (error) {
         console.error('Error fetching intermediarios:', error);
@@ -58,7 +58,7 @@ export default function EditarItemPage() {
     if (!user || !itemInicial) return;
 
     try {
-      await axios.put(`http://localhost:3000/api/itemsCarta/${itemInicial.id}`, {
+      await api.put(`/api/itemsCarta/${itemInicial.id}`, {
         userId: user.id,
         name,
         description,

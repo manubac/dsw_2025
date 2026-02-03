@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../context/user';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../services/api';
 import './Purchases.css'; // Reusing existing styles
 
 export default function MisVentasPage() {
@@ -19,7 +19,7 @@ export default function MisVentasPage() {
 
     const fetchVentas = async () => {
       try {
-        const res = await axios.get(`http://localhost:3000/api/vendedores/${user.id}/ventas`);
+        const res = await api.get(`/api/vendedores/${user.id}/ventas`);
         setVentas(res.data.data || []);
       } catch (err: any) {
         console.error('Error fetching ventas:', err);
@@ -36,7 +36,7 @@ export default function MisVentasPage() {
     try {
       if (!confirm("¿Confirmas que has enviado los items al intermediario?")) return;
       
-      await axios.post(`http://localhost:3000/api/vendedores/${user?.id}/ventas/${compraId}/enviar`);
+      await api.post(`/api/vendedores/${user?.id}/ventas/${compraId}/enviar`);
       alert("Envío marcado correctamente.");
       // Refresh
       window.location.reload();

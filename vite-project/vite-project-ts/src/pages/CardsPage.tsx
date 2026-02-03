@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useFilters } from "../hooks/useFilters";
 import { Products } from "../components/Products";
 import { ProductFilters } from "../components/ProductFilters";
+import { fetchApi } from "../services/api";
 
 export function CardsPage() {
   const [products, setProducts] = useState([]);
@@ -11,7 +12,7 @@ export function CardsPage() {
   useEffect(() => {
     async function fetchCartas() {
       try {
-        const res = await fetch("http://localhost:3000/api/cartas");
+        const res = await fetchApi('/api/cartas');
         const json = await res.json();
         // Transform cartas data to match the expected format
         const transformedData = json.data.map((carta: any) => ({

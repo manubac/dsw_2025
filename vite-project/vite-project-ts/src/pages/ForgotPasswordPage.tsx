@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../services/api';
 import './LoginPage.css'; // Reusing login styles
 
 export default function ForgotPasswordPage() {
@@ -16,7 +16,7 @@ export default function ForgotPasswordPage() {
     setMessage('');
 
     try {
-      await axios.post('http://localhost:3000/api/users/forgot-password', { email });
+      await api.post('/api/users/forgot-password', { email });
       setMessage('Si el correo existe, recibirás un enlace para restablecer tu contraseña. Revisa tu bandeja de entrada (y spam).');
     } catch (err: any) {
       setError('Error al procesar la solicitud. Intenta nuevamente.');

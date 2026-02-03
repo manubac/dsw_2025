@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../services/api';
 import './VendedorProfile.css';
 
 export function VendedorProfile() {
@@ -16,18 +16,18 @@ export function VendedorProfile() {
       try {
         setLoading(true);
         // 1. Fetch vendedor details
-        const sellerRes = await axios.get(`http://localhost:3000/api/vendedores/${id}`);
+        const sellerRes = await api.get(`/api/vendedores/${id}`);
         setVendedor(sellerRes.data.data);
 
         // 2. Fetch reviews
-        const reviewsRes = await axios.get(`http://localhost:3000/api/valoraciones/vendedor/${id}`);
+        const reviewsRes = await api.get(`/api/valoraciones/vendedor/${id}`);
         // Backend returns the array directly, so use reviewsRes.data
         // Fallback: check if it wraps in data property just in case it changes later, but prioritized array check
         const reviewsData = Array.isArray(reviewsRes.data) ? reviewsRes.data : (reviewsRes.data.data || []);
         setReviews(reviewsData);
 
         // 3. Fetch average
-        const avgRes = await axios.get(`http://localhost:3000/api/valoraciones/vendedor/${id}/average`);
+        const avgRes = await api.get(`/api/valoraciones/vendedor/${id}/average`);
         setAverage(Number(avgRes.data.average) || 0);
       } catch (error) {
         console.error('Error fetching seller profile:', error);

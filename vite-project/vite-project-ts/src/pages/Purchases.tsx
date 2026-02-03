@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useUser } from '../context/user'
 import { useNavigate } from 'react-router-dom'
 import { ReviewModal } from '../components/ReviewModal';
+import { fetchApi } from '../services/api';
 import './Purchases.css'
 
 export function Purchases() {
@@ -25,7 +26,7 @@ export function Purchases() {
 
     const fetchCompras = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/compras?compradorId=${user.id}`)
+        const res = await fetchApi(`/api/compras?compradorId=${user.id}`)
         const json = await res.json()
         console.log('API Response:', json)
         console.log('User ID:', user.id, 'User role:', user.role)
