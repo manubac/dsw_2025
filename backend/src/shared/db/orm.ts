@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { MikroORM } from "@mikro-orm/mysql"
 import { SqlHighlighter } from "@mikro-orm/sql-highlighter"
 import { Carta } from "../../carta/carta.entity.js"
@@ -14,9 +15,9 @@ import { Valoracion } from "../../valoracion/valoracion.entity.js"
 
 export const orm = await MikroORM.init({
     entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, Item, User, Direccion, Intermediario, Envio, Valoracion],
-    dbName: 'heroclash4geeks',
+    dbName: process.env.DB_NAME || 'heroclash4geeks',
     /*type: 'mysql',*/
-    clientUrl: 'mysql://dsw:dsw@localhost:3306/heroclash4geeks',
+    clientUrl: process.env.DB_CONNECTION_STRING || 'mysql://dsw:dsw@localhost:3306/heroclash4geeks',
     highlighter: new SqlHighlighter(),
     debug: true,
     schemaGenerator: {

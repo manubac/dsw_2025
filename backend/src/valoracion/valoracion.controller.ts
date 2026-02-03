@@ -34,7 +34,7 @@ export const getValoracionesByObjeto = async (req: Request, res: Response) => {
   try {
     const { tipoObjeto, objetoId } = req.params;
     const valoraciones = await em.find(Valoracion, { tipoObjeto, objetoId: Number(objetoId) }, { populate: ['usuario'] });
-    res.json(valoraciones);
+    res.json({ message: "Reviews fetched", data: valoraciones });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching valoraciones', error });
   }

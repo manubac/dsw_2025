@@ -9,6 +9,8 @@ export enum EstadoEnvio {
   ORDEN_GENERADA = 'orden_generada',
   VENDEDOR_ENVIO = 'vendedor_envio',
   INTERMEDIARIO_RECIBIO = 'intermediario_recibio',
+  INTERMEDIARIO_ENVIADO = 'intermediario_enviado',
+  ENTREGADO = 'entregado',
   RETIRADO = 'retirado',
   CANCELADO = 'cancelado'
 }

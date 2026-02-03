@@ -111,7 +111,7 @@ export default function PublicarCartaPage() {
           marginTop: "1rem",
         }}
       >
-        <button onClick={crearCartaManual} className="publish-btn" style={{ backgroundColor: "#28a745" }}>
+        <button onClick={crearCartaManual} className="manual-create-btn">
           Crear Carta Manual
         </button>
       </div>

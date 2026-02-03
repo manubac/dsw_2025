@@ -22,6 +22,7 @@ export function CardsPage() {
           description: carta.description,
           intermediarios: carta.intermediarios, // Pass intermediarios to the product
           uploader: carta.uploader,
+          stock: carta.stock, // Pass stock
         }));
         setProducts(transformedData);
       } catch (err) {

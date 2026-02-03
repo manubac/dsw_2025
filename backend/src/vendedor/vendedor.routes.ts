@@ -1,10 +1,12 @@
 import {Router} from 'express';
-import { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout } from './vendedor.controller.js';
+import { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent } from './vendedor.controller.js';
 
 export const vendedorRouter = Router();
 
 vendedorRouter.post('/login', login);
 vendedorRouter.post('/logout', logout);
+vendedorRouter.get('/:id/ventas', getVentas);
+vendedorRouter.post('/:id/ventas/:compraId/enviar', markSent);
 vendedorRouter.get('/', findAll);
 vendedorRouter.get('/:id', findOne);
 vendedorRouter.post('/', sanitiseVendedorInput, add);

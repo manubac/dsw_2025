@@ -18,6 +18,12 @@ export class Intermediario extends BaseEntity {
     telefono!: string;
 
     @Property({ nullable: true })
+    resetPasswordToken?: string;
+
+    @Property({ nullable: true })
+    resetPasswordExpires?: Date;
+
+    @Property({ nullable: true })
     descripcion?: string;
 
     @Property({ default: true })

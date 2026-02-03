@@ -36,7 +36,7 @@ function sanitizeEnvioInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todos los envios
 async function findAll(req: Request, res: Response) {
   try {
-    const { intermediarioId, intermediarios } = req.query;
+    const { intermediarioId, intermediarios, estado } = req.query;
 
     let whereClause: any = {};
     if (intermediarioId) {
@@ -45,6 +45,9 @@ async function findAll(req: Request, res: Response) {
     if (intermediarios) {
       const ids = (intermediarios as string).split(',').map(id => Number(id));
       whereClause.intermediario = { id: { $in: ids } };
+    }
+    if (estado) {
+        whereClause.estado = estado;
     }
 
     const envios = await em.find(Envio, whereClause, {

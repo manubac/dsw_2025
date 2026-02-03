@@ -96,26 +96,30 @@
 }
 
 /*  Botón del carrito flotante */
-.cart-button {
+.floating-cart-button {
   align-items: center;
-  background: #09f;
+  background: var(--primary);
   border-radius: 9999px;
   cursor: pointer;
   display: flex;
-  height: 44px;
+  height: 56px;
   justify-content: center;
   padding: 4px;
   position: fixed; /* Fijo pero baja con scroll */
-  right: 16px;
-  top: 16px;
-  transition: all 0.3s ease;
-  width: 44px;
+  right: 24px;
+  bottom: 24px;
+  top: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 56px;
   z-index: 9999;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  color: white;
 }
 
-.cart-button:hover {
-  scale: 1.1;
+.floating-cart-button:hover {
+  transform: translateY(-4px) scale(1.05);
+  background: var(--primary-hover);
+  box-shadow: 0 8px 16px rgba(99, 102, 241, 0.5);
 }
 
 /*  Contador del carrito */
@@ -137,7 +141,7 @@
 }
 
 /* Mostrar carrito cuando está marcado el checkbox */
-.cart-button ~ input:checked ~ .cart {
+.floating-cart-button ~ input:checked ~ .cart {
   transform: translateX(0%);
 }
 
@@ -184,20 +188,26 @@
 }
 
 .clear-cart-btn {
-  background: rgba(239, 68, 68, 0.1);
+  background: transparent;
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  padding: 8px 12px;
-  border-radius: 6px;
+  border: 1px dashed rgba(239, 68, 68, 0.4);
+  padding: 10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   transition: all 0.2s ease;
-  font-size: 0.85rem;
-  align-self: flex-start;
-  margin-bottom: 8px;
-  width: 100%; /* Make it full width */
+  font-size: 0.9rem;
+  font-weight: 500;
+  width: 100%;
+}
+
+.clear-cart-btn:hover {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: #ef4444;
+}
 }
 
 .clear-cart-btn:hover {

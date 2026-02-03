@@ -33,36 +33,39 @@ export function Products({ products }: { products: any[] }) {
                 style={{ cursor: 'pointer' }}
               />
               <div>
-                <strong
+                <h3
                   onClick={() => navigate(`/card/${product.id}`)}
                   style={{ cursor: 'pointer' }}
                 >
                   {product.title}
-                </strong> - ${product.price}
-              </div>
-              <div>
-                <button
-                  style={{ backgroundColor: isProductInCart ? 'red' : '#09f' }}
-                  onClick={() => {
-                    isProductInCart
-                      ? removeFromCart(product)
-                      : addToCart(product)
-                  }}
-                >
-                  {
-                    isProductInCart
-                      ? <RemoveFromCartIcon />
-                      : <AddToCartIcon />
-                  }
-                </button>
-                {isEditable && (
-                  <button
-                    style={{ backgroundColor: '#28a745', marginLeft: '5px' }}
-                    onClick={() => navigate('/editar-item', { state: { item: product } })}
-                  >
-                    Editar
-                  </button>
-                )}
+                </h3>
+                <span className="price">${product.price}</span>
+                
+                <div className="actions">
+                    <button
+                    className={isProductInCart ? 'added' : 'primary'}
+                    style={{ backgroundColor: isProductInCart ? 'var(--secondary)' : 'var(--primary)' }} // Inline override only for logic state for now, but better in class
+                    onClick={() => {
+                        isProductInCart
+                        ? removeFromCart(product)
+                        : addToCart(product)
+                    }}
+                    >
+                    {
+                        isProductInCart
+                        ? <RemoveFromCartIcon />
+                        : <AddToCartIcon />
+                    }
+                    </button>
+                    {isEditable && (
+                    <button
+                        className="secondary"
+                        onClick={() => navigate('/editar-item', { state: { item: product } })}
+                    >
+                        📝
+                    </button>
+                    )}
+                </div>
               </div>
             </li>
           )

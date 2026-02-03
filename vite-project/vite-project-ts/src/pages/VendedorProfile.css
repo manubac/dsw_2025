@@ -1,0 +1,140 @@
+.vendedor-profile-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 20px;
+  min-height: 80vh;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: white;
+  padding: 30px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: 30px;
+}
+
+.avatar-placeholder {
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: bold;
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-info h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: var(--text-primary);
+}
+
+.role-badge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: var(--primary);
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+.rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.stars {
+  color: #fbbf24; /* Amber 400 */
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+}
+
+.rating-number {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.reviews-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-card {
+  background: white;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.reviewer-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.review-stars {
+  color: #fbbf24;
+  font-size: 0.9rem;
+}
+
+.review-comment {
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+.review-date {
+  display: block;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.no-reviews {
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 40px;
+  background: #f8fafc;
+  border-radius: var(--radius-md);
+}
+
+.back-btn {
+  margin-top: 30px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+}

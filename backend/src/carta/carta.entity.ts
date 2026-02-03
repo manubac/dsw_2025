@@ -12,7 +12,7 @@ export class Carta extends BaseEntity {
   @Property({ nullable: true })
   price?: string;
 
-  @Property({ nullable: true })
+  @Property({ nullable: true, columnType: 'longtext' })
   image?: string;
 
   @Property({ nullable: true })

@@ -3,6 +3,8 @@ import { orm } from "../shared/db/orm.js";
 import { Carta } from "./carta.entity.js";
 import { CartaClass } from "./cartaClass.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
+import { Valoracion } from "../valoracion/valoracion.entity.js";
+import { Compra } from "../compra/compra.entity.js";
 import axios from "axios";
 import puppeteer from "puppeteer-core";
 import * as chrome from "chrome-launcher"; 
@@ -46,7 +48,13 @@ async function findAll(req: Request, res: Response) {
     const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios", "uploader"] });
     
     // Map carta fields to match frontend expectations (title, thumbnail, etc.)
-    const cartasFormateadas = cartas.map(carta => {
+    const cartasFormateadas = cartas
+        .filter(carta => {
+            // Check if the carta has any items with stock > 0
+            const hasStock = carta.items.getItems().some(item => item.stock > 0);
+            return hasStock;
+        })
+        .map(carta => {
         // Recolectar todos los intermediarios de todos los items vinculados a esta carta
         const intermediarios = carta.items.getItems().flatMap(item => item.intermediarios.getItems());
         
@@ -68,6 +76,9 @@ async function findAll(req: Request, res: Response) {
             cartaFormateada.uploader = { id: carta.uploader.id}
         }
         
+        // Calculate total stock from all items
+        cartaFormateada.stock = carta.items.getItems().reduce((sum, item) => sum + item.stock, 0);
+
         return cartaFormateada;
     });
     
@@ -97,15 +108,27 @@ async function findOne(req: Request, res: Response) {
       link: carta.link,
       brand: "Pokémon TCG",
       category: "trading-cards",
-      rating: 4.5,
-      stock: 10,
+      rating: null, // Card rating removed, use uploader.rating
+      stock: carta.items.getItems().reduce((sum, item) => sum + item.stock, 0),
       cartaClass: carta.cartaClass,
-      items: carta.items
+      items: carta.items,
+      uploader: undefined as any
     } as any;
 
-    // include uploader id if present
+    // include uploader id & name if present with rating
     if ((carta as any).uploader) {
-      cartaFormateada.uploader = { id: (carta as any).uploader.id };
+       const uploaderId = (carta as any).uploader.id;
+       const valoraciones = await em.find(Valoracion, { tipoObjeto: 'vendedor', objetoId: uploaderId });
+       const avg = valoraciones.length > 0 
+          ? valoraciones.reduce((acc, v) => acc + v.puntuacion, 0) / valoraciones.length 
+          : 0;
+
+      cartaFormateada.uploader = { 
+        id: uploaderId,
+        nombre: (carta as any).uploader.nombre,
+        rating: avg,
+        reviewsCount: valoraciones.length
+      };
     }
     
     res.status(200).json({ message: "Found one carta", data: cartaFormateada });
@@ -180,6 +203,19 @@ async function remove(req: Request, res: Response) {
 
     if (carta.uploader.id !== vendedorId) {
       return res.status(403).json({ message: "You are not authorized to delete this carta" });
+    }
+
+    // Check if any items are in active purchases
+    const promises = carta.items.getItems().map(async (item) => {
+        const count = await em.count(Compra, { itemCartas: item });
+        return count > 0;
+    });
+    
+    const results = await Promise.all(promises);
+    if (results.some(r => r)) {
+        return res.status(400).json({ 
+            message: "No puedes eliminar esta carta porque tiene items asociados a compras existentes. La carta debe permanecer en el historial." 
+        });
     }
 
     await em.removeAndFlush(carta);

@@ -8,17 +8,30 @@ const reducer = (state: any[], action: any) => {
     const { type: actionType, payload: actionPayload } = action
     switch (actionType) {
         case 'ADD_TO_CART': {
-            const { id } = actionPayload
+            const { id, stock } = actionPayload
             const quantity = actionPayload.quantity || 1
             const productInCartIndex = state.findIndex(item => item.id === id)
 
             if (productInCartIndex >= 0) {
+                const currentQty = state[productInCartIndex].quantity;
+                const newQty = currentQty + quantity;
+                
+                // Check stock limit if stock is available
+                if (state[productInCartIndex].stock !== undefined && newQty > state[productInCartIndex].stock) {
+                     return state; // Do nothing if exceeds stock
+                }
+                
                 const newState = [
                     ...state.slice(0, productInCartIndex),
-                    { ...state[productInCartIndex], quantity: state[productInCartIndex].quantity + quantity },
+                    { ...state[productInCartIndex], quantity: newQty },
                     ...state.slice(productInCartIndex + 1)
                 ]
                 return newState
+            }
+            
+            // Check stock limit for new item
+            if (stock !== undefined && quantity > stock) {
+                return state;
             }
 
             return [

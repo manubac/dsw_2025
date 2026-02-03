@@ -9,7 +9,7 @@ const em=orm.em
 
 async function findAll(req: Request, res: Response) {
    try {
-       const items = await em.find(ItemCarta, {}, { populate: ['intermediarios', 'cartas', 'uploaderVendedor'] });
+       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios', 'cartas', 'uploaderVendedor'] });
        // Formatear para cumplir con las expectativas del frontend
        const itemsFormateadas = items.map(item => ({
          id: item.id,
@@ -60,6 +60,8 @@ async function add(req: Request, res: Response) {
         
         const item = em.create(ItemCarta, { 
             ...itemData, 
+            stock: itemData.stock || 1,
+            estado: 'disponible',
             uploaderVendedor: uploader
         });
         if (intermediariosIds && Array.isArray(intermediariosIds)) {

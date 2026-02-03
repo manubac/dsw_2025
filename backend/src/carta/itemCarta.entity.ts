@@ -13,6 +13,12 @@ export class ItemCarta extends BaseEntity {
     @Property()
     description!: string
 
+    @Property({type: 'number'})
+    stock!: number
+
+    @Property({type: 'string'})
+    estado!: string
+
     @ManyToOne(() => Vendedor, { nullable: true })
     uploaderVendedor!: Rel<Vendedor>;
 

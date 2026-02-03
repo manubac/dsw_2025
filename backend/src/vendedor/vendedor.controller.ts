@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { orm } from '../shared/db/orm.js';
 import { Vendedor } from './vendedores.entity.js'
+import { Compra } from '../compra/compra.entity.js';
+import { EstadoEnvio } from '../envio/envio.entity.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 
 const em= orm.em
 
@@ -48,7 +51,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
     try {
         const id= Number.parseInt(req.params.id)
-        const vendedor = await em.findOne(Vendedor, {id}, {populate:['items']})
+        const vendedor = await em.findOne(Vendedor, {id}, {populate:['items', 'itemCartas', 'itemCartas.cartas']})
         res.status(200).json({message:'Found one vendedor', data:vendedor})
     } catch (error: any) {
         res.status(500).json({message: error.message})
@@ -59,6 +62,9 @@ async function add(req: Request, res: Response) {
     try{
         console.log('Sanitised input:', req.body.sanitisedInput); // Debug log
         
+        const saltRounds = 10;
+        req.body.sanitisedInput.password = await bcrypt.hash(req.body.sanitisedInput.password, saltRounds);
+
         const vendedor = em.create(Vendedor, req.body.sanitisedInput)
         await em.flush()
         res
@@ -102,9 +108,13 @@ async function login(req: Request, res: Response) {
         if (!vendedor) {
             return res.status(401).json({ message: 'Invalid credentials' })
         }
-        // Cast to any to access the password field on the loaded entity without type errors
-        if ((vendedor as any).password !== password) {
-            return res.status(401).json({ message: 'Invalid credentials' })
+        
+        const isMatch = await bcrypt.compare(password, vendedor.password);
+        if (!isMatch) {
+            // Fallback for migration (allow plain text temporarily if needed)
+            if (vendedor.password !== password) {
+                return res.status(401).json({ message: 'Invalid credentials' })
+            }
         }
         
         // Add role field for frontend
@@ -126,8 +136,82 @@ async function logout(req: Request, res: Response) {
     res.status(200).json({ message: 'Logout successful' })
 }
 
+async function getVentas(req: Request, res: Response) {
+    try {
+        const id = Number(req.params.id);
+        const compras = await em.find(Compra, {
+            itemCartas: {
+                cartas: { uploader: { id } },
+            }
+        }, {
+             populate: ['itemCartas', 'itemCartas.cartas', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion']
+        });
 
+        const result = compras.map(c => {
+             // Filter items for this vendor
+             const myItems = c.itemCartas.getItems().filter(item => 
+                 item.cartas.getItems().some(card => card.uploader?.id === id)
+             );
+             if (myItems.length === 0) return null;
+             
+             return {
+                 id: c.id,
+                 fecha: c.createdAt,
+                 total: c.total,
+                 estado: c.estado,
+                 comprador: {
+                     nombre: c.comprador?.username || c.nombre || "Usuario",
+                     email: c.comprador?.email || c.email
+                 },
+                 items: myItems.map(i => ({
+                     id: i.id,
+                     name: i.cartas[0]?.name,
+                     image: i.cartas[0]?.image,
+                     price: i.cartas[0]?.price
+                 })),
+                 envio: c.envio ? {
+                     id: c.envio.id,
+                     estado: c.envio.estado,
+                     intermediario: c.envio.intermediario ? {
+                        nombre: c.envio.intermediario.nombre,
+                        direccion: c.envio.intermediario.direccion ? 
+                            `${c.envio.intermediario.direccion.calle} ${c.envio.intermediario.direccion.altura}, ${c.envio.intermediario.direccion.ciudad}` 
+                            : "Dirección pendiente"
+                     } : null
+                 } : null
+             };
+        }).filter(Boolean);
 
+        res.json({ data: result });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+}
 
-export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout };
+async function markSent(req: Request, res: Response) {
+   try {
+       const compraId = Number(req.params.compraId);
+       const vendedorId = Number(req.params.id);
+       
+       const compra = await em.findOneOrFail(Compra, { id: compraId }, { populate: ['envio', 'itemCartas.cartas'] });
+
+       const isVendor = compra.itemCartas.getItems().some(item => 
+           item.cartas.getItems().some(card => card.uploader?.id === vendedorId)
+       );
+       
+       if (!isVendor) return res.status(403).json({ message: "No eres vendedor en esta compra" });
+
+       if (!compra.envio) return res.status(400).json({ message: "Compra sin envío asignado" });
+
+       // Actualizamos el estado de la compra individual, NO del envío masivo (Envio)
+       compra.estado = 'ENVIADO_A_INTERMEDIARIO';
+       await em.flush();
+       
+       res.json({ message: "Envío marcado como enviado al intermediario" });
+   } catch(e: any) {
+       res.status(500).json({ message: e.message });
+   }
+}
+
+export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent };
 

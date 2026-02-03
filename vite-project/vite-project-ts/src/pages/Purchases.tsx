@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useUser } from '../context/user'
 import { useNavigate } from 'react-router-dom'
+import { ReviewModal } from '../components/ReviewModal';
 import './Purchases.css'
 
 export function Purchases() {
@@ -9,6 +10,15 @@ export function Purchases() {
   const [compras, setCompras] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Review Modal State
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<{id: number, name: string} | null>(null);
+
+  const handleOpenReview = (vendedorId: number, vendedorName: string) => {
+      setReviewTarget({ id: vendedorId, name: vendedorName });
+      setReviewModalOpen(true);
+  }
 
   useEffect(() => {
     if (!user) return
@@ -78,6 +88,11 @@ export function Purchases() {
               <div className="order-header">
                 <strong>Orden #{comp.id}</strong>
                 <span className="order-status">{comp.estado}</span>
+                {comp.envio && (
+                  <span className="order-status" style={{marginLeft: '10px', background: '#e0f2f1', color: '#00695c'}}>
+                      Envío: {comp.envio.estado}
+                  </span>
+                )}
               </div>
               <div className="order-body">
                 <p><strong>Total:</strong> ${Number(comp.total || 0).toFixed(2)}</p>
@@ -88,10 +103,15 @@ export function Purchases() {
                   <strong>Items:</strong>
                   <ul>
                     {(comp.items || comp.cartas || []).map((it: any, idx: number) => {
-                      // comp.items holds JSON with cartaId/quantity/price/title
+                      // Attempt to find seller info from the populated itemCartas
+                      const associatedItemCarta = comp.itemCartas?.find((ic: any) => 
+                          (ic.cartas || []).some((c: any) => c.id === it.cartaId)
+                      );
+                      const vendedor = associatedItemCarta?.uploaderVendedor;
+
                       if (it.cartaId !== undefined) {
                         return (
-                          <li key={idx}>
+                          <li key={idx} style={{marginBottom: '5px'}}>
                             <a 
                               href={`/card/${it.cartaId}`} 
                               style={{ color: '#4285f4', textDecoration: 'none' }}
@@ -101,11 +121,32 @@ export function Purchases() {
                               }}
                             >
                               {it.title || `Carta ${it.cartaId}`}
-                            </a> — x{it.quantity} — ${Number(it.price || 0).toFixed(2)}
+                            </a> 
+                            <span> — x{it.quantity} — ${Number(it.price || 0).toFixed(2)}</span>
+                            
+                            {vendedor && (
+                                <span style={{marginLeft: '10px', fontSize: '0.9em', color: '#666'}}>
+                                    (Vendedor: <a href={`/vendedor/${vendedor.id}`} style={{color:'#666'}}>{vendedor.nombre}</a>)
+                                </span>
+                            )}
+
+                            {/* Show Rate Button if Order is Delivered (ENTREGADO) */}
+                            {comp.estado === 'ENTREGADO' && vendedor && (
+                                <button 
+                                    className="btn-secondary" 
+                                    style={{
+                                        marginLeft: '10px', 
+                                        padding: '2px 8px', 
+                                        fontSize: '0.8rem'
+                                    }}
+                                    onClick={() => handleOpenReview(vendedor.id, vendedor.nombre)}
+                                >
+                                    ★ Calificar
+                                </button>
+                            )}
                           </li>
                         )
                       }
-                      // fallback to cartas relation
                       return <li key={idx}>Carta id: {it.id || it}</li>
                     })}
                   </ul>
@@ -115,6 +156,17 @@ export function Purchases() {
           ))}
         </div>
       </div>
+      
+      {reviewTarget && (
+        <ReviewModal 
+            isOpen={reviewModalOpen}
+            onClose={() => setReviewModalOpen(false)}
+            targetId={reviewTarget.id}
+            targetType="vendedor"
+            targetName={reviewTarget.name}
+            onSuccess={() => {}} // Could refresh data if needed
+        />
+      )}
     </div>
   )
 }

@@ -3,7 +3,10 @@ import { orm } from "../shared/db/orm.js";
 import { Compra } from "./compra.entity.js";
 import { User } from "../user/user.entity.js";
 import { ItemCarta } from "../carta/itemCarta.entity.js";
+import { Carta } from "../carta/carta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
+import { Envio } from "../envio/envio.entity.js";
+import { sendEmail } from "../shared/mailer.js";
 
 const em = orm.em;
 
@@ -11,7 +14,6 @@ const em = orm.em;
 function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
   const {
     compradorId,
-    cartasIds,
     total,
     estado,
     nombre,
@@ -19,8 +21,12 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     telefono,
     direccionEntregaId,
     metodoPago,
+    envioId,
     items,
   } = req.body;
+
+  // Extraer cartasIds desde el array de items
+  const cartasIds = items && Array.isArray(items) ? items.map((item: any) => item.cartaId) : [];
 
   req.body.sanitizedInput = {
     compradorId,
@@ -32,7 +38,8 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     telefono,
     direccionEntregaId,
     metodoPago,
-      items,
+    envioId,
+    items,
   };
 
   next();
@@ -46,7 +53,16 @@ async function findAll(req: Request, res: Response) {
     // Si se proporciona compradorId, filtrar por ese comprador
     const whereClause = compradorId ? { comprador: { id: Number(compradorId) } } : {};
 
-    const compras = await em.find(Compra, whereClause, { populate: ["comprador", "itemCartas", "itemCartas.cartas", "direccionEntrega"] });
+    const compras = await em.find(Compra, whereClause, { 
+        populate: [
+            "comprador", 
+            "itemCartas", 
+            "itemCartas.cartas", 
+            "itemCartas.uploaderVendedor", 
+            "direccionEntrega", 
+            "envio"
+        ] 
+    });
     res.status(200).json({ message: "Found all compras", data: compras });
   } catch (error) {
     res.status(500).json({ message: "Error fetching compras", error });
@@ -65,7 +81,16 @@ async function findOne(req: Request, res: Response) {
       whereClause.comprador = { id: Number(compradorId) };
     }
 
-    const compra = await em.findOne(Compra, whereClause, { populate: ["comprador", "itemCartas", "itemCartas.cartas", "direccionEntrega"] });
+    const compra = await em.findOne(Compra, whereClause, { 
+        populate: [
+            "comprador", 
+            "itemCartas", 
+            "itemCartas.cartas", 
+            "itemCartas.uploaderVendedor",
+            "direccionEntrega", 
+            "envio"
+        ] 
+    });
 
     if (!compra) return res.status(404).json({ message: "Compra not found or access denied" });
 
@@ -81,29 +106,92 @@ async function add(req: Request, res: Response) {
     const input = req.body.sanitizedInput;
 
     const comprador = await em.findOne(User, { id: input.compradorId });
-    const itemCartas = await em.find(ItemCarta, { id: { $in: input.cartasIds } });
     const direccionEntrega = input.direccionEntregaId ? await em.findOne(Direccion, { id: input.direccionEntregaId }) : undefined;
+    const envio = input.envioId && input.envioId !== 'direct' ? await em.findOne(Envio, { id: input.envioId }) : undefined;
 
-    if (!comprador || itemCartas.length === 0) {
-      return res.status(400).json({ message: "Datos inválidos: faltan comprador o cartas" });
+    if (!comprador) {
+      return res.status(400).json({ message: "Datos inválidos: comprador no encontrado" });
     }
 
-    const total = input.total ?? itemCartas.reduce((sum, ic) => sum + Number(ic.cartas[0]?.price || 0), 0);
+    const finalItemCartas: ItemCarta[] = [];
+
+    // Validar y procesar stock para cada item solicitado
+    if (input.items && Array.isArray(input.items) && input.items.length > 0) {
+        for (const reqItem of input.items) {
+           const requestedQty = reqItem.quantity || 1;
+           const cartaId = reqItem.cartaId;
+           
+           // Buscar la Carta con sus items asociados
+           const carta = await em.findOne(Carta, { id: cartaId }, { populate: ['items'] });
+           
+           if (!carta) {
+               return res.status(400).json({ message: `Carta con ID ${cartaId} no encontrada` });
+           }
+           
+           // Buscar un ItemCarta específico con suficiente stock
+           const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty && item.estado !== 'pausado');
+           
+           if (!availableItem) {
+               return res.status(400).json({ message: `No hay suficiente stock para la carta: ${carta.name} (Solicitado: ${requestedQty})` });
+           }
+           
+           // Descontar stock
+           availableItem.stock -= requestedQty;
+           if (availableItem.stock <= 0) {
+               availableItem.stock = 0;
+               availableItem.estado = 'pausado';
+           }
+           
+           finalItemCartas.push(availableItem);
+        }
+    } else {
+        return res.status(400).json({ message: "No se proporcionaron items válidos para la compra" });
+    }
+
+    const total = input.total ?? finalItemCartas.reduce((sum, ic) => sum + Number(ic.cartas[0]?.price || 0), 0); // Note: This total calc might need adjustment if Qty > 1 but frontend sends total usually.
 
     const compra = em.create(Compra, {
       comprador,
-      itemCartas,
+      itemCartas: finalItemCartas,
       total,
       estado: input.estado || "pendiente",
       nombre: input.nombre,
       email: input.email,
       telefono: input.telefono,
       direccionEntrega,
+      envio,
       metodoPago: input.metodoPago,
       items: input.items ?? undefined,
     });
 
     await em.flush();
+
+    // Enviar email de confirmación
+    try {
+        const emailSubject = `Confirmación de Compra #${compra.id}`;
+        const itemsListHtml = (input.items || []).map((item: any) => 
+            `<li>${item.quantity}x ${item.title || 'Carta'} - $${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</li>`
+        ).join('');
+
+        const emailHtml = `
+            <h1>¡Gracias por tu compra, ${input.nombre || comprador.username}!</h1>
+            <p>Hemos recibido tu pedido correctamente.</p>
+            
+            <h3>Detalle del pedido:</h3>
+            <ul>${itemsListHtml}</ul>
+            
+            <p><strong>Total: $${total}</strong></p>
+            <p><strong>Método de pago:</strong> ${input.metodoPago}</p>
+            ${envio ? `<p><strong>Envío:</strong> ${envio.intermediario?.nombre || 'Directo'} (${envio.fechaEntrega ? new Date(envio.fechaEntrega).toLocaleDateString() : 'Pronto'})</p>` : ''}
+            
+            <p>Te notificaremos cuando tu pedido sea enviado.</p>
+        `;
+
+        // Send asynchronously without blocking the response
+        sendEmail(input.email || comprador.email, emailSubject, "Gracias por tu compra", emailHtml);
+    } catch (emailErr) {
+        console.error("Error sending confirmation email:", emailErr);
+    }
 
     res.status(201).json({ message: "Compra creada con éxito", data: compra });
   } catch (error: any) {

@@ -76,28 +76,61 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 1.5rem;
+  gap: 1rem;
 }
 
 .publish-btn {
-  background-color: #2563eb;
+  background-color: var(--primary);
   color: white;
   padding: 0.8rem 1.5rem;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
 }
 
 .publish-btn:hover {
-  background-color: #1e40af;
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .save-btn {
   background-color: #10b981;
   color: white;
   padding: 0.8rem 1.5rem;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-btn:hover {
+  background-color: #059669;
+}
+
+.manual-create-btn {
+  background-color: #10b981;
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  max-width: 300px;
+}
+
+.manual-create-btn:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
   font-weight: 600;
   border: none;
   cursor: pointer;

@@ -217,6 +217,7 @@ export function Checkout() {
         telefono: formData.telefono,
         direccionEntregaId: selectedDireccionId,
         metodoPago: formData.metodoPago,
+        envioId: selectedEnvioId,
       }
 
       const compraRes = await fetch('http://localhost:3000/api/compras', {
@@ -342,9 +343,9 @@ export function Checkout() {
               {selectedCity && (
                   <div className="shipping-options">
                     <h4>Envios Disponibles a {selectedCity}:</h4>
-                    {availableEnvios.filter(e => e.destinoIntermediario?.direccion?.ciudad?.trim() === selectedCity.trim()).length > 0 ? (
+                    {availableEnvios.filter(e => e.destinoIntermediario?.direccion?.ciudad?.trim().toLowerCase() === selectedCity.trim().toLowerCase()).length > 0 ? (
                         availableEnvios
-                        .filter(e => e.destinoIntermediario?.direccion?.ciudad?.trim() === selectedCity.trim())
+                        .filter(e => e.destinoIntermediario?.direccion?.ciudad?.trim().toLowerCase() === selectedCity.trim().toLowerCase())
                         .map((envio) => (
                         <div key={envio.id} className="shipping-option">
                             <input
@@ -356,10 +357,14 @@ export function Checkout() {
                             onChange={(e) => setSelectedEnvioId(e.target.value)}
                             required
                             />
-                            <label htmlFor={`envio-${envio.id}`}>
-                                <span>Desde <strong>{envio.intermediario?.nombre}</strong> (Origen)</span>
-                                <span>Llega el {new Date(envio.fechaEntrega).toLocaleDateString()}</span>
-                                <span className="price">${envio.precioPorCompra}</span>
+                            <label htmlFor={`envio-${envio.id}`} style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                                <span><strong>Servicio de Logística Intermediaria</strong></span>
+                                <span>Origen: {envio.intermediario?.nombre} &rarr; Destino: {envio.destinoIntermediario?.nombre}</span>
+                                <div>
+                                    <span style={{marginRight: '10px'}}>Salida aprox: {envio.fechaEnvio ? new Date(envio.fechaEnvio).toLocaleDateString() : 'A confirmar'}</span>
+                                    <span className="price badge-success" style={{color: '#166534', fontWeight: 'bold'}}>${envio.precioPorCompra}</span>
+                                </div>
+                                {envio.estado === 'planificado' && <small style={{color: '#d97706'}}>* Se confirmará al alcanzar el cupo mínimo</small>}
                             </label>
                         </div>
                         ))

@@ -172,7 +172,7 @@ export function LoginPage() {
         {/* Enlace a recuperación de contraseña (futuro) */}
         <p className="forgot-link">
           ¿Olvidaste tu contraseña?{" "}
-          <Link to="/recover" className="highlight">
+          <Link to="/forgot-password" className="highlight">
             Recuperala acá
           </Link>
         </p>

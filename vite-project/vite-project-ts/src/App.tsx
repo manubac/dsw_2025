@@ -17,6 +17,10 @@ import EditarCartaPage from "./pages/EditarCartaPage";
 import EditarItemPage from "./pages/EditarItemPage";
 import IntermediarioDashboard from "./pages/IntermediarioDashboard";
 import MisPublicacionesPage from "./pages/MisPublicacionesPage";
+import MisVentasPage from "./pages/MisVentasPage";
+import { VendedorProfile } from "./pages/VendedorProfile";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 /**
  * RUTA PROTEGIDA:
@@ -83,10 +87,15 @@ function App() {
                 {/* Autenticación */}
                 <Route path="register" element={<UserRegistration />} />
                 <Route path="login" element={<LoginPage />} />
+                <Route path="forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="reset-password" element={<ResetPasswordPage />} />
 
                 {/* Sección de cartas */}
                 <Route path="cards" element={<CardsPage />} />
                 <Route path="card/:id" element={<CardDetail />} />
+
+                {/* Perfil Público de Vendedor */}
+                <Route path="vendedor/:id" element={<VendedorProfile />} />
 
                 {/* Sección del perfil protegida */}
                 <Route
@@ -167,6 +176,15 @@ function App() {
                   element={
                     <VendedorRoute>
                       <MisPublicacionesPage />
+                    </VendedorRoute>
+                  }
+                />
+
+                <Route
+                  path="mis-ventas"
+                  element={
+                    <VendedorRoute>
+                      <MisVentasPage />
                     </VendedorRoute>
                   }
                 />

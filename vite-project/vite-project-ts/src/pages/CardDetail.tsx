@@ -115,6 +115,31 @@ export function CardDetail() {
             <div className="card-meta">
               {card.set && <span className="card-set">{card.set}</span>}
             </div>
+            {card.uploader && (
+              <div className="seller-info" style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>Vendido por:</span>
+                <span 
+                  onClick={() => navigate(`/vendedor/${card.uploader.id}`)} 
+                  style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  {card.uploader.nombre}
+                </span>
+
+                <div 
+                  className="seller-rating" 
+                  title={`${card.uploader.reviewsCount || 0} valoraciones`}
+                  style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}
+                >
+                  <span style={{ color: '#fbbf24', fontSize: '1rem', letterSpacing: '1px' }}>
+                     {'★'.repeat(Math.round(card.uploader.rating || 0))}
+                     {'☆'.repeat(5 - Math.round(card.uploader.rating || 0))}
+                   </span>
+                   <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                     ({card.uploader.reviewsCount || 0})
+                   </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="card-rarity">
@@ -135,13 +160,7 @@ export function CardDetail() {
             </span>
           </div>
 
-          <div className="rating">
-            <div className="stars">
-              {'★'.repeat(Math.floor(card.rating))}
-              {'☆'.repeat(5 - Math.floor(card.rating))}
-            </div>
-            <span className="rating-score">{card.rating}/5</span>
-          </div>
+          <div className="rating" style={{ display: 'none' }}></div>
 
           <div className="card-actions">
             <div className="quantity-selector">

@@ -22,7 +22,7 @@ export function Header() {
   useEffect(() => {
     async function fetchCartas() {
       try {
-        const res = await fetch("http://localhost:3000/api/cartas");
+        const res = await fetch("http://localhost:3000/api/cartas"); //variable de ambiente 
         const json = await res.json();
         setCartas(json.data || []);
       } catch (err) {
@@ -241,12 +241,6 @@ export function Header() {
       </div>
 
       <div className="header-right">
-        
-
-        <Link to="/cart" className="nav-button cart-button">
-          {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
-        </Link>
-
         <div className="user-menu-container">
           <button onClick={handleUserClick} className="nav-button user-button">
             {user ? user.name : "Usuario"}
@@ -270,6 +264,14 @@ export function Header() {
                   className="dropdown-item"
                 >
                   Mis Publicaciones
+                </button>
+              )}
+              {user.role === 'vendedor' && (
+                <button
+                  onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas') }}
+                  className="dropdown-item"
+                >
+                  Mis Ventas
                 </button>
               )}
               {user.role === 'usuario' && (
