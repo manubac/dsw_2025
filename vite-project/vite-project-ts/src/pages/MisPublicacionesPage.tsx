@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
 // import axios from "axios";
-import "../components/Products.css";
 import { fetchApi } from "../services/api";
 
 interface ItemCarta {

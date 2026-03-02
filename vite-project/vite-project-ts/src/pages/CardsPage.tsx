@@ -36,11 +36,12 @@ export function CardsPage() {
 
   const filteredProducts = filterProducts(products || []);
 
-  return (
-    <main style={{ padding: "20px" }}>
-      <h1>Cartas disponibles</h1>
-      <ProductFilters />
-      <Products products={filteredProducts} />
-    </main>
-  );
+return (
+  <main className="min-h-screen bg-green-50 p-5">
+    <h1>Cartas disponibles</h1>
+    <ProductFilters />
+    <Products products={filteredProducts} />
+  </main>
+);
 }
+

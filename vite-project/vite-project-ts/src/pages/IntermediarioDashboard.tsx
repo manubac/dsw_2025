@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/user';
 import { api } from '../services/api';
-import './IntermediarioDashboard.css';
+
 
 interface Envio {
   id: number;
@@ -136,190 +136,317 @@ export default function IntermediarioDashboard() {
   if (user?.role !== 'intermediario') return <p>Access Denied</p>;
 
   return (
-    <div className="dashboard-container">
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: '20px'}}>
-        <h1>Panel de Operaciones</h1>
-        <button onClick={loadData} className="btn-secondary">Actualizar</button>
+  <div className="min-h-screen bg-green-50 p-6">
+    <div className="max-w-6xl mx-auto">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Panel de Operaciones</h1>
+        <button
+          onClick={loadData}
+          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition"
+        >
+          Actualizar
+        </button>
       </div>
 
-      <div className="tabs">
-        <button className={activeTab === 'salientes' ? 'active':''} onClick={() => setActiveTab('salientes')}>Envios Salientes (Origen)</button>
-        <button className={activeTab === 'entrantes' ? 'active':''} onClick={() => setActiveTab('entrantes')}>Envios Entrantes (Destino)</button>
-        <button className={activeTab === 'planificar' ? 'active':''} onClick={() => setActiveTab('planificar')}>Planificar Nuevo</button>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b mb-6">
+        <button
+          onClick={() => setActiveTab('salientes')}
+          className={`px-4 py-2 rounded-t-lg font-medium transition ${
+            activeTab === 'salientes'
+              ? 'bg-orange-500 text-white'
+              : 'bg-white hover:bg-orange-100'
+          }`}
+        >
+          Envios Salientes (Origen)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('entrantes')}
+          className={`px-4 py-2 rounded-t-lg font-medium transition ${
+            activeTab === 'entrantes'
+              ? 'bg-orange-500 text-white'
+              : 'bg-white hover:bg-orange-100'
+          }`}
+        >
+          Envios Entrantes (Destino)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('planificar')}
+          className={`px-4 py-2 rounded-t-lg font-medium transition ${
+            activeTab === 'planificar'
+              ? 'bg-orange-500 text-white'
+              : 'bg-white hover:bg-orange-100'
+          }`}
+        >
+          Planificar Nuevo
+        </button>
       </div>
 
-      {loading && <p>Cargando...</p>}
+      {loading && <p className="text-gray-600">Cargando...</p>}
 
-      {/* --- TAB SALIENTES --- */}
+      {/* SALIENTES */}
       {activeTab === 'salientes' && (
-          <div className="tab-content">
-              <h3>Gestionar Salidas (Recibir de Vendedores &rarr; Enviar a Intermediarios)</h3>
-              {enviosSalientes.length === 0 && <p>No hay envios planificados.</p>}
-              
-              <div className="envios-grid">
-              {enviosSalientes.map(envio => (
-                  <div key={envio.id} className={`envio-card status-${envio.estado}`}>
-                      <div className="card-header">
-                          <h4>Envio #{envio.id} &rarr; {envio.destinoIntermediario?.nombre}</h4>
-                          <span className="badge">{envio.estado}</span>
-                      </div>
-                      <p><strong>Fecha Planificada:</strong> {envio.fechaEnvio ? new Date(envio.fechaEnvio).toLocaleDateString() : 'N/A'}</p>
-                      
-                      <div className="items-list">
-                          <h5>Items ({envio.items?.length || 0})</h5>
-                          {envio.items?.map((item: any) => (
-                              <div key={item.compraId} className="item-row">
-                                  <span>Item: {item.titulo} (Orden #{item.compraId})</span>
-                                  <div className="item-meta">
-                                      <small>Vendedor: {item.vendedor}</small>
-                                      &nbsp;|&nbsp;
-                                      <small>Estado: {item.estadoCompra}</small>
-                                  </div>
-                                  
-                                  {/* Actions for Item at Origin */}
-                                  {envio.estado !== 'cancelado' && item.estadoCompra === 'ENVIADO_A_INTERMEDIARIO' && (
-                                     <button className="btn-small" onClick={() => handleConfirmItemReceived(item.compraId)}>
-                                         Confirmar Recepción
-                                     </button>
-                                  )}
-                                  {item.estadoCompra === 'EN_MANOS_INTERMEDIARIO_ORIGEN' && (
-                                      <span className="check">✓ En depósito</span>
-                                  )}
-                              </div>
-                          ))}
-                      </div>
+        <div>
+          <h3 className="text-xl font-semibold mb-4">
+            Gestionar Salidas
+          </h3>
 
-                      <div className="card-actions">
-                          {envio.estado === 'planificado' && (
-                              <p><small>Esperando {envio.minimoCompras} compras...</small></p>
-                          )}
-                          {envio.estado === 'intermediario_enviado' && (
-                             <p><small>En tránsito...</small></p>
-                          )}
-                          
-                          <div style={{display:'flex', gap:'10px', marginTop: '10px'}}>
-                            {/* If items are ready, allow dispatch (simplified logic: if active or planificado) */}
-                            {(envio.estado === 'planificado' || envio.estado === 'activo') && (
-                                <button className="btn-primary" onClick={() => handleDispatchEnvio(envio.id)} style={{flex:1}}>
-                                    Despachar Camión
-                                </button>
-                            )}
-                            
-                            {/* Delete button (only if planned for now, or depending on logic) */}
-                            {(envio.estado === 'planificado' || envio.estado === 'orden_generada' || envio.estado === 'cancelado') && (
-                                <button className="btn-secondary" style={{background: '#ef4444', color: 'white', border: 'none'}} onClick={() => handleDeleteEnvio(envio.id)}>
-                                    Eliminar
-                                </button>
-                            )}
-                          </div>
-                      </div>
-                  </div>
-              ))}
-              </div>
-          </div>
-      )}
+          {enviosSalientes.length === 0 && (
+            <p className="text-gray-600">No hay envios planificados.</p>
+          )}
 
-      {/* --- TAB ENTRANTES --- */}
-      {activeTab === 'entrantes' && (
-          <div className="tab-content">
-              <h3>Gestionar Entradas (Recibir de Intermediarios &rarr; Entregar a Usuarios)</h3>
-              {enviosEntrantes.length === 0 && <p>No hay envios en camino.</p>}
-              
-              <div className="envios-grid">
-              {enviosEntrantes.map(envio => (
-                  <div key={envio.id} className={`envio-card status-${envio.estado}`}>
-                      <div className="card-header">
-                          <h4>Envio #{envio.id} de {envio.intermediario?.nombre}</h4>
-                          <span className="badge">{envio.estado}</span>
-                      </div>
-                      {envio.notas && <p className="notes">Notas: {envio.notas}</p>}
+          <div className="grid md:grid-cols-2 gap-6">
+            {enviosSalientes.map(envio => (
+              <div
+                key={envio.id}
+                className="bg-white rounded-xl shadow p-5 border"
+              >
+                <div className="flex justify-between items-center mb-3 border-b pb-2">
+                  <h4 className="font-semibold">
+                    Envio #{envio.id} → {envio.destinoIntermediario?.nombre}
+                  </h4>
+                  <span className="text-sm bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                    {envio.estado}
+                  </span>
+                </div>
 
-                      <div className="card-actions">
-                          {envio.estado === 'intermediario_enviado' && (
-                              <button className="btn-primary" onClick={() => handleReceiveEnvio(envio.id)}>
-                                  Confirmar Llegada
-                              </button>
-                          )}
-                      </div>
-                      
-                      <div className="items-list">
-                          <h5>Items para entregar</h5>
-                          {envio.items?.map((item: any) => (
-                              <div key={item.compraId} className="item-row">
-                                  <span>User: {item.comprador} (Orden #{item.compraId})</span>
-                                  <span>{item.titulo}</span>
-                                  
-                                  {/* Actions for Item at Destination */}
-                                  {(envio.estado === 'intermediario_recibio' || envio.estado === 'recibido') && item.estadoCompra !== 'ENTREGADO' && (
-                                     <button className="btn-small btn-success" onClick={() => handleItemDeliveredToUser(item.compraId)}>
-                                         Entregar a Usuario
-                                     </button>
-                                  )}
-                                  {item.estadoCompra === 'ENTREGADO' && (
-                                     <span className="check">✓ Entregado</span>
-                                  )}
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              ))}
-              </div>
-          </div>
-      )}
+                <p className="text-sm text-gray-600 mb-3">
+                  <strong>Fecha:</strong>{" "}
+                  {envio.fechaEnvio
+                    ? new Date(envio.fechaEnvio).toLocaleDateString()
+                    : "N/A"}
+                </p>
 
-      {/* --- TAB PLANIFICAR --- */}
-      {activeTab === 'planificar' && (
-        <div className="tab-content">
-          <h3>Planificar Nuevo Envio</h3>
-          <div className="plan-container">
-              <div className="peers-list">
-                  {intermediarios
-                    .filter(i => i.id !== user.id)
-                    .map(i => (
-                      <div 
-                        key={i.id} 
-                        className={`peer-card ${selectedDestino === i.id ? 'selected':''}`}
-                        onClick={() => setSelectedDestino(i.id)}
-                      >
-                          <h4>{i.nombre}</h4>
-                          <p>{i.direccion ? `${i.direccion.ciudad}, ${i.direccion.provincia}` : 'Sin dirección'}</p>
-                      </div>
+                <div className="bg-gray-50 p-3 rounded mb-3">
+                  <h5 className="font-medium mb-2">
+                    Items ({envio.items?.length || 0})
+                  </h5>
+
+                  {envio.items?.map((item: any) => (
+                    <div
+                      key={item.compraId}
+                      className="flex justify-between items-center py-1 text-sm"
+                    >
+                      <span>{item.titulo}</span>
+
+                      {envio.estado !== 'cancelado' &&
+                        item.estadoCompra === 'ENVIADO_A_INTERMEDIARIO' && (
+                          <button
+                            onClick={() =>
+                              handleConfirmItemReceived(item.compraId)
+                            }
+                            className="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Confirmar
+                          </button>
+                        )}
+
+                      {item.estadoCompra ===
+                        'EN_MANOS_INTERMEDIARIO_ORIGEN' && (
+                        <span className="text-green-600 text-xs">
+                          ✓ En depósito
+                        </span>
+                      )}
+                    </div>
                   ))}
-              </div>
+                </div>
 
-              {selectedDestino && (
-                  <form onSubmit={handlePlanEnvio} className="plan-form">
-                      <h4>Configurar Envio</h4>
-                      <div className="form-group">
-                          <label>Mínimo de Compras para activar:</label>
-                          <input 
-                              type="number" 
-                              value={planForm.minimoCompras} 
-                              onChange={e => setPlanForm({...planForm, minimoCompras: Number(e.target.value)})}
-                          />
-                      </div>
-                      <div className="form-group">
-                          <label>Costo de Envío por Compra ($):</label>
-                          <input 
-                              type="number" 
-                              value={planForm.precioPorCompra} 
-                              onChange={e => setPlanForm({...planForm, precioPorCompra: Number(e.target.value)})}
-                          />
-                      </div>
-                      <div className="form-group">
-                          <label>Fecha Límite / Salida:</label>
-                          <input 
-                              type="date" 
-                              value={planForm.fechaEnvio} 
-                              onChange={e => setPlanForm({...planForm, fechaEnvio: e.target.value})}
-                          />
-                      </div>
-                      <button type="submit" className="btn-primary">Crear Plan</button>
-                  </form>
-              )}
+                {(envio.estado === 'planificado' ||
+                  envio.estado === 'activo') && (
+                  <button
+                    onClick={() => handleDispatchEnvio(envio.id)}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium"
+                  >
+                    Despachar Camión
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ENTRANTES */}
+      {activeTab === 'entrantes' && (
+        <div>
+          <h3 className="text-xl font-semibold mb-4">
+            Gestionar Entradas
+          </h3>
+
+          {enviosEntrantes.length === 0 && (
+            <p className="text-gray-600">No hay envios en camino.</p>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {enviosEntrantes.map(envio => (
+              <div
+                key={envio.id}
+                className="bg-white rounded-xl shadow p-5 border"
+              >
+                <div className="flex justify-between mb-3 border-b pb-2">
+                  <h4 className="font-semibold">
+                    Envio #{envio.id} de {envio.intermediario?.nombre}
+                  </h4>
+                  <span className="text-sm bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                    {envio.estado}
+                  </span>
+                </div>
+
+                {envio.notas && (
+                  <p className="text-sm text-gray-600 mb-3">
+                    Notas: {envio.notas}
+                  </p>
+                )}
+
+                {envio.estado === 'intermediario_enviado' && (
+                  <button
+                    onClick={() => handleReceiveEnvio(envio.id)}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg mb-3"
+                  >
+                    Confirmar Llegada
+                  </button>
+                )}
+
+                <div className="bg-gray-50 p-3 rounded">
+                  {envio.items?.map((item: any) => (
+                    <div
+                      key={item.compraId}
+                      className="flex justify-between items-center text-sm py-1"
+                    >
+                      <span>{item.titulo}</span>
+
+                      {(envio.estado === 'intermediario_recibio' ||
+                        envio.estado === 'recibido') &&
+                        item.estadoCompra !== 'ENTREGADO' && (
+                          <button
+                            onClick={() =>
+                              handleItemDeliveredToUser(item.compraId)
+                            }
+                            className="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Entregar
+                          </button>
+                        )}
+
+                      {item.estadoCompra === 'ENTREGADO' && (
+                        <span className="text-green-600 text-xs">
+                          ✓ Entregado
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PLANIFICAR */}
+      {activeTab === 'planificar' && (
+        <div>
+          <h3 className="text-xl font-semibold mb-4">
+            Planificar Nuevo Envio
+          </h3>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid gap-4">
+              {intermediarios
+                .filter(i => i.id !== user.id)
+                .map(i => (
+                  <div
+                    key={i.id}
+                    onClick={() => setSelectedDestino(i.id)}
+                    className={`p-4 rounded-xl border cursor-pointer transition ${
+                      selectedDestino === i.id
+                        ? "border-orange-500 bg-orange-50"
+                        : "bg-white hover:bg-orange-50"
+                    }`}
+                  >
+                    <h4 className="font-semibold">{i.nombre}</h4>
+                    <p className="text-sm text-gray-600">
+                      {i.direccion
+                        ? `${i.direccion.ciudad}, ${i.direccion.provincia}`
+                        : "Sin dirección"}
+                    </p>
+                  </div>
+                ))}
+            </div>
+
+            {selectedDestino && (
+              <form
+                onSubmit={handlePlanEnvio}
+                className="bg-white p-6 rounded-xl shadow"
+              >
+                <h4 className="font-semibold mb-4">Configurar Envio</h4>
+
+                <div className="mb-4">
+                  <label className="block text-sm mb-1">
+                    Mínimo de Compras
+                  </label>
+                  <input
+                    type="number"
+                    value={planForm.minimoCompras}
+                    onChange={e =>
+                      setPlanForm({
+                        ...planForm,
+                        minimoCompras: Number(e.target.value)
+                      })
+                    }
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm mb-1">
+                    Costo por Compra
+                  </label>
+                  <input
+                    type="number"
+                    value={planForm.precioPorCompra}
+                    onChange={e =>
+                      setPlanForm({
+                        ...planForm,
+                        precioPorCompra: Number(e.target.value)
+                      })
+                    }
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm mb-1">
+                    Fecha de Envío
+                  </label>
+                  <input
+                    type="date"
+                    value={planForm.fechaEnvio}
+                    onChange={e =>
+                      setPlanForm({
+                        ...planForm,
+                        fechaEnvio: e.target.value
+                      })
+                    }
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium"
+                >
+                  Crear Plan
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
     </div>
-  );
+  </div>
+);
 }

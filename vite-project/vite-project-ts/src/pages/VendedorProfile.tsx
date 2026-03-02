@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import './VendedorProfile.css';
+
 
 export function VendedorProfile() {
   const { id } = useParams<{ id: string }>();
@@ -44,84 +44,121 @@ export function VendedorProfile() {
   if (loading) return <div className="loading">Cargando perfil...</div>;
   if (!vendedor) return <div className="error-msg">Vendedor no encontrado</div>;
 
-  return (
-    <div className="vendedor-profile-container">
-      <div className="profile-header">
-        <div className="avatar-placeholder">
+ return (
+  <div className="min-h-screen bg-green-50 py-10 px-4">
+    <div className="max-w-5xl mx-auto">
+      
+      {/* HEADER PERFIL */}
+      <div className="flex items-center gap-6 bg-white p-8 rounded-2xl shadow-md border border-green-200 mb-8">
+        <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-green-400 text-white rounded-full flex items-center justify-center text-4xl font-bold shadow">
           {vendedor.nombre.charAt(0).toUpperCase()}
         </div>
-        <div className="profile-info">
-          <h1>{vendedor.nombre}</h1>
-          <p className="role-badge">Vendedor Verificado</p>
-          
-          <div className="rating-summary">
-            <div className="stars">
+
+        <div>
+          <h1 className="text-2xl font-bold text-green-800">{vendedor.nombre}</h1>
+
+          <p className="inline-block bg-green-100 text-green-600 px-3 py-1 rounded-full text-sm font-semibold mt-1">
+            Vendedor Verificado
+          </p>
+
+          <div className="flex items-center gap-2 mt-2">
+            <div className="text-yellow-400 text-lg tracking-wider">
               {'★'.repeat(Math.round(average))}
               {'☆'.repeat(5 - Math.round(average))}
             </div>
-            <span className="rating-number">({average.toFixed(1)}) • {reviews.length} valoraciones</span>
+            <span className="text-gray-600 font-medium">
+              ({average.toFixed(1)}) • {reviews.length} valoraciones
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="reviews-section">
-        <h2>Publicaciones del Vendedor</h2>
+      {/* PUBLICACIONES */}
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
+          Publicaciones del Vendedor
+        </h2>
+
         {(!vendedor.itemCartas || vendedor.itemCartas.length === 0) ? (
-            <p className="no-reviews">Este vendedor no tiene cartas publicadas.</p>
+          <p className="text-center text-gray-500 italic py-10 bg-green-50 rounded-xl">
+            Este vendedor no tiene cartas publicadas.
+          </p>
         ) : (
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem'}}>
-                {vendedor.itemCartas.map((item: any) => {
-                    // Usually item has one Carta, but it's a collection
-                    // Filter paused items if needed, or show all
-                    if (item.estado === 'pausado' || item.stock <= 0) return null;
-                    
-                    const carta = item.cartas && item.cartas[0];
-                    if (!carta) return null;
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 mb-8">
+            {vendedor.itemCartas.map((item: any) => {
+              if (item.estado === 'pausado' || item.stock <= 0) return null;
 
-                    return (
-                        <div key={item.id} className="card-item" style={{border: '1px solid #ddd', padding: '10px', borderRadius: '8px'}}>
-                            {carta.image && <img src={carta.image} alt={carta.name} style={{width:'100%', height:'150px', objectFit:'contain'}} />}
-                            <h4 style={{margin: '10px 0 5px'}}>{carta.name}</h4>
-                            <p style={{margin: '0', color: '#2ecc71', fontWeight: 'bold'}}>${carta.price}</p>
-                            <p style={{margin: '5px 0', fontSize: '0.9rem'}}>Stock: {item.stock}</p>
-                            <button 
-                                onClick={() => navigate(`/card/${carta.id}`)}
-                                style={{
-                                    marginTop: '5px', 
-                                    width: '100%', 
-                                    padding: '5px', 
-                                    background: '#3498db', 
-                                    color: 'white', border:'none', 
-                                    cursor:'pointer', borderRadius:'4px'
-                                }}
-                            >
-                                Ver Detalle
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
+              const carta = item.cartas && item.cartas[0];
+              if (!carta) return null;
+
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white border border-green-200 rounded-xl p-3 shadow-sm hover:shadow-md transition"
+                >
+                  {carta.image && (
+                    <img
+                      src={carta.image}
+                      alt={carta.name}
+                      className="w-full h-[150px] object-contain"
+                    />
+                  )}
+
+                  <h4 className="mt-2 font-semibold text-gray-800">{carta.name}</h4>
+
+                  <p className="text-green-600 font-bold">${carta.price}</p>
+
+                  <p className="text-sm text-gray-500 mb-2">
+                    Stock: {item.stock}
+                  </p>
+
+                  <button
+                    onClick={() => navigate(`/card/${carta.id}`)}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-1 rounded-md transition"
+                  >
+                    Ver Detalle
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
+      </div>
 
-        <h2>Valoraciones</h2>
+      {/* VALORACIONES */}
+      <div>
+        <h2 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
+          Valoraciones
+        </h2>
+
         {reviews.length === 0 ? (
-          <p className="no-reviews">Este vendedor aún no tiene valoraciones.</p>
+          <p className="text-center text-gray-500 italic py-10 bg-green-50 rounded-xl">
+            Este vendedor aún no tiene valoraciones.
+          </p>
         ) : (
-          <div className="reviews-list">
+          <div className="flex flex-col gap-4">
             {reviews.map((review: any) => (
-              <div key={review.id} className="review-card">
-                <div className="review-header">
-                  <span className="reviewer-name">
+              <div
+                key={review.id}
+                className="bg-white p-5 rounded-xl border border-green-200 shadow-sm"
+              >
+                <div className="flex justify-between mb-1">
+                  <span className="font-semibold text-gray-800">
                     {review.usuario ? review.usuario.nombre : 'Usuario'}
                   </span>
-                  <div className="review-stars">
+
+                  <div className="text-yellow-400 text-sm">
                     {'★'.repeat(review.puntuacion)}
                     {'☆'.repeat(5 - review.puntuacion)}
                   </div>
                 </div>
-                {review.comentario && <p className="review-comment">"{review.comentario}"</p>}
+
+                {review.comentario && (
+                  <p className="text-gray-600 italic">"{review.comentario}"</p>
+                )}
+
                 {review.createdAt && (
-                  <small className="review-date">
+                  <small className="text-gray-400 text-xs block mt-2">
                     {new Date(review.createdAt).toLocaleDateString()}
                   </small>
                 )}
@@ -130,10 +167,16 @@ export function VendedorProfile() {
           </div>
         )}
       </div>
-      
-      <button className="back-btn" onClick={() => navigate(-1)}>
+
+      {/* BOTON VOLVER */}
+      <button
+        className="mt-8 bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-2 rounded-lg transition"
+        onClick={() => navigate(-1)}
+      >
         Volver
       </button>
+
     </div>
-  );
+  </div>
+);
 }

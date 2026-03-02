@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { api, fetchApi } from "../services/api";
 import { useUser } from "../context/user";
-import "../components/CardForm.css"; // estilos compartidos
+
 
 interface Carta {
   id?: number;
@@ -231,15 +231,38 @@ export default function EditarCartaPage() {
   }
 
   return (
-    <div className="card-form">
-  {/* Imagen a la izquierda */}
-      <div className="card-form-left">
+  <div className="max-w-6xl mx-auto px-4 py-10">
+
+    <div className="grid md:grid-cols-2 gap-10 bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-xl">
+
+      {/* ================= LEFT - IMAGE ================= */}
+      <div className="flex flex-col items-center gap-4">
         <img
           src={nuevaImagen || carta.image}
           alt={carta.name}
-          className="preview-img"
+          className="
+            w-full
+            max-w-sm
+            rounded-2xl
+            shadow-lg
+            object-contain
+            bg-gradient-to-b
+            from-green-100
+            to-transparent
+            p-4
+          "
         />
-        <label className="change-image-btn">
+
+        <label className="
+          cursor-pointer
+          px-4 py-2
+          rounded-xl
+          bg-green-500
+          text-white
+          font-medium
+          hover:bg-green-600
+          transition
+        ">
           Cambiar imagen
           <input
             type="file"
@@ -250,148 +273,213 @@ export default function EditarCartaPage() {
         </label>
       </div>
 
-  {/* Formulario a la derecha */}
-      <div className="card-form-right">
-        <h2 className="text-2xl font-bold mb-2">Configurar Publicación</h2>
+      {/* ================= RIGHT - FORM ================= */}
+      <div className="space-y-5">
 
-        <div>
-          <label>Nombre:</label>
+        <h2 className="text-2xl font-bold">
+          Configurar Publicación
+        </h2>
+
+        {/* Nombre */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Nombre</label>
           <input
             type="text"
             name="name"
             value={carta.name || ""}
             onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none"
           />
         </div>
 
-        <div>
-          <label>Precio:</label>
+        {/* Precio */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Precio</label>
           <input
             type="text"
             name="price"
             value={carta.price || ""}
             onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none"
           />
         </div>
 
-        <div>
-          <label>Rareza:</label>
+        {/* Rareza */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Rareza</label>
           <input
             type="text"
             name="rarity"
             value={carta.rarity || ""}
             onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none"
           />
         </div>
 
-        <div>
-          <label>Set:</label>
+        {/* Set */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Set</label>
           <input
             type="text"
             name="setName"
             value={carta.setName || ""}
             onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none"
           />
         </div>
 
-        <div>
-          <label>Descripción:</label>
+        {/* Descripción */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Descripción</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             placeholder="Describe tu item..."
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none resize-none"
           />
         </div>
 
-        <div>
-          <label>Intermediarios permitidos:</label>
-          
-          <div style={{ marginBottom: '1rem' }}>
-            <select 
-              value={selectedCity} 
-              onChange={(e) => setSelectedCity(e.target.value)}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-            >
-              <option value="">-- Seleccionar Ciudad --</option>
-              {cities.map(city => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-              <option value="all">Ver todos</option>
-            </select>
-          </div>
+        {/* ================= INTERMEDIARIOS ================= */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium">
+            Intermediarios permitidos
+          </label>
 
-          <div 
-            style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-              gap: '10px',
-              maxHeight: '400px', 
-              overflowY: 'auto',
-              border: '1px solid #e0e0e0',
-              padding: '10px',
-              borderRadius: '8px',
-              backgroundColor: '#f9f9f9'
-            }}
+          <select
+            value={selectedCity}
+            onChange={(e) => setSelectedCity(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2"
           >
+            <option value="">-- Seleccionar Ciudad --</option>
+            {cities.map(city => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+            <option value="all">Ver todos</option>
+          </select>
+
+          <div className="
+            grid
+            grid-cols-1 sm:grid-cols-2
+            gap-3
+            max-h-[400px]
+            overflow-y-auto
+            border
+            rounded-xl
+            p-3
+            bg-gray-50
+          ">
             {intermediarios
-              .filter(inter => !selectedCity || selectedCity === "all" || inter.direccion?.ciudad === selectedCity)
+              .filter(inter =>
+                !selectedCity ||
+                selectedCity === "all" ||
+                inter.direccion?.ciudad === selectedCity
+              )
               .map((inter) => {
                 const isSelected = selectedIntermediarios.includes(inter.id);
+
                 return (
-                  <div 
+                  <div
                     key={inter.id}
                     onClick={() => {
-                        if (isSelected) {
-                          setSelectedIntermediarios(selectedIntermediarios.filter(id => id !== inter.id));
-                        } else {
-                          setSelectedIntermediarios([...selectedIntermediarios, inter.id]);
-                        }
+                      if (isSelected) {
+                        setSelectedIntermediarios(
+                          selectedIntermediarios.filter(id => id !== inter.id)
+                        );
+                      } else {
+                        setSelectedIntermediarios([
+                          ...selectedIntermediarios,
+                          inter.id
+                        ]);
+                      }
                     }}
-                    style={{
-                      border: isSelected ? '2px solid #28a745' : '1px solid #ddd',
-                      borderRadius: '6px',
-                      padding: '10px',
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? '#e6ffe6' : 'white',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                    }}
+                    className={`
+                      cursor-pointer
+                      rounded-lg
+                      p-3
+                      transition
+                      shadow-sm
+                      ${isSelected
+                        ? "border-2 border-green-500 bg-green-100"
+                        : "border bg-white hover:bg-green-50"}
+                    `}
                   >
-                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{inter.nombre}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '4px' }}>
-                        {inter.direccion?.ciudad}, {inter.direccion?.provincia}
+                    <div className="font-semibold">
+                      {inter.nombre}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                        {inter.direccion?.calle} {inter.direccion?.altura}
+
+                    <div className="text-xs text-gray-600">
+                      {inter.direccion?.ciudad},{" "}
+                      {inter.direccion?.provincia}
+                    </div>
+
+                    <div className="text-xs text-gray-400">
+                      {inter.direccion?.calle}{" "}
+                      {inter.direccion?.altura}
                     </div>
                   </div>
                 );
               })}
-            
-            {intermediarios.filter(inter => !selectedCity || selectedCity === "all" || inter.direccion?.ciudad === selectedCity).length === 0 && (
-                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '1rem', color: '#666' }}>
-                    {selectedCity ? 'No hay intermediarios en esta ciudad.' : 'Selecciona una ciudad para ver intermediarios.'}
-                </div>
+
+            {intermediarios.filter(inter =>
+              !selectedCity ||
+              selectedCity === "all" ||
+              inter.direccion?.ciudad === selectedCity
+            ).length === 0 && (
+              <div className="col-span-full text-center text-gray-500 py-4">
+                {selectedCity
+                  ? "No hay intermediarios en esta ciudad."
+                  : "Selecciona una ciudad para ver intermediarios."}
+              </div>
             )}
           </div>
         </div>
 
-        <div className="card-form-actions">
-          <button onClick={publicarCarta} className="save-btn">
+        {/* ================= ACTIONS ================= */}
+        <div className="flex gap-3 pt-2">
+
+          <button
+            onClick={publicarCarta}
+            className="
+              flex-1
+              bg-green-500
+              text-white
+              py-3
+              rounded-xl
+              font-semibold
+              hover:bg-green-600
+              transition
+              shadow-md
+            "
+          >
             Confirmar publicación
           </button>
+
           {carta.id && (
-            <button onClick={handleDelete} className="delete-btn" style={{ marginLeft: '0.5rem', background: '#e53e3e' }}>
+            <button
+              onClick={handleDelete}
+              className="
+                bg-red-500
+                text-white
+                px-4
+                rounded-xl
+                hover:bg-red-600
+                transition
+              "
+            >
               Eliminar carta
             </button>
           )}
         </div>
 
         {mensaje && (
-          <p className="text-center mt-2 text-sm text-gray-700">{mensaje}</p>
+          <p className="text-center text-sm text-gray-600">
+            {mensaje}
+          </p>
         )}
+
       </div>
     </div>
-  );
+  </div>
+);
 }

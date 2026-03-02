@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '../context/user';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import './Purchases.css'; // Reusing existing styles
+
 
 export default function MisVentasPage() {
   const { user } = useUser();
@@ -45,70 +45,102 @@ export default function MisVentasPage() {
     }
   };
 
-  return (
-    <div className="purchases-wrapper">
-      <div className="purchases-card">
-        <h2>Mis Ventas</h2>
-        <p style={{color: '#666', marginBottom: '1rem'}}>
-           Gestios los pedidos que debes enviar a los intermediarios.
+    return (
+    <div className="min-h-screen bg-green-100 p-6 flex justify-center">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-lg p-8">
+        
+        <h2 className="text-2xl font-bold mb-2">Mis Ventas</h2>
+        <p className="text-gray-600 mb-6">
+          Gestionás los pedidos que debes enviar a los intermediarios.
         </p>
 
-        {loading && <p>Cargando...</p>}
-        {error && <div className="alert error">{error}</div>}
+        {loading && <p className="text-gray-500">Cargando...</p>}
 
-        {!loading && ventas.length === 0 && (
-          <div>
-            <p>Aún no tienes ventas.</p>
+        {error && (
+          <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4">
+            {error}
           </div>
         )}
 
-        <div className="orders-list">
+        {!loading && ventas.length === 0 && (
+          <p className="text-gray-500">Aún no tienes ventas.</p>
+        )}
+
+        <div className="space-y-6">
           {ventas.map((venta: any) => (
-            <div key={venta.id} className="order-card" style={{borderLeft: '4px solid var(--primary)'}}>
-              <div className="order-header">
-                <strong>Pedido #{venta.id}</strong>
-                <span className={`status-badge ${venta.envio?.estado || venta.estado}`}>
-                  {venta.envio?.estado === 'vendedor_envio' ? 'Enviado a Intermediario' : (venta.envio?.estado || venta.estado)}
+            <div
+              key={venta.id}
+              className="border-l-4 border-orange-500 bg-gray-50 rounded-xl shadow-sm"
+            >
+              <div className="flex justify-between items-center p-4 border-b">
+                <strong className="text-lg">Pedido #{venta.id}</strong>
+                <span className="px-3 py-1 text-sm rounded-full bg-orange-100 text-orange-700 font-medium">
+                  {venta.envio?.estado === 'vendedor_envio'
+                    ? 'Enviado a Intermediario'
+                    : (venta.envio?.estado || venta.estado)}
                 </span>
               </div>
-              <div className="order-body">
-                <p><strong>Comprador:</strong> {venta.comprador.nombre} ({venta.comprador.email})</p>
-                
+
+              <div className="p-4 space-y-4">
+
+                <p>
+                  <strong>Comprador:</strong> {venta.comprador.nombre} ({venta.comprador.email})
+                </p>
+
                 {venta.envio && venta.envio.intermediario && (
-                  <div style={{background: '#eff6ff', padding: '10px', borderRadius: '8px', margin: '10px 0'}}>
-                     <h4 style={{margin: '0 0 5px 0', color: '#1e40af'}}>Instrucciones de Envío:</h4>
-                     <p style={{margin: 0, fontSize: '0.9rem'}}>Please send items to intermediary:</p>
-                     <p style={{margin: '5px 0', fontWeight: 'bold'}}>{venta.envio.intermediario.nombre}</p>
-                     <p style={{margin: 0, fontFamily: 'monospace'}}>{venta.envio.intermediario.direccion}</p>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-1">
+                      Instrucciones de Envío
+                    </h4>
+                    <p className="text-sm">Enviar los items al intermediario:</p>
+                    <p className="font-bold mt-1">
+                      {venta.envio.intermediario.nombre}
+                    </p>
+                    <p className="font-mono text-sm">
+                      {venta.envio.intermediario.direccion}
+                    </p>
                   </div>
                 )}
 
-                <div className="order-items">
+                <div>
                   <strong>Items vendidos:</strong>
-                  <ul>
+                  <ul className="mt-2 space-y-2">
                     {venta.items.map((it: any) => (
-                       <li key={it.id} style={{display:'flex', gap:'10px', alignItems:'center', margin:'5px 0'}}>
-                          {it.image && <img src={it.image} alt={it.name} style={{width:'30px', height:'40px', objectFit:'contain'}}/>}
-                          <span>{it.name}</span>
-                          <span style={{color: '#green'}}>${it.price}</span>
-                       </li>
+                      <li
+                        key={it.id}
+                        className="flex items-center gap-3 bg-white p-2 rounded-lg shadow-sm"
+                      >
+                        {it.image && (
+                          <img
+                            src={it.image}
+                            alt={it.name}
+                            className="w-8 h-10 object-contain"
+                          />
+                        )}
+                        <span className="flex-1">{it.name}</span>
+                        <span className="font-semibold text-green-600">
+                          ${it.price}
+                        </span>
+                      </li>
                     ))}
                   </ul>
                 </div>
-                
-                {venta.envio && venta.envio.estado !== 'vendedor_envio' && venta.envio.estado !== 'entregado' && (
-                    <button 
-                       className="cta-button" 
-                       style={{width: '100%', marginTop: '1rem', fontSize: '0.9rem'}}
-                       onClick={() => handleMarkSent(venta.id)}
+
+                {venta.envio &&
+                  venta.envio.estado !== 'vendedor_envio' &&
+                  venta.envio.estado !== 'entregado' && (
+                    <button
+                      className="w-full mt-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                      onClick={() => handleMarkSent(venta.id)}
                     >
-                       Ya envié el paquete al Intermediario
+                      Ya envié el paquete al Intermediario
                     </button>
-                )}
+                  )}
               </div>
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );

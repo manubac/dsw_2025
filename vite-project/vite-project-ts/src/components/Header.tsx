@@ -4,13 +4,15 @@ import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
 import { X } from "lucide-react";
-import "./Header.css";
 import { fetchApi } from "../services/api";
+import { MdSearch } from "react-icons/md";
+
 
 export function Header() {
   const { cart } = useContext(CartContext);
   const { setFilters } = useContext(FiltersContext);
   const { user, logout } = useUser();
+
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -188,126 +190,144 @@ export function Header() {
     0
   );
 
-  return (
-    <header className="header">
-      <div className="header-left">
-        <Link to="/" className="brand-link">
-          <img src="/logo.png" alt="Pokémon Logo" className="brand-logo" />
-        </Link>
-      </div>
+ return (
+  <header className="sticky top-0 z-50">
+    <div className="shadow-md bg-white dark:bg-gray-900 dark:text-white duration-200 relative z-40">
+      <div className="container flex items-center justify-between h-16">
 
-      <div className="header-center">
-        <div className="search-container">
-          <div className="search-input-wrapper">
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Buscar cartas..."
-              value={query}
-              onChange={handleSearch}
-              onKeyDown={handleSearchSubmit}
+        {/* Logo */}
+        <div className="flex items-center">
+          <Link to="/" className="font-bold text-2xl sm:text-3xl flex gap-2 items-center">
+            <img src="/logo.png" alt="Pokémon Logo" className="w-20" />
+            
+          </Link>
+        </div>
+
+{/* Buscador */}
+<div className="flex-1 flex justify-center">
+  <div
+    className="relative hidden sm:block z-10 search-container
+    w-[280px] focus-within:w-[380px] transition-all duration-300"
+  >
+    <input
+      type="text"
+      className="w-full rounded-full border border-gray-300
+      px-4 pr-16 py-1.5 focus:outline-none focus:border-primary
+      transition-all duration-300 select-none"
+      placeholder="Buscar cartas..."
+      value={query}
+      onChange={handleSearch}
+      onKeyDown={handleSearchSubmit}
+    />
+
+    {/* Icono lupa */}
+    <MdSearch className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+
+
+    {/* Resultados */}
+    {results.length > 0 && (
+      <ul className="absolute top-full mt-2 w-full bg-white border rounded-lg shadow-lg z-50">
+        {results.map((card, index) => (
+          <li
+            key={card.id}
+            onClick={() => handleResultClick(card)}
+            className={`flex items-center gap-2 p-2 cursor-pointer hover:bg-orange-100 ${
+              selectedIndex === index ? "bg-gray-100" : ""
+            }`}
+          >
+            <img
+              src={card.thumbnail || card.image || "/no-image.png"}
+              alt={card.title}
+              className="w-8 h-8 object-cover rounded"
             />
-            {query && (
-              <button
-                className="clear-search-button"
-                onClick={handleClearSearch}
-                title="Limpiar búsqueda"
-              >
-                <X className="clear-icon" />
-              </button>
-            )}
-          </div>
-
-          {results.length > 0 && (
-            <ul className="search-dropdown">
-              {results.map((card, index) => (
-                <li
-                  key={card.id}
-                  onClick={() => handleResultClick(card)}
-                  className={`search-item ${
-                    selectedIndex === index ? "selected" : ""
+            <span className="text-sm">{card.title}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</div>
+        {/* Usuario */}
+        <div className="flex items-center gap-4">
+          <div className="relative z-[60] user-menu-container">
+            <button
+              onClick={handleUserClick}
+              className="flex items-center gap-2 px-3 py-1 rounded hover:bg-orange-100"
+            >
+              {user ? user.name : "Usuario"}
+              {user && (
+                <span
+                  className={`transition-transform ${
+                    userMenuOpen ? "rotate-180" : ""
                   }`}
                 >
-                  <img
-                    src={card.thumbnail || card.image || "/no-image.png"}
-                    alt={card.title}
-                    className="search-item-image"
-                  />
-                  <span className="search-item-title">{card.title}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+                  ▼
+                </span>
+              )}
+            </button>
 
-      <div className="header-right">
-        <div className="user-menu-container">
-          <button onClick={handleUserClick} className="nav-button user-button">
-            {user ? user.name : "Usuario"}
-            {user && (
-              <span
-                className={`dropdown-arrow ${userMenuOpen ? "open" : ""}`}
-              >
-                ▼
-              </span>
+            {user && userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-[70]">
+                <button onClick={handleProfileClick} className="block w-full text-left px-4 py-2 hover:bg-orange-100">
+                  Mi Perfil
+                </button>
+
+                {user.role === 'vendedor' && (
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/mis-publicaciones') }}
+                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                  >
+                    Mis Publicaciones
+                  </button>
+                )}
+
+                {user.role === 'vendedor' && (
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas') }}
+                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                  >
+                    Mis Ventas
+                  </button>
+                )}
+
+                {user.role === 'usuario' && (
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
+                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                  >
+                    Mis Compras
+                  </button>
+                )}
+
+                {user.role === 'intermediario' && (
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/intermediario') }}
+                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                  >
+                    Panel de Intermediario
+                  </button>
+                )}
+
+                <button
+                  onClick={handleDeleteAccount}
+                  className="block w-full text-left px-4 py-2 text-red-500 hover:bg-orange-100"
+                >
+                  Eliminar Cuenta
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                >
+                  Cerrar Sesión
+                </button>
+              </div>
             )}
-          </button>
-
-          {user && userMenuOpen && (
-            <div className="user-dropdown">
-              <button onClick={handleProfileClick} className="dropdown-item">
-                Mi Perfil
-              </button>
-              {user.role === 'vendedor' && (
-                <button
-                  onClick={() => { setUserMenuOpen(false); navigate('/mis-publicaciones') }}
-                  className="dropdown-item"
-                >
-                  Mis Publicaciones
-                </button>
-              )}
-              {user.role === 'vendedor' && (
-                <button
-                  onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas') }}
-                  className="dropdown-item"
-                >
-                  Mis Ventas
-                </button>
-              )}
-              {user.role === 'usuario' && (
-                <button
-                  onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
-                  className="dropdown-item"
-                >
-                  Mis Compras
-                </button>
-              )}
-              {user.role === 'intermediario' && (
-                <button
-                  onClick={() => { setUserMenuOpen(false); navigate('/intermediario') }}
-                  className="dropdown-item"
-                >
-                  Panel de Intermediario
-                </button>
-              )}
-              <button
-                onClick={handleDeleteAccount}
-                className="dropdown-item delete-item"
-              >
-                Eliminar Cuenta
-              </button>
-              <button
-                onClick={handleLogout}
-                className="dropdown-item logout-item"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          )}
+          </div>
         </div>
+
       </div>
-    </header>
-  );
+    </div>
+  </header>
+);
 }
- 

@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { api } from '../services/api';
 import { useUser } from "../context/user";
-import "../components/CardForm.css";
+
 
 interface ItemCarta {
   id: number;
@@ -88,61 +88,183 @@ export default function EditarItemPage() {
     );
   }
 
-  return (
-    <div className="card-form" style={{ flexDirection: "column" }}>
-      <h2 className="text-2xl font-bold mb-4 text-center">
+ return (
+  <div className="max-w-3xl mx-auto px-4 py-10">
+
+    <div
+      className="
+        bg-white dark:bg-gray-900
+        rounded-2xl
+        shadow-xl
+        p-8
+        space-y-6
+      "
+    >
+      <h2 className="text-2xl font-bold text-center">
         Editar Publicación
       </h2>
 
-      <div className="form-section">
-        <label>Nombre:</label>
+      {/* Nombre */}
+      <div className="space-y-1 w-full">
+        <label className="text-sm font-medium">
+          Nombre
+        </label>
+
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="form-input"
+          className="
+            w-full
+            border
+            rounded-lg
+            px-3 py-2
+            outline-none
+            focus:ring-2
+            focus:ring-green-400
+          "
         />
       </div>
 
-      <div className="form-section">
-        <label>Descripción:</label>
+      {/* Descripción */}
+      <div className="space-y-1 w-full">
+        <label className="text-sm font-medium">
+          Descripción
+        </label>
+
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="form-input"
           rows={4}
+          className="
+            w-full
+            border
+            rounded-lg
+            px-3 py-2
+            outline-none
+            focus:ring-2
+            focus:ring-green-400
+            resize-none
+          "
         />
       </div>
 
-      <div className="form-section">
-        <label>Intermediarios de envío:</label>
-        {intermediarios.map((intermediario) => (
-          <div key={intermediario.id} className="checkbox-group">
-            <input
-              type="checkbox"
-              id={`inter-${intermediario.id}`}
-              checked={selectedIntermediarios.includes(intermediario.id)}
-              onChange={(e) => handleIntermediarioChange(intermediario.id, e.target.checked)}
-            />
-            <label htmlFor={`inter-${intermediario.id}`}>
-              {intermediario.nombre} - {intermediario.email}
-            </label>
-          </div>
-        ))}
+      {/* Intermediarios */}
+      <div className="space-y-3 w-full">
+        <label className="text-sm font-medium">
+          Intermediarios de envío
+        </label>
+
+        <div
+          className="
+            w-full
+            grid
+            grid-cols-1 sm:grid-cols-2
+            gap-3
+            max-h-[350px]
+            overflow-y-auto
+            border
+            rounded-xl
+            p-3
+            bg-gray-50 dark:bg-gray-800
+          "
+        >
+          {intermediarios.map((intermediario) => {
+            const selected = selectedIntermediarios.includes(
+              intermediario.id
+            );
+
+            return (
+              <label
+                key={intermediario.id}
+                className={`
+                  cursor-pointer
+                  rounded-lg
+                  p-3
+                  transition
+                  shadow-sm
+                  flex gap-3 items-start
+                  ${
+                    selected
+                      ? "border-2 border-green-500 bg-green-100 dark:bg-green-900/30"
+                      : "border bg-white dark:bg-gray-900 hover:bg-green-50 dark:hover:bg-gray-800"
+                  }
+                `}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={(e) =>
+                    handleIntermediarioChange(
+                      intermediario.id,
+                      e.target.checked
+                    )
+                  }
+                  className="mt-1 accent-green-500"
+                />
+
+                <div>
+                  <div className="font-semibold">
+                    {intermediario.nombre}
+                  </div>
+
+                  <div className="text-xs text-gray-500">
+                    {intermediario.email}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
+      {/* Mensaje */}
       {mensaje && (
-        <p className="mt-3 text-sm text-gray-700 text-center">{mensaje}</p>
+        <p className="text-center text-sm text-gray-600">
+          {mensaje}
+        </p>
       )}
 
-      <div className="card-form-actions">
-        <button onClick={guardarCambios} className="save-btn">
+      {/* Acciones */}
+      <div className="flex flex-col gap-3 pt-4 w-full">
+
+        {/* Guardar */}
+        <button
+          onClick={guardarCambios}
+          className="
+            w-full
+            bg-green-500
+            text-white
+            py-2
+            rounded-lg
+            font-semibold
+            hover:bg-green-600
+            transition
+            shadow-md
+          "
+        >
           Guardar Cambios
         </button>
-        <button onClick={() => navigate("/cards")} className="cancel-btn">
+
+        {/* Cancelar */}
+        <button
+          onClick={() => navigate("/cards")}
+          className="
+            w-full
+            py-2
+            rounded-lg
+            border
+            border-gray-300
+            hover:bg-gray-100
+            dark:hover:bg-gray-800
+            transition
+          "
+        >
           Cancelar
         </button>
+
       </div>
     </div>
-  );
+  </div>
+);
 }

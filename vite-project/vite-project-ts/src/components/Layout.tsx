@@ -4,7 +4,7 @@ import { Footer } from "./Footer";
 import { Cart } from "./Cart";
 
 export function Layout() {
-  return (
+ return (
     <>
       <Header />
       <Cart />

@@ -5,7 +5,7 @@ import { AddToCartIcon } from '../components/Icons'
 // import axios from 'axios'
 import { fetchApi, api } from '../services/api'
 import { useUser } from '../context/user'
-import '../components/CardDetail.css'
+
 
 export function CardDetail() {
   const { id } = useParams<{ id: string }>()
@@ -78,176 +78,235 @@ export function CardDetail() {
     }
   }
 
-  return (
-    <div className="card-detail">
-      <div className="breadcrumb">
-        <span onClick={() => navigate('/')} className="breadcrumb-link">Inicio</span>
-        <span> / </span>
-        <span onClick={() => navigate('/cards')} className="breadcrumb-link">Cartas</span>
-        <span> / </span>
-        <span className="breadcrumb-current">{card.title}</span>
-      </div>
+ return (
+  <div className="max-w-6xl mx-auto p-6 bg-green-50 min-h-screen">
+    {/* Breadcrumb */}
+    <div className="mb-6 text-sm text-gray-500">
+      <span onClick={() => navigate('/')} className="cursor-pointer text-green-600 hover:underline">
+        Inicio
+      </span>
+      <span> / </span>
+      <span onClick={() => navigate('/cards')} className="cursor-pointer text-green-600 hover:underline">
+        Cartas
+      </span>
+      <span> / </span>
+      <span className="text-gray-800 font-medium">{card.title}</span>
+    </div>
 
-      <div className="card-detail-content">
-        <div className="card-gallery">
-          <div className="main-image">
-            <img
-              src={allImages[selectedImage]}
-              alt={card.title}
-              className="card-main-img"
-            />
-          </div>
-          <div className="thumbnail-gallery">
-            {allImages.map((image, index) => (
-              <img
-                key={index}
-                src={image}
-                alt={`${card.title} ${index + 1}`}
-                className={`thumbnail ${selectedImage === index ? 'active' : ''}`}
-                onClick={() => setSelectedImage(index)}
-              />
-            ))}
-          </div>
+    <div className="grid md:grid-cols-2 gap-10 mb-10">
+      {/* Galería */}
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl overflow-hidden shadow-md bg-white">
+          <img
+            src={allImages[selectedImage]}
+            alt={card.title}
+            className="w-full h-auto"
+          />
         </div>
 
-        <div className="card-info">
-          <div className="card-header">
-            <h1 className="card-title">{card.title}</h1>
-            <div className="card-meta">
-              {card.set && <span className="card-set">{card.set}</span>}
-            </div>
-            {card.uploader && (
-              <div className="seller-info" style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>Vendido por:</span>
-                <span 
-                  onClick={() => navigate(`/vendedor/${card.uploader.id}`)} 
-                  style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}
-                >
-                  {card.uploader.nombre}
+        <div className="flex gap-3 flex-wrap">
+          {allImages.map((image, index) => (
+            <img
+              key={index}
+              src={image}
+              alt={`${card.title} ${index + 1}`}
+              onClick={() => setSelectedImage(index)}
+              className={`w-20 h-20 object-cover rounded-lg cursor-pointer border-2 transition
+              ${
+                selectedImage === index
+                  ? 'border-green-500 shadow'
+                  : 'border-transparent hover:border-green-400'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="flex flex-col gap-5">
+        <div className="border-b pb-4">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">{card.title}</h1>
+
+          <div className="flex gap-4 text-sm text-gray-500">
+            {card.set && <span>{card.set}</span>}
+          </div>
+
+          {card.uploader && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+              <span>Vendido por:</span>
+              <span
+                onClick={() => navigate(`/vendedor/${card.uploader.id}`)}
+                className="text-green-600 font-semibold cursor-pointer underline"
+              >
+                {card.uploader.nombre}
+              </span>
+
+              <div className="flex items-center ml-2">
+                <span className="text-yellow-400">
+                  {'★'.repeat(Math.round(card.uploader.rating || 0))}
+                  {'☆'.repeat(5 - Math.round(card.uploader.rating || 0))}
                 </span>
-
-                <div 
-                  className="seller-rating" 
-                  title={`${card.uploader.reviewsCount || 0} valoraciones`}
-                  style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}
-                >
-                  <span style={{ color: '#fbbf24', fontSize: '1rem', letterSpacing: '1px' }}>
-                     {'★'.repeat(Math.round(card.uploader.rating || 0))}
-                     {'☆'.repeat(5 - Math.round(card.uploader.rating || 0))}
-                   </span>
-                   <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
-                     ({card.uploader.reviewsCount || 0})
-                   </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="card-rarity">
-            <span className={`rarity-badge ${card.rarity ? card.rarity.toLowerCase().replace(/\s+/g, '-') : 'unknown'}`}>
-              {card.rarity || 'Unknown'}
-            </span>
-          </div>
-
-          <div className="card-price-section">
-            <div className="price-container">
-              <span className="current-price">${card.price}</span>
-            </div>
-          </div>
-
-          <div className="stock-info">
-            <span className={`stock-status ${card.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
-              {card.stock > 0 ? `En stock (${card.stock} disponibles)` : 'Agotado'}
-            </span>
-          </div>
-
-          <div className="rating" style={{ display: 'none' }}></div>
-
-          <div className="card-actions">
-            <div className="quantity-selector">
-              <label htmlFor="quantity">Cantidad:</label>
-              <div className="quantity-controls">
-                <button
-                  type="button"
-                  className="quantity-btn"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
-                >
-                  -
-                </button>
-                <input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  max={card.stock}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.min(card.stock, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="quantity-input"
-                />
-                <button
-                  type="button"
-                  className="quantity-btn"
-                  onClick={() => setQuantity(Math.min(card.stock, quantity + 1))}
-                  disabled={quantity >= card.stock}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <button
-              className={`add-to-cart-btn ${isInCart ? 'in-cart' : ''}`}
-              onClick={handleAddToCart}
-              disabled={isInCart || card.stock === 0}
-            >
-              {isInCart ? 'En Carrito' : card.stock === 0 ? 'Agotado' : <><AddToCartIcon /> Agregar al Carrito</>}
-            </button>
-          </div>
-
-          {/* Show delete button only to the uploader vendedor */}
-          {user && card?.uploader && user.id === card.uploader.id && (
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button onClick={() => navigate('/editar-carta', { state: { carta: card } })} className="save-btn">
-                  Editar carta
-                </button>
-                <button onClick={handleDelete} className="delete-btn" style={{ background: '#e53e3e', color: '#fff' }}>
-                  Eliminar carta
-                </button>
+                <span className="ml-1 text-xs">
+                  ({card.uploader.reviewsCount || 0})
+                </span>
               </div>
             </div>
           )}
+        </div>
 
-          <div className="card-details">
-            <h3>Detalles del Producto</h3>
-            <div className="details-grid">
-              <div className="detail-item">
-                <span className="detail-label">Marca:</span>
-                <span className="detail-value">{card.brand}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Categoría:</span>
-                <span className="detail-value">{card.category}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Set:</span>
-                <span className="detail-value">{card.set}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Año de Lanzamiento:</span>
-                <span className="detail-value">{card.releaseYear}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Rareza:</span>
-                <span className="detail-value">{card.rarity}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Stock:</span>
-                <span className="detail-value">{card.stock}</span>
-              </div>
+        {/* Rareza */}
+        <div>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 uppercase">
+            {card.rarity || 'Unknown'}
+          </span>
+        </div>
+
+        {/* Precio */}
+        <div className="flex items-center gap-3">
+          <span className="text-3xl font-bold text-gray-800">${card.price}</span>
+        </div>
+
+        {/* Stock */}
+        <div>
+          <span
+            className={`text-sm font-medium ${
+              card.stock > 0 ? 'text-green-600' : 'text-red-500'
+            }`}
+          >
+            {card.stock > 0
+              ? `En stock (${card.stock} disponibles)`
+              : 'Agotado'}
+          </span>
+        </div>
+
+        {/* Acciones */}
+        <div className="mt-2">
+          <div className="mb-4">
+            <label className="block mb-2 font-semibold text-gray-700">
+              Cantidad:
+            </label>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                disabled={quantity <= 1}
+                className="w-10 h-10 border-2 border-green-500 text-green-600 rounded-lg font-bold hover:bg-green-500 hover:text-white transition disabled:border-gray-300 disabled:text-gray-300"
+              >
+                -
+              </button>
+
+              <input
+                id="quantity"
+                type="number"
+                min="1"
+                max={card.stock}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(
+                    Math.min(
+                      card.stock,
+                      Math.max(1, parseInt(e.target.value) || 1)
+                    )
+                  )
+                }
+                className="w-20 h-10 text-center border-2 border-gray-200 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-green-400"
+              />
+
+              <button
+                type="button"
+                onClick={() => setQuantity(Math.min(card.stock, quantity + 1))}
+                disabled={quantity >= card.stock}
+                className="w-10 h-10 border-2 border-green-500 text-green-600 rounded-lg font-bold hover:bg-green-500 hover:text-white transition disabled:border-gray-300 disabled:text-gray-300"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <button
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition shadow
+            ${
+              isInCart
+                ? 'bg-green-600 text-white'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }
+            disabled:bg-gray-300`}
+            onClick={handleAddToCart}
+            disabled={isInCart || card.stock === 0}
+          >
+            {isInCart
+              ? 'En Carrito'
+              : card.stock === 0
+              ? 'Agotado'
+              : (
+                <>
+                  <AddToCartIcon />
+                  Agregar al Carrito
+                </>
+              )}
+          </button>
+        </div>
+
+        {/* Botones vendedor */}
+        {user && card?.uploader && user.id === card.uploader.id && (
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={() => navigate('/editar-carta', { state: { carta: card } })}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition"
+            >
+              Editar carta
+            </button>
+
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition"
+            >
+              Eliminar carta
+            </button>
+          </div>
+        )}
+
+        {/* Detalles */}
+        <div className="bg-white border border-green-100 rounded-xl p-5 shadow-sm mt-4">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">
+            Detalles del Producto
+          </h3>
+
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="flex justify-between border-b pb-2">
+              <span className="font-medium text-gray-500">Marca:</span>
+              <span className="text-gray-800">{card.brand}</span>
+            </div>
+
+            <div className="flex justify-between border-b pb-2">
+              <span className="font-medium text-gray-500">Categoría:</span>
+              <span className="text-gray-800">{card.category}</span>
+            </div>
+
+            <div className="flex justify-between border-b pb-2">
+              <span className="font-medium text-gray-500">Set:</span>
+              <span className="text-gray-800">{card.set}</span>
+            </div>
+
+            <div className="flex justify-between border-b pb-2">
+              <span className="font-medium text-gray-500">Año:</span>
+              <span className="text-gray-800">{card.releaseYear}</span>
+            </div>
+
+            <div className="flex justify-between border-b pb-2">
+              <span className="font-medium text-gray-500">Rareza:</span>
+              <span className="text-gray-800">{card.rarity}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="font-medium text-gray-500">Stock:</span>
+              <span className="text-gray-800">{card.stock}</span>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  </div>
+)
 }
