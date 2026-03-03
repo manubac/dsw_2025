@@ -7,6 +7,8 @@ import { Carta } from "../carta/carta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio } from "../envio/envio.entity.js";
 import { sendEmail } from "../shared/mailer.js";
+import { Preference } from "mercadopago";
+import mpClient from '../shared/mercadopago.js'
 
 const em = orm.em;
 
@@ -200,6 +202,82 @@ async function add(req: Request, res: Response) {
   }
 }
 
+async function createPreference(req: Request, res: Response) {
+  try {
+    const input = req.body.sanitizedInput;
+
+    const comprador = await em.findOne(User, { id: input.compradorId });
+
+    if (!comprador) {
+      return res.status(400).json({ message: "Comprador no encontrado" });
+    }
+
+    if (!input.items || input.items.length === 0) {
+      return res.status(400).json({ message: "Compra sin items" });
+    }
+
+    // ======================
+    // CREAR COMPRA PENDIENTE
+    // ======================
+
+    const compra = em.create(Compra, {
+      comprador,
+      total: input.total,
+      estado: "pendiente",
+      nombre: input.nombre,
+      email: input.email,
+      telefono: input.telefono,
+      metodoPago: "mercadopago",
+      items: input.items,
+    });
+
+    await em.flush();
+
+    // ======================
+    // ITEMS PARA MERCADOPAGO
+    // ======================
+
+    const mpItems = input.items.map((item: any) => ({
+      title: item.title || "Carta Pokémon",
+      quantity: item.quantity,
+      unit_price: Number(item.price),
+      currency_id: "ARS",
+    }));
+
+    // ======================
+    // CREAR PREFERENCE
+    // ======================
+
+    const preference = new Preference(mpClient);
+
+    const result = await preference.create({
+      body: {
+        items: mpItems,
+
+        metadata: {
+          compraId: compra.id,
+        },
+
+        back_urls: {
+          success: "http://localhost:5173/pago-exitoso",
+          failure: "http://localhost:5173/pago-error",
+          pending: "http://localhost:5173/pago-pendiente",
+        },
+
+        auto_return: "approved",
+      },
+    });
+
+    res.status(200).json({
+      init_point: result.init_point,
+    });
+
+  } catch (error: any) {
+    console.error("Error creando preferencia MP:", error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
 // Actualizar compra
 async function update(req: Request, res: Response) {
   try {
@@ -268,4 +346,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeCompraInput, findAll, findOne, add, update, remove };
+export { sanitizeCompraInput, findAll, findOne, add, update, remove, createPreference };

@@ -38,6 +38,9 @@ export function Checkout() {
   const [intermediariosDestino, setIntermediariosDestino] = useState<any[]>([])
   const [selectedDestinoId, setSelectedDestinoId] = useState<number | null>(null)
 
+  //Pagos MP y MANUAL
+  const [paymentMode, setPaymentMode] = useState<'mercadopago' | 'manual'>('mercadopago')
+
   // Cargar direcciones al montar
   useEffect(() => {
     if (user?.id) {
@@ -74,6 +77,9 @@ export function Checkout() {
     };
     fetchDestinations();
 
+
+
+
     // 2. Obtener envíos de origen basados en los items del carrito
     const fetchEnvios = async () => {
       if (cart.length === 0) {
@@ -81,7 +87,9 @@ export function Checkout() {
         return;
       }
 
-      const intermediariosIds = cart.flatMap(item => item.intermediarios?.map((i: any) => i.id) || []);
+      const intermediariosIds = cart.flatMap((item: any) =>
+  item.intermediarios?.map((i: any) => i.id) || []
+);
       const uniqueIntermediarios = [...new Set(intermediariosIds)];
       
       console.log('Fetching envios for intermediarios:', uniqueIntermediarios);
@@ -167,87 +175,142 @@ export function Checkout() {
   
   const total = subtotal + envioCost
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+const handleMercadoPago = async (e: React.FormEvent) => {
+  e.preventDefault()
 
-    try {
-      let compradorId: number | undefined = user?.id
+  try {
+    let compradorId: number | undefined = user?.id
 
-      if (!compradorId) {
-        const usersRes = await fetchApi('/api/users')
-        const usersJson = await usersRes.json()
-        const existing = (usersJson.data || []).find((u: any) => u.email === formData.email)
+    // ==========================
+    // 1) CREAR / BUSCAR USUARIO
+    // ==========================
+    if (!compradorId) {
+      const usersRes = await fetchApi('/api/users')
+      const usersJson = await usersRes.json()
+      const existing = (usersJson.data || []).find(
+        (u: any) => u.email === formData.email
+      )
 
-        if (existing) {
-          compradorId = existing.id
-          login({ id: existing.id, name: existing.username || existing.name || '', email: existing.email, password: existing.password || '', role: existing.role }, '')
-        } else {
-          
-          const username = formData.nombre.split(' ')[0] || formData.email.split('@')[0]
-          const password = Math.random().toString(36).slice(-8)
-          const createRes = await fetchApi('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email: formData.email, password, role: 'user' })
-          })
+      if (existing) {
+        compradorId = existing.id
+        login(
+          {
+            id: existing.id,
+            name: existing.username || existing.name || '',
+            email: existing.email,
+            password: existing.password || '',
+            role: existing.role,
+          },
+          ''
+        )
+      } else {
+        const username =
+          formData.nombre.split(' ')[0] ||
+          formData.email.split('@')[0]
 
-          if (!createRes.ok) {
-            const err = await createRes.json()
-            throw new Error(err.message || 'Error creating user')
-          }
+        const password = Math.random().toString(36).slice(-8)
 
-          const created = await createRes.json()
-          compradorId = created.data.id
-          const u = created.data
-          login({ id: u.id, name: u.username || u.name || '', email: u.email, password: u.password || '', role: u.role }, '')
+        const createRes = await fetchApi('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username,
+            email: formData.email,
+            password,
+            role: 'user',
+          }),
+        })
+
+        if (!createRes.ok) {
+          const err = await createRes.json()
+          throw new Error(err.message || 'Error creating user')
         }
+
+        const created = await createRes.json()
+        compradorId = created.data.id
+
+        login(
+          {
+            id: created.data.id,
+            name: created.data.username || '',
+            email: created.data.email,
+            password: created.data.password || '',
+            role: created.data.role,
+          },
+          ''
+        )
       }
-
-      // 2) Preparar payload de la compra
-      const items = cart.map((item: any) => ({ cartaId: item.id, quantity: item.quantity, price: item.price, title: item.title }))
-      const cartasIds = Array.from(new Set(cart.map((i: any) => i.id)))
-
-      const payload = {
-        compradorId,
-        cartasIds,
-        items,
-        total,
-        estado: 'pendiente',
-        nombre: formData.nombre,
-        email: formData.email,
-        telefono: formData.telefono,
-        direccionEntregaId: selectedDireccionId,
-        metodoPago: formData.metodoPago,
-        envioId: selectedEnvioId,
-      }
-
-      const compraRes = await fetchApi('/api/compras', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!compraRes.ok) {
-        const err = await compraRes.json()
-        throw new Error(err.message || 'Error creating compra')
-      }
-
-      const compraJson = await compraRes.json()
-      console.log('Compra created:', compraJson)
-
-      // Clear cart and show success
-      clearCart()
-      setOrderPlaced(true)
-
-      // Redirect after 3 seconds
-      setTimeout(() => {
-        navigate('/')
-      }, 3000)
-    } catch (error: any) {
-      console.error('Error placing order:', error)
-      alert('Error al procesar el pedido: ' + (error.message || 'unknown'))
     }
+
+    // ==========================
+    // 2) PREPARAR ITEMS
+    // ==========================
+    const items = cart.map((item: any) => ({
+      cartaId: item.id,
+      quantity: item.quantity,
+      price: item.price,
+      title: item.title,
+    }))
+
+    // ==========================
+    // 3) CREAR PREFERENCIA MP
+    // ==========================
+const mpRes = await fetchApi('/api/compras/preference', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    compradorId,
+    items,
+    total,
+    email: formData.email,
+    nombre: formData.nombre,
+    telefono: formData.telefono,
+    envioId: selectedEnvioId
+  }),
+})
+
+    if (!mpRes.ok) {
+      const err = await mpRes.json()
+      throw new Error(err.message || 'Error creando pago')
+    }
+
+    const mpJson = await mpRes.json()
+
+    // ==========================
+    // 4) REDIRIGIR A MP
+    // ==========================
+    window.location.href = mpJson.init_point
+
+  } catch (error: any) {
+    console.error('Error placing order:', error)
+    alert('Error al procesar el pago: ' + (error.message || 'unknown'))
   }
+}
+
+const handleManual = async (e: React.FormEvent) => {
+  e.preventDefault()
+
+  try {
+    const payload = {
+      compradorId: user?.id,
+      total,
+      metodoPago: formData.metodoPago,
+      estado: 'pagado'
+    }
+
+    await fetchApi('/api/compras', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    clearCart()
+    setOrderPlaced(true)
+
+  } catch (error) {
+    alert('Error en pago manual')
+  }
+}
 
   if (cart.length === 0 && !orderPlaced) {
     return (
@@ -281,7 +344,7 @@ export function Checkout() {
 
       <div className="checkout-content">
         <div className="checkout-form-section">
-          <form onSubmit={handleSubmit} className="checkout-form">
+          <form onSubmit={paymentMode === 'mercadopago' ? handleMercadoPago : handleManual}>
             <div className="form-section">
               <h3>Información de Contacto</h3>
               <div className="form-row">
@@ -390,7 +453,7 @@ export function Checkout() {
                   </div>
               )}
             </div>
-
+            {paymentMode === 'manual' && (
             <div className="form-section">
               <h3>Dirección de Facturación</h3>
 
@@ -507,29 +570,57 @@ export function Checkout() {
                   </div>
                 </div>
               )}
-            </div>
+            </div> )}
 
             {/* Old Option de Envio removed as it's now handled in Delivery Method */}
-            
-            <div className="form-section">
-              <h3>Método de Pago</h3>
-              <div className="form-group">
-                <select
-                  id="metodoPago"
-                  name="metodoPago"
-                  value={formData.metodoPago}
-                  onChange={handleInputChange}
-                >
-                  <option value="tarjeta">Tarjeta de Crédito/Débito</option>
-                  <option value="transferencia">Transferencia Bancaria</option>
-                  <option value="efectivo">Efectivo</option>
-                </select>
-              </div>
-            </div>
 
-            <button type="submit" className="place-order-btn">
-              Realizar Pedido - ${total.toFixed(2)}
-            </button>
+
+<div className="form-section">
+  <h3>Forma de Pago</h3>
+
+  <div className="payment-selector">
+
+    <label>
+      <input
+        type="radio"
+        checked={paymentMode === 'mercadopago'}
+        onChange={() => setPaymentMode('mercadopago')}
+      />
+      Pagar con MercadoPago (online)
+    </label>
+
+    <label>
+      <input
+        type="radio"
+        checked={paymentMode === 'manual'}
+        onChange={() => setPaymentMode('manual')}
+      />
+      Pago manual (simulación)
+    </label>
+
+  </div>
+
+  {paymentMode === 'manual' && (
+    <div className="form-group">
+      <select
+        id="metodoPago"
+        name="metodoPago"
+        value={formData.metodoPago}
+        onChange={handleInputChange}
+      >
+        <option value="tarjeta">Tarjeta</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="efectivo">Efectivo</option>
+      </select>
+    </div>
+  )}
+</div>
+
+<button type="submit" className="place-order-btn">
+  {paymentMode === 'mercadopago'
+    ? `Pagar con MercadoPago - $${total.toFixed(2)}`
+    : `Confirmar pedido - $${total.toFixed(2)}`}
+</button>
           </form>
         </div>
 

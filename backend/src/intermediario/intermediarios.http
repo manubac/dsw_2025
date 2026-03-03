@@ -11,6 +11,7 @@ Content-Type: application/json
 {
   "nombre": "Intermediario Express",
   "email": "contacto@intermediarioexpress.com",
+  "password": "123456",
   "telefono": "3415551234",
   "descripcion": "Servicio de entrega confiable en todo el país",
   "activo": true

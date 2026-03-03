@@ -21,11 +21,14 @@ import MisVentasPage from "./pages/MisVentasPage";
 import { VendedorProfile } from "./pages/VendedorProfile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import { PagoExitoso } from "./pages/pagoExitoso";
+
+/* ✅ NUEVO — páginas de resultado de pago */
+import PagoError from "./pages/pagoError";
+import PagoPendiente from "./pages/pagoPendiente";
 
 /**
- * RUTA PROTEGIDA:
- * Bloquea el acceso a rutas que requieren autenticación.
- * Redirige al login si no hay usuario logueado.
+ * RUTA PROTEGIDA
  */
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
@@ -38,8 +41,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 }
 
 /**
- * RUTA PROTEGIDA PARA VENDEDORES:
- * Solo permite acceso a usuarios con rol 'vendedor'.
+ * RUTA PROTEGIDA PARA VENDEDORES
  */
 function VendedorRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
@@ -48,7 +50,7 @@ function VendedorRoute({ children }: { children: JSX.Element }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== 'vendedor') {
+  if (user.role !== "vendedor") {
     return <Navigate to="/" replace />;
   }
 
@@ -56,8 +58,7 @@ function VendedorRoute({ children }: { children: JSX.Element }) {
 }
 
 /**
- * RUTA PROTEGIDA PARA INTERMEDIARIOS:
- * Solo permite acceso a usuarios con rol 'intermediario'.
+ * RUTA PROTEGIDA PARA INTERMEDIARIOS
  */
 function IntermediarioRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
@@ -66,7 +67,7 @@ function IntermediarioRoute({ children }: { children: JSX.Element }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== 'intermediario') {
+  if (user.role !== "intermediario") {
     return <Navigate to="/" replace />;
   }
 
@@ -81,6 +82,7 @@ function App() {
           <Router>
             <Routes>
               <Route path="/" element={<Layout />}>
+
                 {/* Página principal */}
                 <Route index element={<HomePage />} />
 
@@ -97,7 +99,7 @@ function App() {
                 {/* Perfil Público de Vendedor */}
                 <Route path="vendedor/:id" element={<VendedorProfile />} />
 
-                {/* Sección del perfil protegida */}
+                {/* Perfil protegido */}
                 <Route
                   path="profile"
                   element={
@@ -107,7 +109,7 @@ function App() {
                   }
                 />
 
-                {/* Carrito y checkout */}
+                {/* Checkout */}
                 <Route
                   path="checkout"
                   element={
@@ -127,7 +129,7 @@ function App() {
                   }
                 />
 
-                {/* Página de publicación */}
+                {/* Publicar */}
                 <Route
                   path="publicar"
                   element={
@@ -137,7 +139,7 @@ function App() {
                   }
                 />
 
-                {/* Nueva página para editar publicación */}
+                {/* Editar carta */}
                 <Route
                   path="editar-carta"
                   element={
@@ -147,7 +149,7 @@ function App() {
                   }
                 />
 
-                {/* Página para editar item existente */}
+                {/* Editar item */}
                 <Route
                   path="editar-item"
                   element={
@@ -160,7 +162,7 @@ function App() {
                 {/* Contacto */}
                 <Route path="contact" element={<ContactPage />} />
 
-                {/* Panel de intermediario */}
+                {/* Panel intermediario */}
                 <Route
                   path="intermediario"
                   element={
@@ -170,7 +172,7 @@ function App() {
                   }
                 />
 
-                {/* Mis publicaciones para vendedores */}
+                {/* Mis publicaciones */}
                 <Route
                   path="mis-publicaciones"
                   element={
@@ -189,8 +191,14 @@ function App() {
                   }
                 />
 
-                {/* Ruta fallback */}
+                {/* ✅ RUTAS MERCADOPAGO (AGREGADAS) */}
+                <Route path="pago-exitoso" element={<PagoExitoso />} />
+                <Route path="pago-error" element={<PagoError />} />
+                <Route path="pago-pendiente" element={<PagoPendiente />} />
+
+                {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
+
               </Route>
             </Routes>
           </Router>
