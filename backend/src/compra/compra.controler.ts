@@ -265,8 +265,10 @@ const result = await preference.create({
   }
 });
 
+    // En test se usa sandbox_init_point, en producción init_point
+    const isTest = (process.env.MP_ACCESS_TOKEN || '').startsWith('TEST-');
     res.status(200).json({
-      init_point: result.init_point,
+      init_point: isTest ? result.sandbox_init_point : result.init_point,
     });
 
   } catch (error: any) {
