@@ -237,36 +237,33 @@ async function createPreference(req: Request, res: Response) {
     // ITEMS PARA MERCADOPAGO
     // ======================
 
-    const mpItems = input.items.map((item: any) => ({
-      title: item.title || "Carta Pokémon",
-      quantity: item.quantity,
-      unit_price: Number(item.price),
-      currency_id: "ARS",
-    }));
-
+const mpItems = input.items.map((item: any) => ({
+  title: item.title || "Carta Pokémon",
+  quantity: Number(item.quantity) || 1,
+  unit_price: Number(item.price),
+  currency_id: "ARS",
+}));
     // ======================
     // CREAR PREFERENCE
     // ======================
 
-    const preference = new Preference(mpClient);
+const preference = new Preference(mpClient);
 
-    const result = await preference.create({
-      body: {
-        items: mpItems,
-
-        metadata: {
-          compraId: compra.id,
-        },
-
-        back_urls: {
-          success: "http://localhost:5173/pago-exitoso",
-          failure: "http://localhost:5173/pago-error",
-          pending: "http://localhost:5173/pago-pendiente",
-        },
-
-        auto_return: "approved",
-      },
-    });
+const result = await preference.create({
+  body: {
+    items: mpItems,
+    metadata: {
+      compraId: compra.id,
+    },
+    back_urls: {
+      success: "https://dsw-2025-frontend.onrender.com/pago-exitoso",
+      failure: "https://dsw-2025-frontend.onrender.com/pago-error",
+      pending: "https://dsw-2025-frontend.onrender.com/pago-pendiente"
+    },
+    auto_return: "approved",
+    notification_url: "https://TU-BACKEND.onrender.com/api/compras/webhook"
+  }
+});
 
     res.status(200).json({
       init_point: result.init_point,

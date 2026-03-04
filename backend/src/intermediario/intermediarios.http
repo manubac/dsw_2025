@@ -25,6 +25,7 @@ Content-Type: application/json
   "nombre": "Logistica Segura",
   "email": "info@logisticasegura.com",
   "telefono": "3415555678",
+  "password": "123456",
   "descripcion": "Especialistas en entregas seguras de productos de colección",
   "activo": true
 }
