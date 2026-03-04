@@ -16,9 +16,6 @@ export class User extends BaseEntity {
   role!: string;
 
   @Property({ nullable: true })
-  direcciones = []; 
-
-  @Property({ nullable: true })
   resetPasswordToken?: string;
 
   @Property({ nullable: true })

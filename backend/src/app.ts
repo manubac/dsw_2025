@@ -7,7 +7,6 @@ import 'dotenv/config';
 
 // Routers
 import { vendedorRouter } from "./vendedor/vendedor.routes.js";
-import { itemRouter } from "./vendedor/item.routes.js";
 import { cartaRouter } from "./carta/carta.routes.js";
 import { cartaClassRouter } from "./carta/cartaClass.routes.js";
 import { itemCartaRouter } from "./carta/itemCarta.routes.js";
@@ -42,7 +41,6 @@ app.use("/api/cartas", (req, res, next) => {
 
 //  Rutas principales
 app.use("/api/vendedores", vendedorRouter);
-app.use("/api/items", itemRouter);
 app.use("/api/cartas/classes", cartaClassRouter);
 app.use("/api/cartas", cartaRouter);
 app.use("/api/itemsCarta", itemCartaRouter);

@@ -42,5 +42,5 @@ export class Envio extends BaseEntity {
     precioPorCompra?: number;
 
     @OneToMany(() => Compra, compra => compra.envio)
-    compras!: Rel<Compra>[];
+    compras: Rel<Compra>[] = [];
 }

@@ -6,11 +6,10 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import axios from "axios";
-import puppeteer from "puppeteer-core";
-import * as chrome from "chrome-launcher"; 
+// import puppeteer from "puppeteer-core";
+// import * as chrome from "chrome-launcher";
 
-
-import fs from "fs"; // opcional para guardar en archivo
+// import fs from "fs"; // opcional para guardar en archivo
 
 
 const em = orm.em;
@@ -226,7 +225,8 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-// Buscar cartas Pokémon (PokeAPI)
+// Buscar cartas Pokémon (PokeAPI) — deshabilitado, se suben manualmente
+/*
 async function findFromAPI(req: Request, res: Response) {
   try {
     const nombre = req.params.nombre as string;
@@ -421,8 +421,8 @@ async function scrapeCartas(req: Request, res: Response) {
     });
   }
 }
+*/
 
- 
 export {
   sanitizeCartaInput,
   findAll,
@@ -430,6 +430,6 @@ export {
   add,
   update,
   remove,
-  findFromAPI,
-  scrapeCartas,
+  // findFromAPI,  // deshabilitado
+  // scrapeCartas, // deshabilitado
 };

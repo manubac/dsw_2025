@@ -36,7 +36,7 @@ async function findAll(req: Request, res: Response) {
         const vendedores = await em.find(
             Vendedor, 
             {}, 
-            {populate:['items']}
+            {populate:['itemCartas']}
         )
         res
         .status(200)
@@ -51,7 +51,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
     try {
         const id= Number.parseInt(req.params.id as string)
-        const vendedor = await em.findOne(Vendedor, {id}, {populate:['items', 'itemCartas', 'itemCartas.cartas']})
+        const vendedor = await em.findOne(Vendedor, {id}, {populate:['itemCartas', 'itemCartas.cartas']})
         res.status(200).json({message:'Found one vendedor', data:vendedor})
     } catch (error: any) {
         res.status(500).json({message: error.message})
@@ -104,7 +104,7 @@ async function remove(req: Request, res: Response) {
 async function login(req: Request, res: Response) {
     try {
         const { email, password } = req.body
-        const vendedor = await em.findOne(Vendedor, { email }, { populate: ['items'] })
+        const vendedor = await em.findOne(Vendedor, { email }, { populate: ['itemCartas'] })
         if (!vendedor) {
             return res.status(401).json({ message: 'Invalid credentials' })
         }

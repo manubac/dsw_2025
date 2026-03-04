@@ -6,17 +6,17 @@ import {
   add,
   update,
   remove,
-  findFromAPI,
-  scrapeCartas,
+  // findFromAPI,  // deshabilitado
+  // scrapeCartas, // deshabilitado
 } from "./carta.controler.js";
 
 export const cartaRouter = Router();
 
-// Scraping con Puppeteer
-cartaRouter.get("/scrape/:nombre", scrapeCartas);
+// Scraping con Puppeteer — deshabilitado, se suben manualmente
+// cartaRouter.get("/scrape/:nombre", scrapeCartas);
 
-// Buscar Pokémon desde PokeAPI
-cartaRouter.get("/search/:nombre", findFromAPI);
+// Buscar Pokémon desde PokeAPI — deshabilitado
+// cartaRouter.get("/search/:nombre", findFromAPI);
 
 // CRUD básico
 cartaRouter.get("/", findAll);
