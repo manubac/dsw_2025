@@ -240,7 +240,7 @@ async function createPreference(req: Request, res: Response) {
 const mpItems = input.items.map((item: any) => ({
   title: item.title || "Carta Pokémon",
   quantity: Number(item.quantity) || 1,
-  unit_price: Number(item.price),
+  unit_price: Math.round(Number(item.price)) || 1,
   currency_id: "ARS",
 }));
     // ======================
@@ -261,7 +261,6 @@ const result = await preference.create({
       pending: "https://dsw-2025-frontend.onrender.com/pago-pendiente"
     },
     auto_return: "approved",
-    notification_url: "https://TU-BACKEND.onrender.com/api/compras/webhook"
   }
 });
 

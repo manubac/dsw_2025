@@ -1,4 +1,5 @@
 import { useContext } from 'react'
+import { Link } from 'react-router-dom'
 import { FiltersContext } from '../context/filters'
 import { CartContext } from '../context/cart'
 
@@ -32,19 +33,19 @@ export function Footer() {
 
         <ul className="space-y-2">
           <li>
-            <a href="/" className="hover:text-primary transition">
+            <Link to="/" className="hover:text-primary transition">
               Inicio
-            </a>
+            </Link>
           </li>
           <li>
-            <a href="/cards" className="hover:text-primary transition">
+            <Link to="/cards" className="hover:text-primary transition">
               Cartas
-            </a>
+            </Link>
           </li>
           <li>
-            <a href="/contact" className="hover:text-primary transition">
+            <Link to="/contact" className="hover:text-primary transition">
               Contacto
-            </a>
+            </Link>
           </li>
         </ul>
       </div>
