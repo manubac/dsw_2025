@@ -291,24 +291,43 @@ const handleManual = async (e: React.FormEvent) => {
   e.preventDefault()
 
   try {
+    const items = cart.map((item: any) => ({
+      cartaId: item.id,
+      quantity: item.quantity,
+      price: item.price,
+      title: item.title,
+    }))
+
     const payload = {
       compradorId: user?.id,
+      items,
       total,
+      nombre: formData.nombre,
+      email: formData.email,
+      telefono: formData.telefono,
       metodoPago: formData.metodoPago,
-      estado: 'pagado'
+      estado: 'pagado',
+      direccionEntregaId: selectedDireccionId ?? undefined,
+      envioId: selectedEnvioId ?? undefined,
     }
 
-    await fetchApi('/api/compras', {
+    const res = await fetchApi('/api/compras', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
 
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.message || 'Error al crear la compra')
+    }
+
     clearCart()
     setOrderPlaced(true)
 
-  } catch (error) {
-    alert('Error en pago manual')
+  } catch (error: any) {
+    console.error('Error en pago manual:', error)
+    alert('Error en pago manual: ' + (error.message || 'Error desconocido'))
   }
 }
 

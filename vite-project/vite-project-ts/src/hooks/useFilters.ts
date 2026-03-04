@@ -13,14 +13,17 @@ export function useFilters() {
   const filterProducts = (products: any[]) => {
     let filteredProducts = products.filter(product => {
       const matchesPrice = product.price >= filters.minPrice
-      const matchesCategory =
-        filters.category === 'all' || product.category === filters.category
+      const matchesCity =
+        filters.city === 'all' ||
+        (product.intermediarios || []).some(
+          (i: any) => i.direccion?.ciudad === filters.city
+        )
       const matchesQuery =
         !filters.query ||
         product.title.toLowerCase().includes(filters.query.toLowerCase()) ||
-        product.description.toLowerCase().includes(filters.query.toLowerCase())
+        (product.description || '').toLowerCase().includes(filters.query.toLowerCase())
 
-      return matchesPrice && matchesCategory && matchesQuery
+      return matchesPrice && matchesCity && matchesQuery
     })
 
     if (filters.sort === 'name-asc') {

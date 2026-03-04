@@ -2,18 +2,18 @@ import { useId, useContext } from 'react'
 import { FiltersContext } from '../context/filters'
 
 
-export function ProductFilters() {
+export function ProductFilters({ cities = [] }: { cities?: string[] }) {
   const { filters, setFilters } = useContext(FiltersContext)
   const minPriceFilterId = useId()
-  const categoryFilterId = useId()
+  const cityFilterId = useId()
   const sortFilterId = useId()
 
   const handleChangeMinPrice = (event: any) => {
     setFilters((prev: any) => ({ ...prev, minPrice: Number(event.target.value) }))
   }
 
-  const handleChangeCategory = (event: any) => {
-    setFilters((prev: any) => ({ ...prev, category: event.target.value }))
+  const handleChangeCity = (event: any) => {
+    setFilters((prev: any) => ({ ...prev, city: event.target.value }))
   }
 
   const handleChangeSort = (event: any) => {
@@ -60,19 +60,19 @@ return (
       </span>
     </div>
 
-    {/* CATEGORIA */}
+    {/* CIUDAD */}
     <div className="flex flex-col gap-2 flex-1">
       <label
-        htmlFor={categoryFilterId}
+        htmlFor={cityFilterId}
         className="text-sm font-semibold text-gray-700 dark:text-gray-200"
       >
-        Categoría
+        Ciudad
       </label>
 
       <select
-        id={categoryFilterId}
-        onChange={handleChangeCategory}
-        value={filters.category}
+        id={cityFilterId}
+        onChange={handleChangeCity}
+        value={filters.city}
         className="
           px-3 py-2
           rounded-xl
@@ -84,9 +84,10 @@ return (
           transition
         "
       >
-        <option value="all">All Categories</option>
-        <option value="trading-cards">Trading Cards</option>
-        <option value="booster-packs">Booster Packs</option>
+        <option value="all">Todas las ciudades</option>
+        {cities.map(city => (
+          <option key={city} value={city}>{city}</option>
+        ))}
       </select>
     </div>
 

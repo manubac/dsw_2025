@@ -44,7 +44,7 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todas las cartas
 async function findAll(req: Request, res: Response) {
   try {
-    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios", "uploader"] });
+    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios.direccion", "uploader"] });
     
     // Map carta fields to match frontend expectations (title, thumbnail, etc.)
     const cartasFormateadas = cartas
@@ -54,8 +54,22 @@ async function findAll(req: Request, res: Response) {
             return hasStock;
         })
         .map(carta => {
-        // Recolectar todos los intermediarios de todos los items vinculados a esta carta
-        const intermediarios = carta.items.getItems().flatMap(item => item.intermediarios.getItems());
+        // Recolectar todos los intermediarios de todos los items vinculados a esta carta (deduplicados)
+        const interMap = new Map<number, any>();
+        carta.items.getItems().forEach(item =>
+            item.intermediarios.getItems().forEach(i => {
+                if (i.id == null) return;
+                interMap.set(i.id, {
+                    id: i.id,
+                    nombre: i.nombre,
+                    direccion: i.direccion ? {
+                        ciudad: i.direccion.ciudad,
+                        provincia: i.direccion.provincia,
+                    } : undefined,
+                });
+            })
+        );
+        const intermediarios = Array.from(interMap.values());
         
         const cartaFormateada: any = {
             id: carta.id,
@@ -68,7 +82,7 @@ async function findAll(req: Request, res: Response) {
             link: carta.link,
             cartaClass: carta.cartaClass,
             items: carta.items,
-            intermediarios: intermediarios.map(i => ({ id: i.id, nombre: i.nombre }))
+            intermediarios,
         };
         
         if (carta.uploader) {

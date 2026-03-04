@@ -36,10 +36,19 @@ export function CardsPage() {
 
   const filteredProducts = filterProducts(products || []);
 
+  // Extract unique cities from intermediarios of all loaded products
+  const cities: string[] = Array.from(
+    new Set(
+      (products as any[]).flatMap((p: any) =>
+        (p.intermediarios || []).map((i: any) => i.direccion?.ciudad).filter(Boolean)
+      )
+    )
+  ).sort() as string[];
+
 return (
   <main className="min-h-screen bg-green-50 p-5">
     <h1>Cartas disponibles</h1>
-    <ProductFilters />
+    <ProductFilters cities={cities} />
     <Products products={filteredProducts} />
   </main>
 );

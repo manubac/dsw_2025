@@ -182,7 +182,7 @@ async function forgotPassword(req: Request, res: Response) {
 
     await em.flush();
 
-    const resetUrl = `http://localhost:5173/reset-password?token=${token}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
     const subject = "Recuperación de Contraseña";
     const text = `Para restablecer tu contraseña, haz clic en el siguiente enlace: ${resetUrl}`;
     const html = `<p>Para restablecer tu contraseña, haz clic en el siguiente enlace:</p><a href="${resetUrl}">Restablecer Contraseña</a>`;

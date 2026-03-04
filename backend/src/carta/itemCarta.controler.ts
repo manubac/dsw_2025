@@ -9,7 +9,7 @@ const em=orm.em
 
 async function findAll(req: Request, res: Response) {
    try {
-       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios', 'cartas', 'uploaderVendedor'] });
+       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor'] });
        // Formatear para cumplir con las expectativas del frontend
        const itemsFormateadas = items.map(item => ({
          id: item.id,
@@ -30,7 +30,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
     try {
         const id=Number(req.params.id)
-        const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['intermediarios', 'cartas', 'uploaderVendedor'] });
+        const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor'] });
         const itemFormateado = {
           id: item.id,
           title: item.name,
