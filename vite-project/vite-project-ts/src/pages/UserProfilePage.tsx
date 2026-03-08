@@ -357,8 +357,8 @@ export function UserProfilePage() {
         </div>
       </div>
 
-      {/* Sección de Direcciones */}
-      <div className="profile-card">
+      {/* Sección de Direcciones – solo para usuarios e intermediarios */}
+      {user?.role !== 'vendedor' && <div className="profile-card">
         <h3>Mis Direcciones</h3>
         
         {user?.direcciones && user.direcciones.length > 0 ? (
@@ -497,7 +497,7 @@ export function UserProfilePage() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

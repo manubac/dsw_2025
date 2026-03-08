@@ -50,10 +50,27 @@ async function findOne(req: Request, res: Response) {
 async function add(req: Request, res: Response) {
     try {
         const { intermediariosIds, cartasIds, uploaderId, ...itemData } = req.body;
-        
+
+        // Registro diagnóstico para ayudar a identificar fallos en las subidas
+        try {
+            console.log('itemCarta.add payload summary:', {
+                nameLength: itemData.name ? String(itemData.name).length : 0,
+                intermediariosCount: Array.isArray(intermediariosIds) ? intermediariosIds.length : 0,
+                cartasCount: Array.isArray(cartasIds) ? cartasIds.length : 0,
+                uploaderId
+            });
+        } catch (logErr) {
+            console.warn('Failed to log itemCarta payload summary', logErr);
+        }
+
+        // Validar uploaderId temprano para evitar errores 500 ambiguos
+        if (!uploaderId) {
+            return res.status(400).json({ message: 'uploaderId is required. Are you logged in as a vendedor?' });
+        }
+
         // Buscar el cargador (solo un Vendedor puede subir items)
         const uploader = await em.findOne(Vendedor, { id: uploaderId });
-        
+
         if (!uploader) {
             return res.status(400).json({ message: 'Uploader not found or not a vendedor' });
         }

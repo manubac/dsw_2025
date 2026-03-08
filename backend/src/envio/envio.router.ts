@@ -1,33 +1,19 @@
 import { Router } from "express";
 import { sanitizeEnvioInput, findAll, findOne, add, update, remove, addCompra, removeCompra, planEnvio, activateEnvio } from "./envio.controller.js";
+import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
 
 const envioRouter = Router();
 
-// GET /api/envios - Obtener todos los envios (filtrado por intermediario opcional)
+// Público: el checkout necesita listar envíos disponibles sin autenticación
 envioRouter.get("/", findAll);
-
-// GET /api/envios/:id - Obtener un envio específico
-envioRouter.get("/:id", findOne);
-
-// POST /api/envios - Crear nuevo envio
-envioRouter.post("/", sanitizeEnvioInput, add);
-
-// PUT /api/envios/:id - Actualizar envio
-envioRouter.put("/:id", sanitizeEnvioInput, update);
-
-// DELETE /api/envios/:id - Eliminar envio
-envioRouter.delete("/:id", remove);
-
-// POST /api/envios/plan - Planificar envio
-envioRouter.post("/plan", planEnvio);
-
-// POST /api/envios/:id/activate - Activar envio planificado
-envioRouter.post("/:id/activate", activateEnvio);
-
-// POST /api/envios/:id/compras - Agregar compra a envio
-envioRouter.post("/:id/compras", addCompra);
-
-// DELETE /api/envios/:id/compras - Remover compra de envio
-envioRouter.delete("/:id/compras", removeCompra);
+// Gestión autenticada (solo intermediarios)
+envioRouter.get("/:id", authenticate, authorizeRoles('intermediario'), findOne);
+envioRouter.post("/", authenticate, authorizeRoles('intermediario'), sanitizeEnvioInput, add);
+envioRouter.put("/:id", authenticate, authorizeRoles('intermediario'), sanitizeEnvioInput, update);
+envioRouter.delete("/:id", authenticate, authorizeRoles('intermediario'), remove);
+envioRouter.post("/plan", authenticate, authorizeRoles('intermediario'), planEnvio);
+envioRouter.post("/:id/activate", authenticate, authorizeRoles('intermediario'), activateEnvio);
+envioRouter.post("/:id/compras", authenticate, authorizeRoles('intermediario'), addCompra);
+envioRouter.delete("/:id/compras", authenticate, authorizeRoles('intermediario'), removeCompra);
 
 export default envioRouter;

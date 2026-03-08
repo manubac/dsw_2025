@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { orm } from "../shared/db/orm.js";
+import { wrap } from '@mikro-orm/core';
+import { AuthRequest } from "../shared/middleware/auth.js";
 import { Intermediario } from "./intermediario.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio, EstadoEnvio } from "../envio/envio.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { sendEmail } from '../shared/mailer.js';
 
 const em = orm.em;
 
@@ -141,21 +144,18 @@ async function login(req: Request, res: Response) {
     // Check hash
     const isMatch = await bcrypt.compare(password, intermediario.password);
     if (!isMatch) {
-       // Fallback check
-       if (intermediario.password !== password) {
-          return res.status(401).json({ message: 'Invalid credentials' });
-       }
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Agregar campo de rol para el frontend
-    const intermediarioWithRole = {
-      ...intermediario,
-      role: 'intermediario'
-    };
+    const token = jwt.sign(
+      { userId: intermediario.id, role: 'intermediario' },
+      process.env.JWT_SECRET || 'default_secret',
+      { expiresIn: '1h' }
+    );
 
-    const token = jwt.sign({ userId: intermediario.id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
-
-    res.status(200).json({ message: 'Login successful', data: intermediarioWithRole, token });
+    // Se usa wrap().toJSON() para que los campos ocultos (password, tokens) no se incluyan en la respuesta
+    const intermediarioData = { ...(wrap(intermediario).toJSON() as any), role: 'intermediario' };
+    res.status(200).json({ message: 'Login successful', data: intermediarioData, token });
   } catch (error: any) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
   }
@@ -224,11 +224,12 @@ async function getEnvios(req: Request, res: Response) {
     }
 }
 
-async function planEnvio(req: Request, res: Response) {
+async function planEnvio(req: AuthRequest, res: Response) {
     try {
-        const { intermediarioId, destinoIntermediarioId, minimoCompras, precioPorCompra, fechaEnvio } = req.body;
-        
-        const intermediario = await em.getReference(Intermediario, intermediarioId);
+        const { destinoIntermediarioId, minimoCompras, precioPorCompra, fechaEnvio } = req.body;
+
+        // Usar el intermediario autenticado como origen – ignorar intermediarioId del cuerpo
+        const intermediario = await em.getReference(Intermediario, req.actor!.id as number);
         const destino = await em.getReference(Intermediario, destinoIntermediarioId);
 
         const nuevoEnvio = em.create(Envio, {
@@ -267,14 +268,11 @@ async function updateCompraStatus(req: Request, res: Response) {
 async function dispatchEnvio(req: Request, res: Response) {
     try {
         const envioId = Number(req.params.envioId);
-        const envio = await em.findOneOrFail(Envio, { id: envioId }, { populate: ['compras'] });
+        const envio = await em.findOneOrFail(Envio, { id: envioId }, { populate: ['compras', 'compras.comprador', 'intermediario', 'destinoIntermediario'] });
         
         envio.estado = EstadoEnvio.INTERMEDIARIO_ENVIADO;
         if (req.body.notas) envio.notas = req.body.notas;
         
-        // Implicitly update all compras to 'EN_CAMINO_A_DESTINO' ?
-        // Or keep them as is and deduce from Envio status. 
-        // Ideally update items for clarity.
         for (const compra of envio.compras) {
             if (compra.estado === 'EN_MANOS_INTERMEDIARIO_ORIGEN') {
                 compra.estado = 'EN_CAMINO_A_DESTINO';
@@ -282,6 +280,27 @@ async function dispatchEnvio(req: Request, res: Response) {
         }
 
         await em.flush();
+
+        // Notificar a cada comprador que su paquete está en camino
+        const trackingInfo = envio.notas || 'Sin número de seguimiento';
+        const destinoNombre = (envio.destinoIntermediario as any)?.nombre || 'destino';
+        for (const compra of envio.compras) {
+            const email = (compra.comprador as any)?.email || (compra as any).email;
+            const nombre = (compra.comprador as any)?.username || (compra as any).nombre || 'Cliente';
+            if (!email) continue;
+            const html = `
+                <h2>¡Tu pedido está en camino! 🚚</h2>
+                <p>Hola <strong>${nombre}</strong>,</p>
+                <p>El intermediario ha despachado tu paquete hacia el punto de retiro.</p>
+                <table style="border-collapse:collapse;width:100%;max-width:500px">
+                    <tr><td style="padding:8px;font-weight:bold">Pedido #</td><td style="padding:8px">${compra.id}</td></tr>
+                    <tr style="background:#f9f9f9"><td style="padding:8px;font-weight:bold">Número de seguimiento</td><td style="padding:8px;font-family:monospace">${trackingInfo}</td></tr>
+                    <tr><td style="padding:8px;font-weight:bold">Punto de retiro</td><td style="padding:8px">${destinoNombre}</td></tr>
+                </table>
+                <p style="margin-top:16px">Te avisaremos nuevamente cuando tu paquete llegue y esté listo para retirarlo.</p>
+            `;
+            sendEmail(email, `Tu pedido #${compra.id} está en camino`, 'Tu pedido está en camino', html);
+        }
         
         res.json({ message: "Envío despachado al destino", data: envio });
     } catch (e: any) {
@@ -292,17 +311,41 @@ async function dispatchEnvio(req: Request, res: Response) {
 async function receiveEnvio(req: Request, res: Response) {
     try {
         const envioId = Number(req.params.envioId);
-        const envio = await em.findOneOrFail(Envio, { id: envioId }, { populate: ['compras'] });
+        const envio = await em.findOneOrFail(Envio, { id: envioId }, { populate: ['compras', 'compras.comprador', 'destinoIntermediario', 'destinoIntermediario.direccion'] });
         
-        envio.estado = EstadoEnvio.INTERMEDIARIO_RECIBIO; // Re-use this or create RECIBIDO_DESTINO
+        envio.estado = EstadoEnvio.INTERMEDIARIO_RECIBIO;
         
         for (const compra of envio.compras) {
              if (compra.estado === 'EN_CAMINO_A_DESTINO') {
-                compra.estado = 'LISTO_PARA_RETIRO'; // Or "Recibido en destino"
+                compra.estado = 'LISTO_PARA_RETIRO';
              }
         }
         
         await em.flush();
+
+        // Notificar a cada comprador que su paquete llegó y está listo para retirar
+        const destino = envio.destinoIntermediario as any;
+        const direccionRetiro = destino?.direccion
+            ? `${destino.direccion.calle} ${destino.direccion.altura}, ${destino.direccion.ciudad}, ${destino.direccion.provincia}`
+            : 'Consultar dirección con el intermediario';
+        for (const compra of envio.compras) {
+            if (compra.estado !== 'LISTO_PARA_RETIRO') continue;
+            const email = (compra.comprador as any)?.email || (compra as any).email;
+            const nombre = (compra.comprador as any)?.username || (compra as any).nombre || 'Cliente';
+            if (!email) continue;
+            const html = `
+                <h2>¡Tu pedido llegó y está listo para retirarlo! 📦</h2>
+                <p>Hola <strong>${nombre}</strong>,</p>
+                <p>Tu paquete ha llegado al punto de retiro y ya podés pasarlo a buscar.</p>
+                <table style="border-collapse:collapse;width:100%;max-width:500px">
+                    <tr><td style="padding:8px;font-weight:bold">Pedido #</td><td style="padding:8px">${compra.id}</td></tr>
+                    <tr style="background:#f9f9f9"><td style="padding:8px;font-weight:bold">Punto de retiro</td><td style="padding:8px">${destino?.nombre || 'Intermediario'}</td></tr>
+                    <tr><td style="padding:8px;font-weight:bold">Dirección</td><td style="padding:8px">${direccionRetiro}</td></tr>
+                </table>
+                <p style="margin-top:16px">Recordá traer el número de pedido al momento de retirar.</p>
+            `;
+            sendEmail(email, `¡Tu pedido #${compra.id} está listo para retirar!`, 'Tu pedido llegó al punto de retiro', html);
+        }
         
         res.json({ message: "Envío recibido en destino", data: envio });
     } catch (e: any) {

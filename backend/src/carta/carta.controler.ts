@@ -46,10 +46,10 @@ async function findAll(req: Request, res: Response) {
   try {
     const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios.direccion", "uploader"] });
     
-    // Map carta fields to match frontend expectations (title, thumbnail, etc.)
+    // Mapear campos de la carta para coincidir con las expectativas del frontend (title, thumbnail, etc.)
     const cartasFormateadas = cartas
         .filter(carta => {
-            // Check if the carta has any items with stock > 0
+            // Comprobar si la carta tiene algún item con stock > 0
             const hasStock = carta.items.getItems().some(item => item.stock > 0);
             return hasStock;
         })
@@ -89,7 +89,7 @@ async function findAll(req: Request, res: Response) {
             cartaFormateada.uploader = { id: carta.uploader.id}
         }
         
-        // Calculate total stock from all items
+        // Calcular el stock total sumando todos los items
         cartaFormateada.stock = carta.items.getItems().reduce((sum, item) => sum + item.stock, 0);
 
         return cartaFormateada;
@@ -108,7 +108,7 @@ async function findOne(req: Request, res: Response) {
     const id = Number(req.params.id);
     const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items", "uploader"] });
     
-    // Map carta fields to match frontend expectations
+    // Mapear campos de la carta para coincidir con las expectativas del frontend
     const cartaFormateada = {
       id: carta.id,
       title: carta.name,
@@ -121,14 +121,14 @@ async function findOne(req: Request, res: Response) {
       link: carta.link,
       brand: "Pokémon TCG",
       category: "trading-cards",
-      rating: null, // Card rating removed, use uploader.rating
+      rating: null, // Rating de la carta eliminado, usar uploader.rating
       stock: carta.items.getItems().reduce((sum, item) => sum + item.stock, 0),
       cartaClass: carta.cartaClass,
       items: carta.items,
       uploader: undefined as any
     } as any;
 
-    // include uploader id & name if present with rating
+    // incluir id y nombre del uploader si está presente junto con su rating
     if ((carta as any).uploader) {
        const uploaderId = (carta as any).uploader.id;
        const valoraciones = await em.find(Valoracion, { tipoObjeto: 'vendedor', objetoId: uploaderId });
@@ -162,7 +162,7 @@ async function add(req: Request, res: Response) {
         cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
       }
 
-      // If frontend provided vendedorId (logged vendedor), link uploader
+      // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
       const vendedorId = req.body.userId ?? req.body.vendedorId;
       if (vendedorId) {
         cartaData.uploader = em.getReference(Vendedor, Number(vendedorId));
@@ -208,7 +208,8 @@ async function remove(req: Request, res: Response) {
     const vendedorId = Number(req.body.userId ?? req.body.vendedorId);
     if (!vendedorId) return res.status(400).json({ message: "vendedorId required for deletion" });
 
-    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader'] });
+    // populate uploader and items to perform ownership and safety checks
+    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader', 'items'] });
 
     if (!carta.uploader) {
       return res.status(403).json({ message: "You are not authorized to delete this carta" });
@@ -218,17 +219,16 @@ async function remove(req: Request, res: Response) {
       return res.status(403).json({ message: "You are not authorized to delete this carta" });
     }
 
-    // Check if any items are in active purchases
-    const promises = carta.items.getItems().map(async (item) => {
-        const count = await em.count(Compra, { itemCartas: item });
-        return count > 0;
-    });
-    
-    const results = await Promise.all(promises);
-    if (results.some(r => r)) {
-        return res.status(400).json({ 
-            message: "No puedes eliminar esta carta porque tiene items asociados a compras existentes. La carta debe permanecer en el historial." 
+    // Check if any items are in existing compras referencing these items
+    const items = carta.items.getItems();
+    for (const item of items) {
+      // safer to query by item id instead of passing the entity directly
+      const count = await em.count(Compra, { itemCartas: { id: item.id } });
+      if (count > 0) {
+        return res.status(400).json({
+          message: "No puedes eliminar esta carta porque tiene items asociados a compras existentes. La carta debe permanecer en el historial."
         });
+      }
     }
 
     await em.removeAndFlush(carta);
@@ -364,10 +364,10 @@ async function scrapeCartas(req: Request, res: Response) {
   // Rareza - Extract only the rarity value
         let rareza = "Unknown";
         
-        // Get all product text
+        // Obtener todo el texto del producto
         const productText = prod.textContent || "";
         
-        // Define rarity patterns in order of specificity (most specific first)
+        // Definir patrones de rareza en orden de especificidad (más específicos primero)
         const rarityPatterns = [
           /\bSecret Rare\b/i,
           /\bUltra Rare\b/i,
@@ -385,7 +385,7 @@ async function scrapeCartas(req: Request, res: Response) {
           /\bSpecial\b/i
         ];
         
-        // Find the first matching rarity pattern
+        // Encontrar el primer patrón de rareza que coincida
         for (const pattern of rarityPatterns) {
           const match = productText.match(pattern);
           if (match) {
@@ -394,7 +394,7 @@ async function scrapeCartas(req: Request, res: Response) {
           }
         }
 
-        // Return data in English format to match frontend expectations
+        // Devolver datos en el formato esperado por el frontend
         resultados.push({ 
           name: nombre,
           price: precio,
@@ -408,7 +408,7 @@ async function scrapeCartas(req: Request, res: Response) {
       return resultados;
     });
 
-    // Limit to up to 5 cards
+    // Limitar a un máximo de 5 cartas
     const topCartas = Array.isArray(cartas) ? cartas.slice(0, 5) : [];
 
     await browser.close();

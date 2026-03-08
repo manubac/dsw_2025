@@ -18,7 +18,7 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
     username: req.body.username,
     email: req.body.email,
     password: req.body.password,
-    role: req.body.role,
+    // El campo role no se acepta desde el cuerpo de la solicitud – siempre usa el valor por defecto 'user'
   };
 
   Object.keys(req.body.sanitizedInput).forEach((key) => {
@@ -155,7 +155,11 @@ async function login(req: Request, res: Response) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+    const token = jwt.sign(
+      { userId: user.id, role: 'user' },
+      process.env.JWT_SECRET || 'default_secret',
+      { expiresIn: '1h' }
+    );
 
     res.status(200).json({ message: "Login successful", data: user, token });
   } catch (error: any) {

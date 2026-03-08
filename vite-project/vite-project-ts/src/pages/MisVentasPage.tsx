@@ -11,24 +11,25 @@ export default function MisVentasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchVentas = async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      const res = await api.get(`/api/vendedores/${user.id}/ventas`);
+      setVentas(res.data.data || []);
+    } catch (err: any) {
+      console.error('Error fetching ventas:', err);
+      setError('No se pudieron cargar las ventas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user || user.role !== 'vendedor') {
       navigate('/');
       return;
     }
-
-    const fetchVentas = async () => {
-      try {
-        const res = await api.get(`/api/vendedores/${user.id}/ventas`);
-        setVentas(res.data.data || []);
-      } catch (err: any) {
-        console.error('Error fetching ventas:', err);
-        setError('No se pudieron cargar las ventas');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchVentas();
   }, [user, navigate]);
 
@@ -38,8 +39,7 @@ export default function MisVentasPage() {
       
       await api.post(`/api/vendedores/${user?.id}/ventas/${compraId}/enviar`);
       alert("Envío marcado correctamente.");
-      // Refresh
-      window.location.reload();
+      await fetchVentas();
     } catch (err: any) {
         alert("Error al actualizar envío: " + (err.response?.data?.message || err.message));
     }
@@ -75,8 +75,10 @@ export default function MisVentasPage() {
               <div className="flex justify-between items-center p-4 border-b">
                 <strong className="text-lg">Pedido #{venta.id}</strong>
                 <span className="px-3 py-1 text-sm rounded-full bg-orange-100 text-orange-700 font-medium">
-                  {venta.envio?.estado === 'vendedor_envio'
+                  {venta.estado === 'ENVIADO_A_INTERMEDIARIO'
                     ? 'Enviado a Intermediario'
+                    : venta.estado === 'ENTREGADO'
+                    ? 'Entregado'
                     : (venta.envio?.estado || venta.estado)}
                 </span>
               </div>
@@ -119,7 +121,7 @@ export default function MisVentasPage() {
                         )}
                         <span className="flex-1">{it.name}</span>
                         <span className="font-semibold text-green-600">
-                          ${it.price}
+                          ${String(it.price ?? '').replace(/^\$/, '')}
                         </span>
                       </li>
                     ))}
@@ -127,8 +129,9 @@ export default function MisVentasPage() {
                 </div>
 
                 {venta.envio &&
-                  venta.envio.estado !== 'vendedor_envio' &&
-                  venta.envio.estado !== 'entregado' && (
+                  venta.estado !== 'ENVIADO_A_INTERMEDIARIO' &&
+                  venta.estado !== 'ENTREGADO' &&
+                  venta.estado !== 'entregado' && (
                     <button
                       className="w-full mt-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
                       onClick={() => handleMarkSent(venta.id)}

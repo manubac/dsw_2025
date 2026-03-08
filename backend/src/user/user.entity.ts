@@ -9,15 +9,15 @@ export class User extends BaseEntity {
   @Property({ nullable: false, unique: true })
   email!: string;
 
-  @Property({ nullable: false })
+  @Property({ hidden: true, nullable: false })
   password!: string;
 
   @Property({ nullable: false, default: 'user' })
   role!: string;
 
-  @Property({ nullable: true })
+  @Property({ hidden: true, nullable: true })
   resetPasswordToken?: string;
 
-  @Property({ nullable: true })
+  @Property({ hidden: true, nullable: true })
   resetPasswordExpires?: Date;
 }

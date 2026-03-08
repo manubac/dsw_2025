@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { AuthRequest } from "../shared/middleware/auth.js";
 import { orm } from "../shared/db/orm.js";
 import { Direccion } from "./direccion.entity.js";
 import { User } from "../user/user.entity.js";
@@ -34,17 +35,17 @@ function sanitizeDireccionInput(req: Request, res: Response, next: NextFunction)
 }
 
 // Obtener todas las direcciones
-async function findAll(req: Request, res: Response) {
+async function findAll(req: AuthRequest, res: Response) {
   try {
-    const { usuarioId, intermediarioId } = req.query;
-
-    // Si se proporciona usuarioId o intermediarioId, filtrar por ese usuario/intermediario
+    // Filtrar solo las direcciones del actor autenticado
     let whereClause: any = {};
-    if (usuarioId) {
-      whereClause.usuario = { id: Number(usuarioId) };
-    }
-    if (intermediarioId) {
-      whereClause.intermediario = { id: Number(intermediarioId) };
+    if (req.actorRole === 'user') {
+      whereClause.usuario = { id: req.actor!.id };
+    } else if (req.actorRole === 'intermediario') {
+      whereClause.intermediario = { id: req.actor!.id };
+    } else {
+      // Los vendedores no tienen relación con direcciones – devolver vacío
+      return res.status(200).json({ message: "Found all direcciones", data: [] });
     }
 
     const direcciones = await em.find(Direccion, whereClause, { populate: ["usuario", "intermediario"] });
@@ -55,20 +56,20 @@ async function findAll(req: Request, res: Response) {
 }
 
 // Obtener direccion por ID
-async function findOne(req: Request, res: Response) {
+async function findOne(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { usuarioId, intermediarioId } = req.query;
 
     const direccion = await em.findOne(Direccion, { id }, { populate: ["usuario", "intermediario"] });
 
     if (!direccion) return res.status(404).json({ message: "Direccion not found" });
 
-    // Verificar que la dirección pertenece al usuario o intermediario autenticado
-    if (usuarioId && direccion.usuario?.id !== Number(usuarioId)) {
-      return res.status(403).json({ message: "No tienes permiso para acceder a esta dirección" });
-    }
-    if (intermediarioId && direccion.intermediario?.id !== Number(intermediarioId)) {
+    // Verificar propiedad mediante el token
+    const actorId = req.actor!.id;
+    const isOwner =
+      (req.actorRole === 'user' && direccion.usuario?.id === actorId) ||
+      (req.actorRole === 'intermediario' && direccion.intermediario?.id === actorId);
+    if (!isOwner) {
       return res.status(403).json({ message: "No tienes permiso para acceder a esta dirección" });
     }
 
@@ -139,27 +140,26 @@ async function add(req: Request, res: Response) {
 }
 
 // Actualizar direccion
-async function update(req: Request, res: Response) {
+async function update(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { usuarioId, intermediarioId } = req.query;
 
     const direccion = await em.findOne(Direccion, { id }, { populate: ["usuario", "intermediario"] });
 
     if (!direccion) return res.status(404).json({ message: "Direccion not found" });
 
-    // Verificar que la dirección pertenece al usuario o intermediario autenticado
-    if (usuarioId && direccion.usuario?.id !== Number(usuarioId)) {
-      return res.status(403).json({ message: "No tienes permiso para modificar esta dirección" });
-    }
-    if (intermediarioId && direccion.intermediario?.id !== Number(intermediarioId)) {
+    // Verificar propiedad mediante el token
+    const actorId = req.actor!.id;
+    const isOwner =
+      (req.actorRole === 'user' && direccion.usuario?.id === actorId) ||
+      (req.actorRole === 'intermediario' && direccion.intermediario?.id === actorId);
+    if (!isOwner) {
       return res.status(403).json({ message: "No tienes permiso para modificar esta dirección" });
     }
 
     const input = req.body.sanitizedInput;
 
-    if (input.usuarioId) direccion.usuario = em.getReference(User, input.usuarioId);
-    if (input.intermediarioId) direccion.intermediario = em.getReference(Intermediario, input.intermediarioId);
+    // Los campos de propiedad (usuarioId/intermediarioId) no se actualizan para evitar transferencias
     direccion.provincia = input.provincia ?? direccion.provincia;
     direccion.ciudad = input.ciudad ?? direccion.ciudad;
     direccion.codigoPostal = input.codigoPostal ?? direccion.codigoPostal;
@@ -175,20 +175,20 @@ async function update(req: Request, res: Response) {
 }
 
 // Eliminar direccion
-async function remove(req: Request, res: Response) {
+async function remove(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { usuarioId, intermediarioId } = req.query;
 
     const direccion = await em.findOne(Direccion, { id }, { populate: ["usuario", "intermediario"] });
 
     if (!direccion) return res.status(404).json({ message: "Direccion not found" });
 
-    // Verificar que la dirección pertenece al usuario o intermediario autenticado
-    if (usuarioId && direccion.usuario?.id !== Number(usuarioId)) {
-      return res.status(403).json({ message: "No tienes permiso para eliminar esta dirección" });
-    }
-    if (intermediarioId && direccion.intermediario?.id !== Number(intermediarioId)) {
+    // Verificar propiedad mediante el token
+    const actorId = req.actor!.id;
+    const isOwner =
+      (req.actorRole === 'user' && direccion.usuario?.id === actorId) ||
+      (req.actorRole === 'intermediario' && direccion.intermediario?.id === actorId);
+    if (!isOwner) {
       return res.status(403).json({ message: "No tienes permiso para eliminar esta dirección" });
     }
 

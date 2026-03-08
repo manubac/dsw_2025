@@ -9,7 +9,7 @@ const em = orm.em;
 export const createValoracion = async (req: AuthRequest, res: Response) => {
   try {
     const { puntuacion, comentario, tipoObjeto, objetoId } = req.body;
-    const usuario = req.user as User; // Assuming user is set by auth middleware
+    const usuario = req.actor as User; // Solo los users llegan aquí (guard authorizeRoles('user'))
 
     if (puntuacion < 1 || puntuacion > 5) {
       return res.status(400).json({ message: 'Puntuacion must be between 1 and 5' });

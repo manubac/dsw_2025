@@ -11,34 +11,32 @@ import {
     receiveEnvio, 
     dispatchEnvio, 
     updateEnvioDetails,
-    planEnvio,            // NEW
-    updateCompraStatus,    // NEW
+    planEnvio,
+    updateCompraStatus,
     deleteEnvio
 } from "./intermediario.controller.js";
+import { authenticate, authorizeRoles, authorizeSelf } from "../shared/middleware/auth.js";
 
 export const intermediarioRouter = Router();
 
+// Rutas públicas
 intermediarioRouter.get("/", findAll);
-intermediarioRouter.post("/", sanitizeIntermediarioInput, add);
+intermediarioRouter.post("/", sanitizeIntermediarioInput, add);   // registro
 intermediarioRouter.post("/login", login);
-
-// Routes with :id param
 intermediarioRouter.get("/:id", findOne);
-intermediarioRouter.put("/:id", sanitizeIntermediarioInput, update);
-intermediarioRouter.patch("/:id", sanitizeIntermediarioInput, update);
-intermediarioRouter.delete("/:id", remove);
 
-// New Routes for Envios (Use generic resource paths where possible or scoped)
-intermediarioRouter.get("/:id/envios", getEnvios); // ?type=origen|destino
+// Solo el propio intermediario puede modificar o eliminar su perfil
+intermediarioRouter.put("/:id", authenticate, authorizeRoles('intermediario'), authorizeSelf, sanitizeIntermediarioInput, update);
+intermediarioRouter.patch("/:id", authenticate, authorizeRoles('intermediario'), authorizeSelf, sanitizeIntermediarioInput, update);
+intermediarioRouter.delete("/:id", authenticate, authorizeRoles('intermediario'), authorizeSelf, remove);
 
-// Actions
-intermediarioRouter.post("/envios/plan", planEnvio); // /api/intermediarios/... doesn't match easily if not scoped, so maybe move this to Envio Controller? 
-// Actually, let's keep it here but route it via app.ts or just use specific paths
-// Since app.ts mounts this on /api/intermediarios, we need to handle "plan" carefully or put it on POST /:id/envios
+// Solo el propio intermediario puede ver sus envíos
+intermediarioRouter.get("/:id/envios", authenticate, authorizeRoles('intermediario'), authorizeSelf, getEnvios);
 
-// Let's use specific paths as called in frontend
-intermediarioRouter.post("/compras/:compraId/status", updateCompraStatus);
-intermediarioRouter.post("/envios/:envioId/despachar", dispatchEnvio);
-intermediarioRouter.post("/envios/:envioId/recibir", receiveEnvio);
-intermediarioRouter.put("/envios/:envioId", updateEnvioDetails);
-intermediarioRouter.delete("/envios/:envioId", deleteEnvio);
+// Gestión de envíos – cualquier intermediario autenticado
+intermediarioRouter.post("/envios/plan", authenticate, authorizeRoles('intermediario'), planEnvio);
+intermediarioRouter.post("/compras/:compraId/status", authenticate, authorizeRoles('intermediario'), updateCompraStatus);
+intermediarioRouter.post("/envios/:envioId/despachar", authenticate, authorizeRoles('intermediario'), dispatchEnvio);
+intermediarioRouter.post("/envios/:envioId/recibir", authenticate, authorizeRoles('intermediario'), receiveEnvio);
+intermediarioRouter.put("/envios/:envioId", authenticate, authorizeRoles('intermediario'), updateEnvioDetails);
+intermediarioRouter.delete("/envios/:envioId", authenticate, authorizeRoles('intermediario'), deleteEnvio);

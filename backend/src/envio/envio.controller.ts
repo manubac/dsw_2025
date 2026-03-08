@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { AuthRequest } from "../shared/middleware/auth.js";
 import { orm } from "../shared/db/orm.js";
 import { Envio, EstadoEnvio } from "./envio.entity.js";
 import { Intermediario } from "../intermediario/intermediario.entity.js";
@@ -34,21 +35,22 @@ function sanitizeEnvioInput(req: Request, res: Response, next: NextFunction) {
 }
 
 // Obtener todos los envios
+// Público: el checkout lo usa con ?intermediarios=id1,id2 para listar opciones de envío disponibles
 async function findAll(req: Request, res: Response) {
   try {
-    const { intermediarioId, intermediarios, estado } = req.query;
+    const { estado, intermediarios } = req.query;
 
-    let whereClause: any = {};
-    if (intermediarioId) {
-      whereClause.intermediario = { id: Number(intermediarioId) };
-    }
+    const whereClause: any = {};
+
+    // Si se pasan IDs de intermediarios (desde el checkout), filtrar por ellos
     if (intermediarios) {
-      const ids = (intermediarios as string).split(',').map(id => Number(id));
-      whereClause.intermediario = { id: { $in: ids } };
+      const ids = String(intermediarios).split(',').map(Number).filter(Boolean);
+      if (ids.length > 0) {
+        whereClause.intermediario = { id: { $in: ids } };
+      }
     }
-    if (estado) {
-        whereClause.estado = estado;
-    }
+
+    if (estado) whereClause.estado = estado;
 
     const envios = await em.find(Envio, whereClause, {
       populate: ["intermediario", "destinoIntermediario", "destinoIntermediario.direccion", "compras", "compras.comprador", "compras.itemCartas"]
@@ -61,10 +63,9 @@ async function findAll(req: Request, res: Response) {
 }
 
 // Obtener un envio por ID
-async function findOne(req: Request, res: Response) {
+async function findOne(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { intermediarioId } = req.query;
 
     const envio = await em.findOne(Envio, { id }, {
       populate: ["intermediario", "compras", "compras.comprador", "compras.itemCartas"]
@@ -72,8 +73,9 @@ async function findOne(req: Request, res: Response) {
 
     if (!envio) return res.status(404).json({ message: "Envio not found" });
 
-    // Verificar que el envio pertenece al intermediario autenticado
-    if (intermediarioId && envio.intermediario.id !== Number(intermediarioId)) {
+    // Verificar que el actor es el intermediario de origen o destino
+    const actorId = req.actor!.id;
+    if (envio.intermediario.id !== actorId && envio.destinoIntermediario?.id !== actorId) {
       return res.status(403).json({ message: "No tienes permiso para acceder a este envio" });
     }
 
@@ -84,12 +86,12 @@ async function findOne(req: Request, res: Response) {
 }
 
 // Crear nuevo envio
-async function add(req: Request, res: Response) {
+async function add(req: AuthRequest, res: Response) {
   try {
     const input = req.body.sanitizedInput;
 
-    // Validar que el intermediario existe
-    const intermediario = await em.findOne(Intermediario, { id: input.intermediarioId });
+    // Usar el intermediario autenticado como origen; ignorar el intermediarioId del cuerpo
+    const intermediario = await em.findOne(Intermediario, { id: req.actor!.id });
     if (!intermediario) {
       return res.status(400).json({ message: "Intermediario no encontrado" });
     }
@@ -123,17 +125,16 @@ async function add(req: Request, res: Response) {
 }
 
 // Actualizar envio
-async function update(req: Request, res: Response) {
+async function update(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { intermediarioId } = req.query;
 
     const envio = await em.findOne(Envio, { id }, { populate: ["intermediario"] });
 
     if (!envio) return res.status(404).json({ message: "Envio not found" });
 
-    // Verificar que el envio pertenece al intermediario autenticado
-    if (intermediarioId && envio.intermediario.id !== Number(intermediarioId)) {
+    // Verificar propiedad mediante el token
+    if (envio.intermediario.id !== req.actor!.id) {
       return res.status(403).json({ message: "No tienes permiso para modificar este envio" });
     }
 
@@ -153,17 +154,16 @@ async function update(req: Request, res: Response) {
 }
 
 // Eliminar envio
-async function remove(req: Request, res: Response) {
+async function remove(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { intermediarioId } = req.query;
 
     const envio = await em.findOne(Envio, { id }, { populate: ["intermediario"] });
 
     if (!envio) return res.status(404).json({ message: "Envio not found" });
 
-    // Verificar que el envio pertenece al intermediario autenticado
-    if (intermediarioId && envio.intermediario.id !== Number(intermediarioId)) {
+    // Verificar propiedad mediante el token
+    if (envio.intermediario.id !== req.actor!.id) {
       return res.status(403).json({ message: "No tienes permiso para eliminar este envio" });
     }
 
@@ -226,11 +226,12 @@ async function removeCompra(req: Request, res: Response) {
 }
 
 // Planificar un envio
-async function planEnvio(req: Request, res: Response) {
+async function planEnvio(req: AuthRequest, res: Response) {
   try {
-    const { intermediarioId, destinoIntermediarioId, minimoCompras, precioPorCompra, fechaEnvio } = req.body;
+    const { destinoIntermediarioId, minimoCompras, precioPorCompra, fechaEnvio } = req.body;
 
-    const intermediario = await em.findOne(Intermediario, { id: intermediarioId });
+    // Usar el intermediario autenticado como origen; ignorar el intermediarioId del cuerpo
+    const intermediario = await em.findOne(Intermediario, { id: req.actor!.id });
     if (!intermediario) {
       return res.status(400).json({ message: "Intermediario no encontrado" });
     }

@@ -74,6 +74,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const loadDirecciones = async () => {
     if (!user?.id) return
+    // Los vendedores no tienen relación con direcciones en la base de datos
+    if (user.role === 'vendedor') return
     try {
       const queryParam = user.role === 'intermediario' ? 'intermediarioId' : 'usuarioId'
       const response = await fetchApi(`/api/direcciones?${queryParam}=${user.id}`)

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { orm } from '../shared/db/orm.js';
+import { wrap } from '@mikro-orm/core';
 import { Vendedor } from './vendedores.entity.js'
 import { Compra } from '../compra/compra.entity.js';
 import { EstadoEnvio } from '../envio/envio.entity.js';
@@ -111,21 +112,18 @@ async function login(req: Request, res: Response) {
         
         const isMatch = await bcrypt.compare(password, vendedor.password);
         if (!isMatch) {
-            // Fallback for migration (allow plain text temporarily if needed)
-            if (vendedor.password !== password) {
-                return res.status(401).json({ message: 'Invalid credentials' })
-            }
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
         
-        // Add role field for frontend
-        const vendedorWithRole = {
-            ...vendedor,
-            role: 'vendedor'
-        }
-        
-        const token = jwt.sign({ userId: vendedor.id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
-        
-        res.status(200).json({ message: 'Login successful', data: vendedorWithRole, token })
+        const token = jwt.sign(
+            { userId: vendedor.id, role: 'vendedor' },
+            process.env.JWT_SECRET || 'default_secret',
+            { expiresIn: '1h' }
+        );
+
+        // Se usa wrap().toJSON() para que los campos ocultos (password, tokens) no se incluyan en la respuesta
+        const vendedorData = { ...(wrap(vendedor).toJSON() as any), role: 'vendedor' };
+        res.status(200).json({ message: 'Login successful', data: vendedorData, token })
     } catch (error: any) {
         res.status(500).json({ message: 'Error logging in', error: error.message })
     }

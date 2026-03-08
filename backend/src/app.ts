@@ -33,11 +33,11 @@ app.use((req, res, next) => {
   RequestContext.create(orm.em, next);
 });
 
-//  Logs de requests (solo para cartas, o podés ampliarlo)
+//  Logs de requests (solo para cartas)
 app.use("/api/cartas", (req, res, next) => {
   console.log(`${req.method} ${req.path}`, req.body);
   next();
-});
+}); //lo pusimos para ver en consola las cartas que subiamos, para debugging
 
 //  Rutas principales
 app.use("/api/vendedores", vendedorRouter);

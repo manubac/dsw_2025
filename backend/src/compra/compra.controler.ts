@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { orm } from "../shared/db/orm.js";
+import { AuthRequest } from "../shared/middleware/auth.js";
 import { Compra } from "./compra.entity.js";
 import { User } from "../user/user.entity.js";
 import { ItemCarta } from "../carta/itemCarta.entity.js";
@@ -48,12 +49,10 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
 }
 
 // Obtener todas las compras
-async function findAll(req: Request, res: Response) {
+async function findAll(req: AuthRequest, res: Response) {
   try {
-    const { compradorId } = req.query;
-
-    // Si se proporciona compradorId, filtrar por ese comprador
-    const whereClause = compradorId ? { comprador: { id: Number(compradorId) } } : {};
+    // Siempre filtrar por las compras del usuario autenticado
+    const whereClause = { comprador: { id: req.actor!.id } };
 
     const compras = await em.find(Compra, whereClause, { 
         populate: [
@@ -72,16 +71,12 @@ async function findAll(req: Request, res: Response) {
 }
 
 // Obtener compra por ID
-async function findOne(req: Request, res: Response) {
+async function findOne(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { compradorId } = req.query;
 
-    // Build where clause to ensure user can only access their own purchases
-    const whereClause: any = { id };
-    if (compradorId) {
-      whereClause.comprador = { id: Number(compradorId) };
-    }
+    // Verificar propiedad: el usuario solo puede acceder a sus propias compras
+    const whereClause = { id, comprador: { id: req.actor!.id } };
 
     const compra = await em.findOne(Compra, whereClause, { 
         populate: [
@@ -103,17 +98,14 @@ async function findOne(req: Request, res: Response) {
 }
 
 // Crear nueva compra
-async function add(req: Request, res: Response) {
+async function add(req: AuthRequest, res: Response) {
   try {
     const input = req.body.sanitizedInput;
 
-    const comprador = await em.findOne(User, { id: input.compradorId });
+    // Usar el usuario autenticado como comprador – nunca confiar en el compradorId del cuerpo
+    const comprador = req.actor as User;
     const direccionEntrega = input.direccionEntregaId ? await em.findOne(Direccion, { id: input.direccionEntregaId }) : undefined;
     const envio = input.envioId && input.envioId !== 'direct' ? await em.findOne(Envio, { id: input.envioId }) : undefined;
-
-    if (!comprador) {
-      return res.status(400).json({ message: "Datos inválidos: comprador no encontrado" });
-    }
 
     const finalItemCartas: ItemCarta[] = [];
 
@@ -202,15 +194,12 @@ async function add(req: Request, res: Response) {
   }
 }
 
-async function createPreference(req: Request, res: Response) {
+async function createPreference(req: AuthRequest, res: Response) {
   try {
     const input = req.body.sanitizedInput;
 
-    const comprador = await em.findOne(User, { id: input.compradorId });
-
-    if (!comprador) {
-      return res.status(400).json({ message: "Comprador no encontrado" });
-    }
+    // Use the authenticated user as the buyer
+    const comprador = req.actor as User;
 
     if (!input.items || input.items.length === 0) {
       return res.status(400).json({ message: "Compra sin items" });
@@ -277,16 +266,12 @@ const result = await preference.create({
 }
 
 // Actualizar compra
-async function update(req: Request, res: Response) {
+async function update(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { compradorId } = req.query;
 
-    // Build where clause to ensure user can only update their own purchases
-    const whereClause: any = { id };
-    if (compradorId) {
-      whereClause.comprador = { id: Number(compradorId) };
-    }
+    // Verificar propiedad mediante el token
+    const whereClause = { id, comprador: { id: req.actor!.id } };
 
     const compra = await em.findOne(Compra, whereClause, { populate: ["itemCartas", "direccionEntrega"] });
 
@@ -294,7 +279,7 @@ async function update(req: Request, res: Response) {
 
     const input = req.body.sanitizedInput;
 
-    if (input.compradorId) compra.comprador = em.getReference(User, input.compradorId);
+    // No se permiten cambios de compradorId (evita transferencia de propiedad)
     if (input.cartasIds?.length) {
       const itemCartas = await em.find(ItemCarta, { id: { $in: input.cartasIds } });
       compra.itemCartas.removeAll();
@@ -322,16 +307,12 @@ async function update(req: Request, res: Response) {
 }
 
 // Eliminar compra
-async function remove(req: Request, res: Response) {
+async function remove(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const { compradorId } = req.query;
 
-    // Build where clause to ensure user can only delete their own purchases
-    const whereClause: any = { id };
-    if (compradorId) {
-      whereClause.comprador = { id: Number(compradorId) };
-    }
+    // Verificar propiedad mediante el token
+    const whereClause = { id, comprador: { id: req.actor!.id } };
 
     const compra = await em.findOne(Compra, whereClause);
 
