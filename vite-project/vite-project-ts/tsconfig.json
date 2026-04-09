@@ -10,8 +10,7 @@
   "allowJs": true,
   "resolveJsonModule": true,
   "allowSyntheticDefaultImports": true,
-  "esModuleInterop": true,
-    "types": ["vite/client", "react"]
+    "esModuleInterop": true
   },
   "include": ["src"]
 }

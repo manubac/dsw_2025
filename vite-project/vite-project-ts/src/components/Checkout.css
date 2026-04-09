@@ -258,6 +258,107 @@
   margin-bottom: 0.5rem;
 }
 
+/* Direccion Styles */
+.direccion-selector {
+  margin-bottom: 1rem;
+}
+
+.direccion-selector label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.direccion-selector select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.direccion-selector select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.add-direccion-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #667eea;
+  background-color: transparent;
+  color: #667eea;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.add-direccion-btn:hover {
+  background-color: #667eea;
+  color: white;
+}
+
+.new-direccion-form {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+}
+
+.new-direccion-form h4 {
+  margin-bottom: 1rem;
+  color: #2d3748;
+  font-size: 1.1rem;
+}
+
+.direccion-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.save-direccion-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  background-color: #48bb78;
+  color: white;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.save-direccion-btn:hover {
+  background-color: #38a169;
+}
+
+.cancel-direccion-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #a0aec0;
+  background-color: transparent;
+  color: #a0aec0;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-direccion-btn:hover {
+  background-color: #a0aec0;
+  color: white;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .checkout-content {

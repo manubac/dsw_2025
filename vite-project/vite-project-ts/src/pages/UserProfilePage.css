@@ -1,10 +1,11 @@
 .profile-wrapper {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
   padding: 40px;
   background: #f5f6fa;
   min-height: 100vh;
+  gap: 20px;
 }
 
 .profile-card {
@@ -71,4 +72,141 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(15px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Estilos para direcciones */
+.direcciones-list {
+  margin-bottom: 20px;
+}
+
+.direccion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background-color: #fafafa;
+}
+
+.direccion-info {
+  flex: 1;
+}
+
+.direccion-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-direccion-btn {
+  background-color: #ffc107;
+  color: #212529;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.edit-direccion-btn:hover {
+  background-color: #e0a800;
+}
+
+.delete-direccion-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.delete-direccion-btn:hover {
+  background-color: #c82333;
+}
+
+.add-direccion-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #4285f4;
+  background-color: transparent;
+  color: #4285f4;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-direccion-btn:hover {
+  background-color: #4285f4;
+  color: white;
+}
+
+.direccion-form {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.direccion-form h4 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.direccion-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.save-direccion-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #28a745;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-direccion-btn:hover {
+  background-color: #218838;
+}
+
+.cancel-direccion-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #6c757d;
+  background-color: transparent;
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-direccion-btn:hover {
+  background-color: #6c757d;
+  color: white;
 }

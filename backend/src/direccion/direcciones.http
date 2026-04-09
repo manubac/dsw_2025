@@ -1,0 +1,80 @@
+### obtener todas las direcciones (sin filtro - solo para admin/debug)
+GET http://localhost:3000/api/direcciones
+
+### obtener todas las direcciones de un usuario específico
+GET http://localhost:3000/api/direcciones?usuarioId=1
+
+### obtener una dirección específica por ID (sin filtro)
+GET http://localhost:3000/api/direcciones/1
+
+### obtener una dirección específica por ID (con verificación de usuario)
+GET http://localhost:3000/api/direcciones/1?usuarioId=1
+
+### crear una nueva dirección
+POST http://localhost:3000/api/direcciones
+Content-Type: application/json
+
+{
+  "usuarioId": 1,
+  "provincia": "Buenos Aires",
+  "ciudad": "Buenos Aires",
+  "codigoPostal": "1000",
+  "calle": "Calle Ficticia",
+  "altura": "123",
+  "departamento": "4B"
+}
+
+### crear otra dirección (sin departamento)
+POST http://localhost:3000/api/direcciones
+Content-Type: application/json
+
+{
+  "usuarioId": 1,
+  "provincia": "Córdoba",
+  "ciudad": "Córdoba",
+  "codigoPostal": "5000",
+  "calle": "Avenida Siempre Viva",
+  "altura": "742"
+}
+
+### modificar una dirección (PUT - recurso completo)
+PUT http://localhost:3000/api/direcciones/1?usuarioId=1
+Content-Type: application/json
+
+{
+  "usuarioId": 1,
+  "provincia": "Buenos Aires",
+  "ciudad": "La Plata",
+  "codigoPostal": "1900",
+  "calle": "Calle Actualizada",
+  "altura": "456",
+  "departamento": "8A"
+}
+
+### modificar una dirección (PUT - soporta actualizaciones parciales)
+PUT http://localhost:3000/api/direcciones/1?usuarioId=1
+Content-Type: application/json
+
+{
+  "ciudad": "Ciudad Modificada",
+  "codigoPostal": "2000"
+}
+
+### borrar una dirección
+DELETE http://localhost:3000/api/direcciones/1?usuarioId=1
+
+### crear dirección para otro usuario (usuario ID 2)
+POST http://localhost:3000/api/direcciones
+Content-Type: application/json
+
+{
+  "usuarioId": 2,
+  "provincia": "Santa Fe",
+  "ciudad": "Rosario",
+  "codigoPostal": "2000",
+  "calle": "Calle del Usuario 2",
+  "altura": "789"
+}
+
+### obtener direcciones del usuario 2
+GET http://localhost:3000/api/direcciones?usuarioId=2

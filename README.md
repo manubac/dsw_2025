@@ -1,49 +1,45 @@
-#  Propuesta TP DSW
-##  Integrantes
+# Propuesta TP DSW
 
-- **Manuel Bacolla** - 50214  
-- **Volentiera Nicolás** - 51824  
+## Integrantes
+
+- **Manuel Bacolla** - 50214
+- **Volentiera Nicolás** - 51824
 - **Bruno Leo Santi** - 51950
 
 ---
 
-##  Tema
+## Tema
 
 **Marketplace de Cartas de Pokémon**
 
 ---
 
-##  Descripción
+## Descripción
 
 Es un marketplace especializado en la compra y distribución de cartas de Pokémon, donde tiendas oficiales agrupan pedidos de varios vendedores para enviarlos a otra tienda oficial.  
 La plataforma optimiza la distribución de cartas, permitiendo a los minoristas obtener mejores precios y reducir costos de envío.
 
-##  Modelo de Negocio
+## Modelo de Negocio
 
 <img width="818" height="618" alt="ModeloDominioDSW drawio" src="https://github.com/user-attachments/assets/c13ba1ba-07a0-40d0-853b-0df19f87b6a1" />
-
-
 
 ## Alcance Funcional
 
 ### Alcance Minimo
 
-
-| Requerimiento         | Detalle                                                                                                                                              |
-|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| CRUD simple           | 1. CRUD Usuario <br> 2. CRUD Carta <br> 3. CRUD Vendedor <br>                                                                        |
-| CRUD dependiente      | 1. CRUD Compra (depende de usuario y cartas)Reserva (depende de Usuario y Carta) <br>                                                       |
-| Listado + detalle     | 1. Listado de cartas filtrado por nombre, código, etc. <br> 2. Detalle de reservas realizadas de un usuario                     |
-| CUU/Epic              | 1. Publicación de carta por parte del vendedor <br> 2. Reserva y compra de una carta por parte de un usuario                                       |
+| Requerimiento     | Detalle                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| CRUD simple       | 1. CRUD Usuario <br> 2. CRUD Carta <br> 3. CRUD Vendedor <br>                                                |
+| CRUD dependiente  | 1. CRUD Compra (depende de usuario y cartas)Reserva (depende de Usuario y Carta) <br>                        |
+| Listado + detalle | 1. Listado de cartas filtrado por nombre, código, etc. <br> 2. Detalle de reservas realizadas de un usuario  |
+| CUU/Epic          | 1. Publicación de carta por parte del vendedor <br> 2. Reserva y compra de una carta por parte de un usuario |
 
 ---
 
-
 ### Adicionales para Aprobación
 
-
-| Requerimiento         | Detalle                                                                 |
-|-----------------------|-------------------------------------------------------------------------|
-| CRUD simple      | 1. Dirección  2. CRUD Intermediario                    |
-| CRUD dependiente      | 1. CRUD Valoración  2. Envío (depende de compras e intermediario)                                                    |
-| CUU / Epic            | 1. Valorar una carta después de la compra<br>2. Asignar un envío a un intermediario para su distribución posterior<br> Pago y envio |
+| Requerimiento    | Detalle                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CRUD simple      | 1. Dirección 2. CRUD Intermediario                                                                                                                          |
+| CRUD dependiente | 1. CRUD Valoración 2. Envío (depende de compras e intermediario)                                                                                            |
+| CUU / Epic       | 1. Valorar un vendedor después de la compra<br>2. Marcar que el vendedor envió los items al intermediario<br>3. Pago y envío <br>4.Enviar email de contacto |

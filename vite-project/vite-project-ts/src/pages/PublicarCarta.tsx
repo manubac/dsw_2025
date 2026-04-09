@@ -1,9 +1,10 @@
 
 import { useState } from "react";
-import axios from "axios";
+// import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
-import "../components/CardForm.css";
+
+import { api, fetchApi } from "../services/api";
 
 interface Carta {
   name: string;
@@ -23,16 +24,25 @@ export default function PublicarCartaPage() {
 
   const buscarCartas = async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:3000/api/cartas/scrape/${nombre}`
-      );
-      setResultados(response.data.data);
+      const response = await fetchApi(`/api/cartas/scrape/${nombre}`);
+      const data = await response.json();
+      setResultados(data.data);
       setMensaje("");
     } catch (error) {
       console.error("Error buscando cartas:", error);
       setResultados([]);
-      setMensaje("❌ No se encontraron cartas con ese nombre.");
+      setMensaje("No se encontraron cartas con ese nombre.");
     }
+  };
+
+  const crearCartaManual = () => {
+    if (!user) {
+      setMensaje("Debes iniciar sesión como vendedor para crear una carta.");
+      return;
+    }
+
+    // Navigate to edit page with empty carta
+    navigate("/editar-carta", { state: { carta: { name: "", uploader: { id: user.id } } } });
   };
 
   const irAEditarCarta = async (carta: Carta) => {
@@ -43,7 +53,7 @@ export default function PublicarCartaPage() {
 
     try {
       // Create Carta on backend and include vendedor id so uploader is linked
-      const res = await axios.post("http://localhost:3000/api/cartas", {
+      const res = await api.post("/api/cartas", {
         name: carta.name,
         price: carta.price ?? null,
         image: carta.image ?? null,
@@ -67,92 +77,162 @@ export default function PublicarCartaPage() {
   };
 
   return (
-    <div className="card-form" style={{ flexDirection: "column" }}>
-      <h2 className="text-2xl font-bold mb-4 text-center">
+  <div className="max-w-6xl mx-auto px-4 py-10">
+
+    {/* Card principal */}
+    <div className="
+      bg-gradient-to-b
+      from-green-50
+      to-transparent
+      rounded-2xl
+      shadow-xl
+      p-8
+      space-y-6
+    ">
+      <h2 className="text-3xl font-bold text-center">
         Publicar nueva carta
       </h2>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "1rem",
-          justifyContent: "center",
-          width: "100%",
-        }}
-      >
+      {/* Buscador */}
+      <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
         <input
           type="text"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Buscar carta (ej. Pikachu)"
-          className="border p-2 flex-1 rounded max-w-md"
+          className="
+            border
+            rounded-xl
+            px-4
+            py-2
+            w-full
+            max-w-md
+            outline-none
+            focus:ring-2
+            focus:ring-green-400
+          "
         />
-        <button onClick={buscarCartas} className="publish-btn">
+
+        <button
+          onClick={buscarCartas}
+          className="
+            bg-green-500
+            hover:bg-green-600
+            text-white
+            font-semibold
+            px-6
+            py-2
+            rounded-xl
+            transition
+            shadow-md
+          "
+        >
           Buscar
         </button>
       </div>
 
-      {mensaje && (
-        <p className="mt-3 text-sm text-gray-700 text-center">{mensaje}</p>
-      )}
-
-      {resultados.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: "1.5rem",
-            marginTop: "2rem",
-          }}
+      {/* Crear manual */}
+      <div className="flex justify-center">
+        <button
+          onClick={crearCartaManual}
+          className="
+            border-2 border-green-500
+            text-green-600
+            font-semibold
+            px-6
+            py-2
+            rounded-xl
+            hover:bg-green-100
+            transition
+          "
         >
-          {resultados.map((carta, i) => (
-            <div
-              key={i}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-                padding: "1rem",
-                backgroundColor: "#fff",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-              }}
-            >
-              {carta.image && (
-                <img
-                  src={carta.image}
-                  alt={carta.name}
-                  style={{
-                    width: "150px",
-                    height: "210px",
-                    objectFit: "contain",
-                    marginBottom: "0.5rem",
-                  }}
-                />
-              )}
-              <h3 className="text-lg font-semibold text-center">
-                {carta.name}
-              </h3>
-              <p className="text-sm text-gray-600 text-center">
-                {carta.rarity || "Rareza desconocida"}
-              </p>
-              {carta.price && (
-                <p className="text-green-600 font-bold mt-1">{carta.price}</p>
-              )}
+          Crear Carta Manual
+        </button>
+      </div>
 
-              <div className="card-form-actions" style={{ marginTop: "1rem" }}>
-                <button
-                  onClick={() => irAEditarCarta(carta)}
-                  className="publish-btn"
-                >
-                  Publicar
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Mensaje */}
+      {mensaje && (
+        <p className="text-center text-sm text-gray-600">
+          {mensaje}
+        </p>
       )}
     </div>
-  );
+
+    {/* Resultados */}
+    {resultados.length > 0 && (
+      <div className="
+        grid
+        grid-cols-1
+        sm:grid-cols-2
+        md:grid-cols-3
+        lg:grid-cols-4
+        gap-6
+        mt-10
+      ">
+        {resultados.map((carta, i) => (
+          <div
+            key={i}
+            className="
+              bg-gradient-to-b
+              from-green-50
+              to-transparent
+              rounded-2xl
+              shadow-md
+              p-4
+              flex flex-col
+              items-center
+              transition
+              hover:scale-[1.02]
+            "
+          >
+            {carta.image && (
+              <img
+                src={carta.image}
+                alt={carta.name}
+                className="
+                  w-[150px]
+                  h-[210px]
+                  object-contain
+                  mb-2
+                "
+              />
+            )}
+
+            <h3 className="text-lg font-semibold text-center">
+              {carta.name}
+            </h3>
+
+            <p className="text-sm text-gray-600 text-center">
+              {carta.rarity || "Rareza desconocida"}
+            </p>
+
+            {carta.price && (
+              <p className="text-green-600 font-bold mt-1">
+                {carta.price}
+              </p>
+            )}
+
+            <button
+              onClick={() => irAEditarCarta(carta)}
+              className="
+                mt-4
+                w-full
+                bg-green-500
+                hover:bg-green-600
+                text-white
+                py-2
+                rounded-xl
+                font-semibold
+                transition
+                shadow-sm
+              "
+            >
+              Publicar
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
 }

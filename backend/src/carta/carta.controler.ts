@@ -3,12 +3,13 @@ import { orm } from "../shared/db/orm.js";
 import { Carta } from "./carta.entity.js";
 import { CartaClass } from "./cartaClass.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
+import { Valoracion } from "../valoracion/valoracion.entity.js";
+import { Compra } from "../compra/compra.entity.js";
 import axios from "axios";
-import puppeteer from "puppeteer-core";
-import * as chrome from "chrome-launcher"; // ✅ Import correcto para ESM
+// import puppeteer from "puppeteer-core";
+// import * as chrome from "chrome-launcher";
 
-
-import fs from "fs"; // opcional si querés guardar en archivo
+// import fs from "fs"; // opcional para guardar en archivo
 
 
 const em = orm.em;
@@ -43,21 +44,56 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todas las cartas
 async function findAll(req: Request, res: Response) {
   try {
-    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items"] });
+    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios.direccion", "uploader"] });
     
-    // Map carta fields to match frontend expectations (title, thumbnail, etc.)
-    const cartasFormateadas = cartas.map(carta => ({
-      id: carta.id,
-      title: carta.name,
-      thumbnail: carta.image,
-      price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
-      description: carta.rarity || "Carta coleccionable",
-      set: carta.setName || "Unknown Set",
-      rarity: carta.rarity,
-      link: carta.link,
-      cartaClass: carta.cartaClass,
-      items: carta.items
-    }));
+    // Mapear campos de la carta para coincidir con las expectativas del frontend (title, thumbnail, etc.)
+    const cartasFormateadas = cartas
+        .filter(carta => {
+            // Comprobar si la carta tiene algún item con stock > 0
+            const hasStock = carta.items.getItems().some(item => item.stock > 0);
+            return hasStock;
+        })
+        .map(carta => {
+        // Recolectar todos los intermediarios de todos los items vinculados a esta carta (deduplicados)
+        const interMap = new Map<number, any>();
+        carta.items.getItems().forEach(item =>
+            item.intermediarios.getItems().forEach(i => {
+                if (i.id == null) return;
+                interMap.set(i.id, {
+                    id: i.id,
+                    nombre: i.nombre,
+                    direccion: i.direccion ? {
+                        ciudad: i.direccion.ciudad,
+                        provincia: i.direccion.provincia,
+                    } : undefined,
+                });
+            })
+        );
+        const intermediarios = Array.from(interMap.values());
+        
+        const cartaFormateada: any = {
+            id: carta.id,
+            title: carta.name,
+            thumbnail: carta.image,
+            price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+            description: carta.rarity || "Carta coleccionable",
+            set: carta.setName || "Unknown Set",
+            rarity: carta.rarity,
+            link: carta.link,
+            cartaClass: carta.cartaClass,
+            items: carta.items,
+            intermediarios,
+        };
+        
+        if (carta.uploader) {
+            cartaFormateada.uploader = { id: carta.uploader.id}
+        }
+        
+        // Calcular el stock total sumando todos los items
+        cartaFormateada.stock = carta.items.getItems().reduce((sum, item) => sum + item.stock, 0);
+
+        return cartaFormateada;
+    });
     
     res.status(200).json({ message: "Found all cartas", data: cartasFormateadas });
   } catch (error: any) {
@@ -72,7 +108,7 @@ async function findOne(req: Request, res: Response) {
     const id = Number(req.params.id);
     const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items", "uploader"] });
     
-    // Map carta fields to match frontend expectations
+    // Mapear campos de la carta para coincidir con las expectativas del frontend
     const cartaFormateada = {
       id: carta.id,
       title: carta.name,
@@ -85,15 +121,27 @@ async function findOne(req: Request, res: Response) {
       link: carta.link,
       brand: "Pokémon TCG",
       category: "trading-cards",
-      rating: 4.5,
-      stock: 10,
+      rating: null, // Rating de la carta eliminado, usar uploader.rating
+      stock: carta.items.getItems().reduce((sum, item) => sum + item.stock, 0),
       cartaClass: carta.cartaClass,
-      items: carta.items
+      items: carta.items,
+      uploader: undefined as any
     } as any;
 
-    // include uploader id if present
+    // incluir id y nombre del uploader si está presente junto con su rating
     if ((carta as any).uploader) {
-      cartaFormateada.uploader = { id: (carta as any).uploader.id };
+       const uploaderId = (carta as any).uploader.id;
+       const valoraciones = await em.find(Valoracion, { tipoObjeto: 'vendedor', objetoId: uploaderId });
+       const avg = valoraciones.length > 0 
+          ? valoraciones.reduce((acc, v) => acc + v.puntuacion, 0) / valoraciones.length 
+          : 0;
+
+      cartaFormateada.uploader = { 
+        id: uploaderId,
+        nombre: (carta as any).uploader.nombre,
+        rating: avg,
+        reviewsCount: valoraciones.length
+      };
     }
     
     res.status(200).json({ message: "Found one carta", data: cartaFormateada });
@@ -114,7 +162,7 @@ async function add(req: Request, res: Response) {
         cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
       }
 
-      // If frontend provided vendedorId (logged vendedor), link uploader
+      // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
       const vendedorId = req.body.userId ?? req.body.vendedorId;
       if (vendedorId) {
         cartaData.uploader = em.getReference(Vendedor, Number(vendedorId));
@@ -160,7 +208,8 @@ async function remove(req: Request, res: Response) {
     const vendedorId = Number(req.body.userId ?? req.body.vendedorId);
     if (!vendedorId) return res.status(400).json({ message: "vendedorId required for deletion" });
 
-    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader'] });
+    // populate uploader and items to perform ownership and safety checks
+    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader', 'items'] });
 
     if (!carta.uploader) {
       return res.status(403).json({ message: "You are not authorized to delete this carta" });
@@ -168,6 +217,18 @@ async function remove(req: Request, res: Response) {
 
     if (carta.uploader.id !== vendedorId) {
       return res.status(403).json({ message: "You are not authorized to delete this carta" });
+    }
+
+    // Check if any items are in existing compras referencing these items
+    const items = carta.items.getItems();
+    for (const item of items) {
+      // safer to query by item id instead of passing the entity directly
+      const count = await em.count(Compra, { itemCartas: { id: item.id } });
+      if (count > 0) {
+        return res.status(400).json({
+          message: "No puedes eliminar esta carta porque tiene items asociados a compras existentes. La carta debe permanecer en el historial."
+        });
+      }
     }
 
     await em.removeAndFlush(carta);
@@ -178,10 +239,11 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-// Buscar cartas Pokémon (PokeAPI)
+// Buscar cartas Pokémon (PokeAPI) — deshabilitado, se suben manualmente
+/*
 async function findFromAPI(req: Request, res: Response) {
   try {
-    const { nombre } = req.params;
+    const nombre = req.params.nombre as string;
     const url = `https://pokeapi.co/api/v2/pokemon/${nombre.toLowerCase()}`;
 
     const response = await axios.get(url);
@@ -218,11 +280,11 @@ async function findFromAPI(req: Request, res: Response) {
 
 
 // ============================
-// 🔹 Scrape cartas desde CoolStuffInc
+// Scrape cartas desde CoolStuffInc
 // ============================
 async function scrapeCartas(req: Request, res: Response) {
   try {
-    const { nombre } = req.params;
+    const nombre = req.params.nombre as string;
 
     if (!nombre) {
       return res.status(400).json({ message: "Debe indicar un nombre de carta." });
@@ -232,7 +294,7 @@ async function scrapeCartas(req: Request, res: Response) {
       nombre
     )}`;
 
-    console.log(`🔎 Buscando cartas con nombre "${nombre}" en CoolStuffInc...`);
+  console.log(`Buscando cartas con nombre "${nombre}" en CoolStuffInc...`);
 
     // Detectar instalación de Chrome
     const chromePaths = chrome.Launcher.getInstallations();
@@ -243,7 +305,7 @@ async function scrapeCartas(req: Request, res: Response) {
     }
 
     const chromePath = chromePaths[0];
-    console.log("🟢 Chrome detectado en:", chromePath);
+  console.log("Chrome detectado en:", chromePath);
 
     // Iniciar Puppeteer
     const browser = await puppeteer.launch({
@@ -255,14 +317,14 @@ async function scrapeCartas(req: Request, res: Response) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-    console.log("⌛ Esperando que carguen los resultados...");
+  console.log("Esperando que carguen los resultados...");
     await page.waitForSelector(".row.product-search-row.main-container", {
       timeout: 60000,
     });
 
-    // =============================
-    // 📦 Extraer datos
-    // =============================
+  // =============================
+  // Extraer datos
+  // =============================
     const cartas = await page.evaluate(() => {
       const productos = document.querySelectorAll(
         ".row.product-search-row.main-container"
@@ -283,7 +345,7 @@ async function scrapeCartas(req: Request, res: Response) {
         const enlace = (prod.querySelector(".productLink") as HTMLAnchorElement)?.href || "Sin enlace";
         const imagen = (prod.querySelector("img[itemprop='image']") as HTMLImageElement)?.src || null;
 
-        // 🧩 Nombre del set - Try multiple selectors
+  // Nombre del set - Try multiple selectors
         let setName = null;
         const setSelectors = [
           ".breadcrumb-trail",
@@ -299,13 +361,13 @@ async function scrapeCartas(req: Request, res: Response) {
           }
         }
 
-        // 💎 Rareza - Extract only the rarity value
+  // Rareza - Extract only the rarity value
         let rareza = "Unknown";
         
-        // Get all product text
+        // Obtener todo el texto del producto
         const productText = prod.textContent || "";
         
-        // Define rarity patterns in order of specificity (most specific first)
+        // Definir patrones de rareza en orden de especificidad (más específicos primero)
         const rarityPatterns = [
           /\bSecret Rare\b/i,
           /\bUltra Rare\b/i,
@@ -323,7 +385,7 @@ async function scrapeCartas(req: Request, res: Response) {
           /\bSpecial\b/i
         ];
         
-        // Find the first matching rarity pattern
+        // Encontrar el primer patrón de rareza que coincida
         for (const pattern of rarityPatterns) {
           const match = productText.match(pattern);
           if (match) {
@@ -332,7 +394,7 @@ async function scrapeCartas(req: Request, res: Response) {
           }
         }
 
-        // Return data in English format to match frontend expectations
+        // Devolver datos en el formato esperado por el frontend
         resultados.push({ 
           name: nombre,
           price: precio,
@@ -346,35 +408,35 @@ async function scrapeCartas(req: Request, res: Response) {
       return resultados;
     });
 
-    // Limit to up to 5 cards
+    // Limitar a un máximo de 5 cartas
     const topCartas = Array.isArray(cartas) ? cartas.slice(0, 5) : [];
 
     await browser.close();
 
     if (!topCartas || topCartas.length === 0) {
-      console.log("⚠️ No se encontraron cartas. Verifica que el selector sea correcto.");
+  console.log("No se encontraron cartas. Verifica que el selector sea correcto.");
       return res.status(404).json({
         message: "No se encontraron cartas o cambió el selector en la web.",
       });
     }
 
-    console.log(`✅ Se encontraron ${topCartas.length} cartas para "${nombre}".`);
-    console.log("📋 Primeras 3 cartas:", JSON.stringify(topCartas.slice(0, 3), null, 2));
+  console.log(`Se encontraron ${topCartas.length} cartas para "${nombre}".`);
+  console.log("Primeras 3 cartas:", JSON.stringify(topCartas.slice(0, 3), null, 2));
 
     return res.status(200).json({
       message: `Scraping completado (${topCartas.length} resultados).`,
       data: topCartas,
     });
   } catch (error: any) {
-    console.error("❌ Error durante el scraping:", error.message);
+  console.error("Error durante el scraping:", error.message);
     return res.status(500).json({
       message: "Error al realizar scraping de CoolStuffInc.",
       error: error.message,
     });
   }
 }
+*/
 
- 
 export {
   sanitizeCartaInput,
   findAll,
@@ -382,6 +444,6 @@ export {
   add,
   update,
   remove,
-  findFromAPI,
-  scrapeCartas,
+  // findFromAPI,  // deshabilitado
+  // scrapeCartas, // deshabilitado
 };

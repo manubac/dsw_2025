@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../context/user";
 import "./LoginPage.css";
+import { fetchApi } from "../services/api";
 
 
 
@@ -43,10 +44,9 @@ export function LoginPage() {
       if (formData.rol === "vendedor") {
         endpoint = "/api/vendedores/login";
       } else if (formData.rol === "usuario") {
-        
         endpoint = "/api/users/login";
       } else if (formData.rol === "intermediario") {
-        endpoint = "/api/users/login";
+        endpoint = "/api/intermediarios/login";
       } else {
         throw new Error("Rol de usuario no válido.");
       }
@@ -54,7 +54,7 @@ export function LoginPage() {
       console.log("Iniciando sesión en:", endpoint);
 
       // Hacer petición al backend
-      const response = await fetch(endpoint, {
+      const response = await fetchApi(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -65,7 +65,15 @@ export function LoginPage() {
         }),
       });
 
-      const result = await response.json();
+      const text = await response.text();
+      let result;
+      try {
+          result = text ? JSON.parse(text) : {};
+      } catch (e) {
+         console.error("Respuesta inválida:", text);
+         throw new Error("Respuesta inválida del servidor");
+      }
+      
       console.log("Respuesta del backend:", result);
 
       if (!response.ok) {
@@ -77,21 +85,21 @@ export function LoginPage() {
       // Login exitoso
       const userData = {
         id: result.data.id,
-        name: result.data.nombre || result.data.name || "Usuario",
+        name: result.data.username || result.data.nombre || result.data.name || "Usuario",
         email: result.data.email,
         password: formData.password, // Guardamos solo temporalmente en contexto
         role: formData.rol,
       };
 
       // Guardar usuario en el contexto global
-      login(userData);
+      login(userData, result.token);
 
       setSuccess("¡Inicio de sesión exitoso! Redirigiendo...");
       console.log("Usuario logueado:", userData);
 
       // Redirigir después de un breve delay
       setTimeout(() => {
-        navigate("/profile");
+        navigate("/");
       }, 1200);
     } catch (error: any) {
       console.error("Error en login:", error);
@@ -173,7 +181,7 @@ export function LoginPage() {
         {/* Enlace a recuperación de contraseña (futuro) */}
         <p className="forgot-link">
           ¿Olvidaste tu contraseña?{" "}
-          <Link to="/recover" className="highlight">
+          <Link to="/forgot-password" className="highlight">
             Recuperala acá
           </Link>
         </p>
