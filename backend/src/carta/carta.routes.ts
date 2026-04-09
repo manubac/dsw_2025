@@ -6,8 +6,9 @@ import {
   add,
   update,
   remove,
-  // findFromAPI,  // deshabilitado
-  // scrapeCartas, // deshabilitado
+  scrapeCartas,
+  buscarRarezas,
+  getPrecioCoolStuff,
 } from "./carta.controler.js";
 import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
 
@@ -15,6 +16,12 @@ export const cartaRouter = Router();
 
 // Público – cualquiera puede consultar las cartas
 cartaRouter.get("/", findAll);
+
+// Búsqueda de cartas por juego — requiere estar logueado (cualquier rol)
+cartaRouter.get("/scrape/:juego/rarezas", authenticate, buscarRarezas);
+cartaRouter.get("/scrape/:juego/:nombre", authenticate, scrapeCartas);
+cartaRouter.get("/precio-coolstuff", authenticate, getPrecioCoolStuff);
+
 cartaRouter.get("/:id", findOne);
 
 // Solo los vendedores pueden crear, editar o eliminar cartas

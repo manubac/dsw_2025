@@ -6,10 +6,6 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import axios from "axios";
-// import puppeteer from "puppeteer-core";
-// import * as chrome from "chrome-launcher";
-
-// import fs from "fs"; // opcional para guardar en archivo
 
 
 const em = orm.em;
@@ -239,203 +235,269 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-// Buscar cartas Pokémon (PokeAPI) — deshabilitado, se suben manualmente
-/*
-async function findFromAPI(req: Request, res: Response) {
+
+
+
+
+
+
+// ============================
+// Búsqueda de cartas por juego usando APIs públicas
+// ============================
+const JUEGOS_VALIDOS = ["pokemon", "magic", "yugioh", "digimon"] as const;
+type Juego = (typeof JUEGOS_VALIDOS)[number];
+
+// Elimina acentos y normaliza el texto para búsquedas más flexibles
+function normalizar(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+// Deduplica por (nombre + set): misma carta en el mismo set = 1 entrada
+function deduplicarPorNombreYSet(cartas: any[]): any[] {
+  const seen = new Set<string>();
+  return cartas.filter(c => {
+    const key = `${c.name.toLowerCase()}|${(c.setName ?? "").toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// Intenta obtener el precio de CoolStuffInc para una carta específica vía axios (sin browser)
+async function fetchPrecioCoolStuff(nombre: string, setName?: string): Promise<string | null> {
   try {
-    const nombre = req.params.nombre as string;
-    const url = `https://pokeapi.co/api/v2/pokemon/${nombre.toLowerCase()}`;
-
-    const response = await axios.get(url);
-    const p = response.data;
-
-    const result = {
-      nombre: p.name,
-      tipo: p.types?.map((t: any) => t.type.name).join(", ") || "Desconocido",
-      hp: p.stats?.find((s: any) => s.stat.name === "hp")?.base_stat || 0,
-      ataque: p.stats?.find((s: any) => s.stat.name === "attack")?.base_stat || 0,
-      defensa: p.stats?.find((s: any) => s.stat.name === "defense")?.base_stat || 0,
-      velocidad: p.stats?.find((s: any) => s.stat.name === "speed")?.base_stat || 0,
-      imagen: p.sprites?.other?.["official-artwork"]?.front_default || p.sprites?.front_default,
-    };
-
-    return res.json(result);
-  } catch (error: any) {
-    console.error("Error al buscar Pokémon en la API externa:", error.message);
-
-    if (error.response && error.response.status === 404) {
-      return res.status(404).json({ message: "No se encontró ningún Pokémon con ese nombre." });
-    }
-
-    return res.status(500).json({ message: "Error al consultar la API externa." });
+    const query = setName ? `${nombre} ${setName}` : nombre;
+    const url = `https://www.coolstuffinc.com/main_search.php?pa=searchOnName&page=1&resultsPerPage=10&q=${encodeURIComponent(query)}`;
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      timeout: 10000,
+    });
+    const html: string = r.data;
+    // Buscar el primer precio en el HTML (patrón $X.XX)
+    const match = html.match(/\$\s*(\d+\.\d{2})/);
+    return match ? `$${match[1]}` : null;
+  } catch {
+    return null;
   }
 }
 
+const PAGE_SIZE = 8;
+const POKEMON_FETCH_SIZE = PAGE_SIZE * 4;
 
+// Construye la query para la Pokemon TCG API.
+// Busca por nombre de carta. Si se especifica un set (nombre o código), lo agrega como filtro AND.
+function buildPokemonQuery(nombre: string, set?: string): string {
+  const conditions = [`name:*${nombre}*`];
+  if (set) {
+    const s = normalizar(set);
+    conditions.push(`(set.name:*${s}* OR set.id:*${s}*)`);
+  }
+  return conditions.join(" ");
+}
 
-
-
-
-
-
-
-// ============================
-// Scrape cartas desde CoolStuffInc
-// ============================
-async function scrapeCartas(req: Request, res: Response) {
+export async function scrapeCartas(req: Request, res: Response) {
   try {
-    const nombre = req.params.nombre as string;
+    const nombreRaw = req.params.nombre as string;
+    const juego = (req.params.juego as string)?.toLowerCase() as Juego;
+    const page = Math.max(1, parseInt((req.query.page as string) ?? "1", 10));
 
-    if (!nombre) {
+    if (!nombreRaw) {
       return res.status(400).json({ message: "Debe indicar un nombre de carta." });
     }
-
-    const url = `https://www.coolstuffinc.com/main_search.php?pa=searchOnName&page=1&resultsPerPage=25&q=${encodeURIComponent(
-      nombre
-    )}`;
-
-  console.log(`Buscando cartas con nombre "${nombre}" en CoolStuffInc...`);
-
-    // Detectar instalación de Chrome
-    const chromePaths = chrome.Launcher.getInstallations();
-    if (!chromePaths.length) {
-      return res.status(500).json({
-        message: "No se encontró una instalación de Google Chrome en el sistema.",
-      });
+    if (!JUEGOS_VALIDOS.includes(juego)) {
+      return res.status(400).json({ message: `Juego inválido. Opciones: ${JUEGOS_VALIDOS.join(", ")}` });
     }
 
-    const chromePath = chromePaths[0];
-  console.log("Chrome detectado en:", chromePath);
+    const nombre = normalizar(nombreRaw);
+    const setFiltro = req.query.set as string | undefined;
+    let cartas: any[] = [];
+    let hasMore = false;
 
-    // Iniciar Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: chromePath,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-
-  console.log("Esperando que carguen los resultados...");
-    await page.waitForSelector(".row.product-search-row.main-container", {
-      timeout: 60000,
-    });
-
-  // =============================
-  // Extraer datos
-  // =============================
-    const cartas = await page.evaluate(() => {
-      const productos = document.querySelectorAll(
-        ".row.product-search-row.main-container"
+    if (juego === "pokemon") {
+      const q = buildPokemonQuery(nombre, setFiltro);
+      const r = await axios.get(
+        `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=${POKEMON_FETCH_SIZE}&page=${page}`
       );
-      const resultados: any[] = [];
+      const totalCount: number = r.data.totalCount ?? 0;
+      const raw = (r.data.data || []).map((card: any) => ({
+        name: card.name,
+        image: card.images?.large,
+        setName: card.set?.name,
+        setId: card.set?.id,
+      }));
+      // Misma carta en el mismo set con distintas rarezas = 1 entrada
+      const unicos = deduplicarPorNombreYSet(raw);
+      cartas = unicos.slice(0, PAGE_SIZE);
+      hasMore = unicos.length > PAGE_SIZE || page * POKEMON_FETCH_SIZE < totalCount;
 
-      productos.forEach((prod) => {
-        const nombre =
-          prod.querySelector(".product-name")?.textContent?.trim() ||
-          prod.querySelector("img")?.alt?.trim() ||
-          "Sin nombre";
+    } else if (juego === "magic") {
+      // Scryfall entiende texto libre: nombres, set codes (e:m10), nombres de set (s:"10th Edition")
+      const r = await axios.get(
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(nombre)}&unique=cards&page=${page}`
+      );
+      cartas = (r.data.data || []).map((card: any) => ({
+        name: card.name,
+        image: card.image_uris?.normal ?? card.card_faces?.[0]?.image_uris?.normal,
+        rarity: card.rarity,
+        setName: card.set_name,
+      }));
+      hasMore = r.data.has_more ?? false;
 
-        const precio =
-          prod.querySelector(".darkred b")?.textContent?.trim() ||
-          prod.querySelector(".price")?.textContent?.trim() ||
-          "Sin precio";
+    } else if (juego === "yugioh") {
+      const offset = (page - 1) * PAGE_SIZE;
+      const r = await axios.get(
+        `https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=${encodeURIComponent(nombre)}&num=${PAGE_SIZE}&offset=${offset}`
+      );
+      cartas = (r.data.data || []).map((card: any) => ({
+        name: card.name,
+        image: card.card_images?.[0]?.image_url,
+        rarity: card.card_sets?.[0]?.set_rarity ?? card.type,
+        setName: card.card_sets?.[0]?.set_name,
+      }));
+      const meta = r.data.meta;
+      hasMore = meta ? offset + PAGE_SIZE < meta.total_rows : false;
 
-        const enlace = (prod.querySelector(".productLink") as HTMLAnchorElement)?.href || "Sin enlace";
-        const imagen = (prod.querySelector("img[itemprop='image']") as HTMLImageElement)?.src || null;
-
-  // Nombre del set - Try multiple selectors
-        let setName = null;
-        const setSelectors = [
-          ".breadcrumb-trail",
-          ".set-name",
-          ".product-set",
-          "[data-set]"
-        ];
-        for (const selector of setSelectors) {
-          const element = prod.querySelector(selector);
-          if (element?.textContent?.trim()) {
-            setName = element.textContent.trim();
-            break;
-          }
-        }
-
-  // Rareza - Extract only the rarity value
-        let rareza = "Unknown";
-        
-        // Obtener todo el texto del producto
-        const productText = prod.textContent || "";
-        
-        // Definir patrones de rareza en orden de especificidad (más específicos primero)
-        const rarityPatterns = [
-          /\bSecret Rare\b/i,
-          /\bUltra Rare\b/i,
-          /\bHyper Rare\b/i,
-          /\bRainbow Rare\b/i,
-          /\bFull Art\b/i,
-          /\bHolographic\b/i,
-          /\bHolo Rare\b/i,
-          /\bRare Holo\b/i,
-          /\bHolo\b/i,
-          /\bRare\b/i,
-          /\bUncommon\b/i,
-          /\bCommon\b/i,
-          /\bPromo\b/i,
-          /\bSpecial\b/i
-        ];
-        
-        // Encontrar el primer patrón de rareza que coincida
-        for (const pattern of rarityPatterns) {
-          const match = productText.match(pattern);
-          if (match) {
-            rareza = match[0];
-            break;
-          }
-        }
-
-        // Devolver datos en el formato esperado por el frontend
-        resultados.push({ 
-          name: nombre,
-          price: precio,
-          link: enlace,
-          image: imagen,
-          setName: setName,
-          rarity: rareza
-        });
-      });
-
-      return resultados;
-    });
-
-    // Limitar a un máximo de 5 cartas
-    const topCartas = Array.isArray(cartas) ? cartas.slice(0, 5) : [];
-
-    await browser.close();
-
-    if (!topCartas || topCartas.length === 0) {
-  console.log("No se encontraron cartas. Verifica que el selector sea correcto.");
-      return res.status(404).json({
-        message: "No se encontraron cartas o cambió el selector en la web.",
-      });
+    } else {
+      const r = await axios.get(
+        `https://digi-api.com/api/v1/digimon?name=${encodeURIComponent(nombre)}&pageSize=${PAGE_SIZE}&page=${page - 1}`
+      );
+      cartas = (r.data.content || []).map((digi: any) => ({
+        name: digi.name,
+        image: digi.image,
+        rarity: undefined,
+        setName: undefined,
+      }));
+      hasMore = !(r.data.pageable?.last ?? true);
     }
 
-  console.log(`Se encontraron ${topCartas.length} cartas para "${nombre}".`);
-  console.log("Primeras 3 cartas:", JSON.stringify(topCartas.slice(0, 3), null, 2));
+    if (cartas.length === 0 && page === 1) {
+      return res.status(404).json({ message: "No se encontraron cartas con ese nombre." });
+    }
 
-    return res.status(200).json({
-      message: `Scraping completado (${topCartas.length} resultados).`,
-      data: topCartas,
-    });
+    return res.status(200).json({ data: cartas, hasMore, page });
   } catch (error: any) {
-  console.error("Error durante el scraping:", error.message);
-    return res.status(500).json({
-      message: "Error al realizar scraping de CoolStuffInc.",
-      error: error.message,
-    });
+    console.error("Error durante la búsqueda:", error.message);
+    if (error.response?.status === 404) {
+      return res.status(404).json({ message: "No se encontraron cartas con ese nombre." });
+    }
+    return res.status(500).json({ message: "Error al buscar cartas.", error: error.message });
   }
 }
-*/
+
+// Devuelve todas las rarezas disponibles para una carta en un set específico
+// Query params: nombre, set
+export async function buscarRarezas(req: Request, res: Response) {
+  try {
+    const juego = (req.params.juego as string)?.toLowerCase() as Juego;
+    const nombreRaw = req.query.nombre as string;
+    const setNameRaw = req.query.set as string;
+
+    if (!nombreRaw || !JUEGOS_VALIDOS.includes(juego)) {
+      return res.status(400).json({ message: "Parámetros inválidos." });
+    }
+
+    const nombre = normalizar(nombreRaw);
+    const setName = setNameRaw ? normalizar(setNameRaw) : null;
+    let rarezas: any[] = [];
+
+    // Rarezas que tienen versión Reverse Holo en el TCG de Pokemon
+    const RAREZAS_CON_REVERSE = new Set([
+      "common", "uncommon", "rare", "rare holo",
+      "rare holo v", "rare holo vmax", "rare holo vstar",
+      "trainer gallery rare holo",
+    ]);
+
+    if (juego === "pokemon") {
+      // Busca exactamente esta carta en este set
+      let query = `name:"${nombre}"`;
+      if (setName) query += ` set.name:"${setName}"`;
+      const r = await axios.get(
+        `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=30`
+      );
+      const cards: any[] = r.data.data || [];
+      rarezas = cards.map((card: any) => ({
+        cardId: card.id,
+        rarity: card.rarity ?? "Desconocida",
+        number: card.number,
+        image: card.images?.small,
+      }));
+
+      // Agregar la versión Reverse Holo para cada carta que la admite
+      // (la API no las lista por separado, pero existen físicamente)
+      const reversas = cards
+        .filter(card => RAREZAS_CON_REVERSE.has((card.rarity ?? "").toLowerCase()))
+        .map(card => ({
+          cardId: `${card.id}-reverse`,
+          rarity: "Reverse Holo",
+          number: card.number,
+          image: card.images?.small,
+        }));
+
+      rarezas = [...rarezas, ...reversas];
+
+    } else if (juego === "magic") {
+      // En Magic (nombre + set) ya determina una única rareza, pero puede haber foil/non-foil
+      let q = `!"${nombre}"`;
+      if (setName) q += ` s:"${setName}"`;
+      const r = await axios.get(
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&unique=prints&page=1`
+      );
+      rarezas = (r.data.data || []).map((card: any) => ({
+        cardId: card.id,
+        rarity: card.rarity,
+        number: card.collector_number,
+        image: card.image_uris?.small ?? card.card_faces?.[0]?.image_uris?.small,
+        finish: card.finishes?.join(", "),
+        setName: card.set_name,
+      }));
+
+    } else if (juego === "yugioh") {
+      // Para YGO: buscar la carta y filtrar sus card_sets por el set elegido
+      const r = await axios.get(
+        `https://db.ygoprodeck.com/api/v7/cardinfo.php?name=${encodeURIComponent(nombre)}`
+      );
+      const card = r.data.data?.[0];
+      if (card) {
+        const sets: any[] = card.card_sets || [];
+        const filtrados = setName
+          ? sets.filter(s => normalizar(s.set_name).toLowerCase() === setName.toLowerCase())
+          : sets;
+        rarezas = filtrados.map((s: any) => ({
+          cardId: `${card.id}-${s.set_num}`,
+          rarity: s.set_rarity,
+          number: s.set_num,
+          image: card.card_images?.[0]?.image_url_small,
+          setName: s.set_name,
+        }));
+      }
+
+    } else {
+      // Digimon no tiene distinción de rareza
+      rarezas = [{ cardId: "unique", rarity: null, image: null }];
+    }
+
+    return res.status(200).json({ data: rarezas });
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return res.status(404).json({ message: "No se encontraron rarezas." });
+    }
+    return res.status(500).json({ message: "Error al buscar rarezas.", error: error.message });
+  }
+}
+
+// Devuelve el precio sugerido de CoolStuffInc para una carta y set dados
+export async function getPrecioCoolStuff(req: Request, res: Response) {
+  const nombre = req.query.nombre as string;
+  const setName = req.query.set as string | undefined;
+  if (!nombre) return res.status(400).json({ message: "Falta el nombre de la carta." });
+
+  const precio = await fetchPrecioCoolStuff(nombre, setName);
+  return res.status(200).json({ precio });
+}
 
 export {
   sanitizeCartaInput,
@@ -444,6 +506,4 @@ export {
   add,
   update,
   remove,
-  // findFromAPI,  // deshabilitado
-  // scrapeCartas, // deshabilitado
 };

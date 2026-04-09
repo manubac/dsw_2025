@@ -8,6 +8,16 @@ Academic marketplace for Pokémon card trading. Team: Manuel Bacolla (50214), Ni
 - **Frontend:** `vite-project/vite-project-ts/` — React 19 + TypeScript + Vite 7
 - **Package manager:** pnpm
 - Frontend proxies `/api` → `http://localhost:3000` via Vite config
+- **Styling:** Tailwind CSS (postcss.config.js + tailwind.config.js en el frontend)
+- **HTTP client:** axios via `src/services/api.ts` — usar `api` (axios) o `fetchApi` (fetch), ambos adjuntan JWT automáticamente
+
+## Backend Modules
+- `carta/`, `user/`, `vendedor/`, `compra/` — originales
+- `direccion/` — CRUD de direcciones de entrega del comprador
+- `envio/` — gestión de envíos con estados (`EstadoEnvio` enum: planificado → entregado)
+- `intermediario/` — actor logístico con dirección propia, panel `IntermediarioDashboard`
+- `contact/` — envío de mensajes de contacto vía email (nodemailer)
+- `valoracion/` — reseñas post-compra
 
 ## Dev Commands
 - Backend: `cd backend && pnpm run dev` (tsc-watch)
@@ -44,12 +54,23 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 - **SQL injection:** Prevented by ORM — always use `em.find()`, `em.findOne()`, `em.create()`, etc.
 - **Ownership check:** Verify `entity.uploader.id === requesterId` before destructive operations
 - **Passwords:** Currently stored/compared as plain text — do NOT add bcrypt without team agreement (known tech debt)
-- **Auth:** No JWT/session middleware yet — protected routes rely on frontend guards only (known limitation)
+- **Auth:** JWT implementado. `authenticate` verifica el token; `authorizeRoles('vendedor'|'user'|'intermediario')` restringe por rol; `authorizeSelf` verifica que el actor sea el mismo que el `:id` de la URL. Usar en ese orden.
+  - Login devuelve `{ token, role, ...userData }` — frontend persiste en `localStorage` bajo clave `'user'`
+  - `JWT_SECRET` se lee de `process.env.JWT_SECRET` (default inseguro `'default_secret'` en dev)
 - **CORS:** Permissive `cors()` with no origin restriction — intentional for dev environment
 
+## Integraciones externas
+- **MercadoPago:** `backend/src/shared/mercadopago.ts` — usa `MP_ACCESS_TOKEN` env var; usar `sandbox_init_point` en modo test
+- **Mailer:** `backend/src/shared/mailer.ts` — nodemailer + Gmail, requiere `GMAIL_USER` y `GMAIL_APP_PASS` env vars; falla silenciosamente (no bloquea el flujo principal)
+
+## Scripts de DB (`backend/src/scripts/`)
+- `hash_passwords.ts` — hashea passwords planas existentes
+- `cleanup_orphaned.ts` — limpia entidades huérfanas
+- `reset_purchases.ts` / `deletePurchases.ts` — reset de compras en dev
+
 ## Known Tech Debt (do not "fix" without team discussion)
-- Passwords are plain text (no bcrypt)
-- No authentication tokens (no JWT)
-- User object (including password) persisted to `localStorage`
+- Passwords are plain text (no bcrypt) — `hash_passwords.ts` existe pero no se ejecutó en prod; confirmar con el equipo antes de migrar
+- ~~No authentication tokens (no JWT)~~ — JWT implementado, ya no aplica
+- `User.password` tiene `hidden: true` en MikroORM (no se serializa), pero el token completo sigue en `localStorage`
 - `debug: true` in MikroORM config (intentional for development)
 - CORS allows all origins
