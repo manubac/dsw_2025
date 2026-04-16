@@ -17,8 +17,7 @@ import { direccionRouter } from "./direccion/direccion.routes.js";
 import { intermediarioRouter } from "./intermediario/intermediario.routes.js";
 import envioRouter from "./envio/envio.router.js";
 import valoracionRouter from "./valoracion/valoracion.routes.js";
-
-
+import scanRouter from "./scan/scan.routes.js";
 const app = express();
 
 //  Middlewares base
@@ -51,6 +50,25 @@ app.use("/api/direcciones", direccionRouter);
 app.use("/api/intermediarios", intermediarioRouter);
 app.use("/api/envios", envioRouter);
 app.use("/api/valoraciones", valoracionRouter);
+app.use("/api/scan", scanRouter);
+// identifyRouter se carga dinámicamente para que un fallo de opencv no tire el servidor.
+// El slot debe registrarse ANTES del 404 handler; el handler interno se swapea cuando el
+// módulo termina de cargar.
+let identifyHandler: express.RequestHandler = (_req, res) => {
+  res.status(503).json({ success: false, mensaje: "Módulo de identificación cargando, reintentá en unos segundos." });
+};
+app.use("/api/identify", (req, res, next) => identifyHandler(req, res, next));
+
+import("./identify/index.js")
+  .then(({ identifyRouter }) => {
+    identifyHandler = identifyRouter as unknown as express.RequestHandler;
+    console.log("[identify] módulo cargado y listo.");
+  })
+  .catch((err) => {
+    console.warn("[identify] módulo no disponible:", err.message);
+    identifyHandler = (_req, res) =>
+      res.status(503).json({ success: false, mensaje: "Módulo de identificación no disponible.", debug: { error: err.message } });
+  });
 
 //  404 fallback
 app.use((req, res) => {

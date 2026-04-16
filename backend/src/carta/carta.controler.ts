@@ -252,11 +252,14 @@ function normalizar(texto: string): string {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
-// Deduplica por (nombre + set): misma carta en el mismo set = 1 entrada
-function deduplicarPorNombreYSet(cartas: any[]): any[] {
+// Deduplica por nombre solamente: muestra una carta por nombre único.
+// Así "Jolteon", "Jolteon-GX" y "Jolteon-EX" aparecen como entradas separadas
+// en lugar de mostrar 8 copias de "Jolteon" de distintas colecciones.
+function deduplicarPorNombre(cartas: any[]): any[] {
   const seen = new Set<string>();
   return cartas.filter(c => {
-    const key = `${c.name.toLowerCase()}|${(c.setName ?? "").toLowerCase()}`;
+    // Deduplicar por nombre + set: "Pikachu ex" en PAR y en SV3 son entradas distintas
+    const key = `${c.name.toLowerCase()}|${(c.setId || "").toLowerCase()}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -291,10 +294,13 @@ const POKEMON_FETCH_SIZE = PAGE_SIZE * 4;
 // Construye la query para la Pokemon TCG API.
 // Busca por nombre de carta. Si se especifica un set (nombre o código), lo agrega como filtro AND.
 function buildPokemonQuery(nombre: string, set?: string): string {
-  const conditions = [`name:*${nombre}*`];
+  // Normaliza espacios y guiones a wildcards: "pikachu ex" → "pikachu*ex*" → matchea "Pikachu-EX", "Pikachu EX", etc.
+  const nombreFuzzy = nombre.trim().replace(/[-\s]+/g, "*");
+  const conditions = [`name:*${nombreFuzzy}*`];
   if (set) {
     const s = normalizar(set);
-    conditions.push(`(set.name:*${s}* OR set.id:*${s}*)`);
+    // set.ptcgoCode es el código de deck builder (PAR, PAF…); set.id es el ID interno (sv4, sv4pt5…)
+    conditions.push(`(set.name:*${s}* OR set.id:*${s}* OR set.ptcgoCode:"${s}")`);
   }
   return conditions.join(" ");
 }
@@ -330,7 +336,7 @@ export async function scrapeCartas(req: Request, res: Response) {
         setId: card.set?.id,
       }));
       // Misma carta en el mismo set con distintas rarezas = 1 entrada
-      const unicos = deduplicarPorNombreYSet(raw);
+      const unicos = deduplicarPorNombre(raw);
       cartas = unicos.slice(0, PAGE_SIZE);
       hasMore = unicos.length > PAGE_SIZE || page * POKEMON_FETCH_SIZE < totalCount;
 
@@ -418,7 +424,11 @@ export async function buscarRarezas(req: Request, res: Response) {
       const r = await axios.get(
         `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=30`
       );
-      const cards: any[] = r.data.data || [];
+      // La API de Pokemon TCG trata el guión como separador de tokens (Lucene), por lo que
+      // name:"Charizard-EX" también matchea "M Charizard-EX". Filtramos por nombre exacto.
+      const cards: any[] = (r.data.data || []).filter(
+        (card: any) => normalizar(card.name).toLowerCase() === nombre.toLowerCase()
+      );
       rarezas = cards.map((card: any) => ({
         cardId: card.id,
         rarity: card.rarity ?? "Desconocida",
@@ -486,6 +496,119 @@ export async function buscarRarezas(req: Request, res: Response) {
       return res.status(404).json({ message: "No se encontraron rarezas." });
     }
     return res.status(500).json({ message: "Error al buscar rarezas.", error: error.message });
+  }
+}
+
+// Resuelve una carta por su identificador canónico (set+número, passcode, id)
+// Pokemon:  ?set=PAR&number=239
+// Magic:    ?set=ltr&number=149
+// YuGiOh:  ?passcode=89631139
+// Digimon: ?id=BT1-009  |  ?name=Agumon
+export async function resolveCartaByCode(req: Request, res: Response) {
+  try {
+    const juego = (req.params.juego as string)?.toLowerCase() as Juego;
+    if (!JUEGOS_VALIDOS.includes(juego)) {
+      return res.status(400).json({ message: "Juego inválido." });
+    }
+
+    if (juego === "pokemon") {
+      const set = req.query.set as string;
+      const number = req.query.number as string;
+      if (!set || !number) return res.status(400).json({ message: "Faltan parámetros set y number." });
+
+      // Paso 1: resolver el ptcgoCode (PAF, PAR, SV3…) al set.id real (sv4pt5, sv4, sv3…).
+      // El endpoint /v2/sets sí soporta búsqueda por ptcgoCode.
+      let setId = set.toLowerCase();
+      try {
+        const setsRes = await axios.get(
+          `https://api.pokemontcg.io/v2/sets?q=ptcgoCode:${encodeURIComponent(set)}&pageSize=1`
+        );
+        const foundSet = setsRes.data.data?.[0];
+        if (foundSet?.id) setId = foundSet.id;
+      } catch { /* si falla el lookup usamos el código tal cual */ }
+
+      // Paso 2: buscar la carta por set.id + número
+      const q = `set.id:${setId} number:${number}`;
+      const r = await axios.get(
+        `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`
+      );
+      const card = r.data.data?.[0];
+      if (!card) return res.status(404).json({ message: "Carta no encontrada." });
+      return res.json({
+        data: {
+          name: card.name,
+          image: card.images?.large,
+          rarity: card.rarity,
+          setName: card.set?.name,
+          setId: card.set?.id,
+          number: card.number,
+        },
+      });
+    }
+
+    if (juego === "magic") {
+      const set = (req.query.set as string)?.toLowerCase();
+      const number = req.query.number as string;
+      if (!set || !number) return res.status(400).json({ message: "Faltan parámetros set y number." });
+
+      const r = await axios.get(`https://api.scryfall.com/cards/${set}/${number}`);
+      const card = r.data;
+      return res.json({
+        data: {
+          name: card.name,
+          image: card.image_uris?.large ?? card.card_faces?.[0]?.image_uris?.large,
+          rarity: card.rarity,
+          setName: card.set_name,
+          setId: card.set,
+        },
+      });
+    }
+
+    if (juego === "yugioh") {
+      const passcode = req.query.passcode as string;
+      if (!passcode) return res.status(400).json({ message: "Falta parámetro passcode." });
+
+      const r = await axios.get(
+        `https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${encodeURIComponent(passcode)}`
+      );
+      const card = r.data.data?.[0];
+      if (!card) return res.status(404).json({ message: "Carta no encontrada." });
+      return res.json({
+        data: {
+          name: card.name,
+          image: card.card_images?.[0]?.image_url,
+          rarity: card.card_sets?.[0]?.set_rarity ?? card.type,
+          setName: card.card_sets?.[0]?.set_name,
+        },
+      });
+    }
+
+    if (juego === "digimon") {
+      const id = req.query.id as string;
+      const name = req.query.name as string;
+      if (!id && !name) return res.status(400).json({ message: "Falta parámetro id o name." });
+
+      // Intentar lookup por cardNumber; si no existe, buscar por nombre
+      const url = id
+        ? `https://digi-api.com/api/v1/digimon?cardNumber=${encodeURIComponent(id)}&pageSize=1`
+        : `https://digi-api.com/api/v1/digimon?name=${encodeURIComponent(name)}&pageSize=1`;
+      const r = await axios.get(url);
+      const card = r.data.content?.[0];
+      if (!card) return res.status(404).json({ message: "Carta no encontrada." });
+      return res.json({
+        data: {
+          name: card.name,
+          image: card.image,
+          rarity: undefined,
+          setName: undefined,
+        },
+      });
+    }
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return res.status(404).json({ message: "Carta no encontrada." });
+    }
+    return res.status(500).json({ message: "Error al resolver la carta.", error: error.message });
   }
 }
 

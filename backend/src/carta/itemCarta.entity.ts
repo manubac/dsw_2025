@@ -7,23 +7,23 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 
 @Entity()
 export class ItemCarta extends BaseEntity {
-    @Property({nullable: true, unique: true})
-    name!: string 
+    @Property({ type: 'string', nullable: true, unique: true })
+    name!: string
 
-    @Property()
+    @Property({ type: 'string' })
     description!: string
 
-    @Property({type: 'number'})
+    @Property({ type: 'number' })
     stock!: number
 
-    @Property({type: 'string'})
+    @Property({ type: 'string' })
     estado!: string
 
     @ManyToOne(() => Vendedor, { nullable: true })
     uploaderVendedor!: Rel<Vendedor>;
 
     @ManyToMany(() => Carta, (Carta) => Carta.items)
-    cartas = new Collection<Carta>(this) 
+    cartas = new Collection<Carta>(this)
 
     @ManyToMany(() => Intermediario)
     intermediarios = new Collection<Intermediario>(this)

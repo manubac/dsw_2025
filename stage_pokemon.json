@@ -1,0 +1,59 @@
+{
+  "languages": {
+    "en": {
+      "name": "English",
+      "stages": { "basic": "Basic", "stage1": "Stage 1", "stage2": "Stage 2", "restored": "Restored" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "BREAK", "MEGA", "Radiant", "Tera"]
+    },
+    "es": {
+      "name": "Español",
+      "stages": { "basic": "Básico", "stage1": "Fase 1", "stage2": "Fase 2", "restored": "Restaurado" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "TURBO", "MEGA", "Radiante", "Teracristal"]
+    },
+    "jp": {
+      "name": "Japanese",
+      "stages": { "basic": "たね", "stage1": "1進化", "stage2": "2進化", "restored": "復元" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "BREAK", "M進化", "かがやく", "テラスタル"]
+    },
+    "fr": {
+      "name": "Français",
+      "stages": { "basic": "Base", "stage1": "Niveau 1", "stage2": "Niveau 2", "restored": "Restauré" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "RUPTURE", "MÉGA", "Radieux", "Téracristal"]
+    },
+    "de": {
+      "name": "Deutsch",
+      "stages": { "basic": "Basis", "stage1": "Phase 1", "stage2": "Phase 2", "restored": "Restauriert" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "TURBO", "MEGA", "Strahlende", "Terakristall"]
+    },
+    "it": {
+      "name": "Italiano",
+      "stages": { "basic": "Base", "stage1": "Fase 1", "stage2": "Fase 2", "restored": "Ripristinato" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "TURBO", "MEGA", "Lucente", "Teracristal"]
+    },
+    "pt": {
+      "name": "Português",
+      "stages": { "basic": "Básico", "stage1": "Estágio 1", "stage2": "Estágio 2", "restored": "Restaurado" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "TURBO", "MEGA", "Radiante", "Terastal"]
+    },
+    "kr": {
+      "name": "Korean",
+      "stages": { "basic": "기본", "stage1": "1진화", "stage2": "2진화", "restored": "복원" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "BREAK", "MEGA", "찬란한", "테라스탈"]
+    },
+    "zh-hant": {
+      "name": "Traditional Chinese",
+      "stages": { "basic": "基礎", "stage1": "1階段", "stage2": "2階段", "restored": "復原" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "BREAK", "MEGA", "輝石", "太晶"]
+    },
+    "zh-hans": {
+      "name": "Simplified Chinese",
+      "stages": { "basic": "基础", "stage1": "1阶", "stage2": "2阶", "restored": "复原" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "BREAK", "MEGA", "光辉", "太晶"]
+    },
+    "th": {
+      "name": "Thai",
+      "stages": { "basic": "พื้นฐาน", "stage1": "ร่าง 1", "stage2": "ร่าง 2", "restored": "คืนชีพ" },
+      "special": ["VMAX", "VSTAR", "V-UNION", "ex", "GX", "BREAK", "MEGA", "ประกายแสง", "เทราสตัล"]
+    }
+  }
+}

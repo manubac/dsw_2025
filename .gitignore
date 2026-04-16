@@ -57,3 +57,4 @@ docker-compose.yml
 mysql-data/
 backend/.env.example
 heroclash4geeks_dump.sql.gz
+google-key.json

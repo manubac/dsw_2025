@@ -4,22 +4,22 @@ import { ItemCarta } from "../carta/itemCarta.entity.js"
 
 @Entity()
 export class Vendedor extends BaseEntity {
-    @Property({nullable:false, unique: true})
+    @Property({ type: 'string', nullable: false, unique: true })
     nombre!: string
 
-    @Property({nullable:false, unique: true})
+    @Property({ type: 'string', nullable: false, unique: true })
     email!: string
 
-    @Property({hidden: true, nullable:false})
+    @Property({ type: 'string', hidden: true, nullable: false })
     password!: string
 
-    @Property()
+    @Property({ type: 'string' })
     telefono!: string
 
-    @Property({ hidden: true, nullable: true })
+    @Property({ type: 'string', hidden: true, nullable: true })
     resetPasswordToken?: string;
 
-    @Property({ hidden: true, nullable: true })
+    @Property({ type: 'datetime', hidden: true, nullable: true })
     resetPasswordExpires?: Date;
 
     //public rating: number,
@@ -27,4 +27,3 @@ export class Vendedor extends BaseEntity {
     @OneToMany(() => ItemCarta, (itemCarta) => itemCarta.uploaderVendedor)
     itemCartas = new Collection<ItemCarta>(this)
 }
-     

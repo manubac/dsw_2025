@@ -5,28 +5,28 @@ import { ItemCarta } from "../carta/itemCarta.entity.js";
 
 @Entity()
 export class Intermediario extends BaseEntity {
-    @Property({ nullable: false, unique: true })
+    @Property({ type: 'string', nullable: false, unique: true })
     nombre!: string;
 
-    @Property({ nullable: false, unique: true })
+    @Property({ type: 'string', nullable: false, unique: true })
     email!: string;
 
-    @Property({ hidden: true, nullable: false })
+    @Property({ type: 'string', hidden: true, nullable: false })
     password!: string;
 
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     telefono!: string;
 
-    @Property({ hidden: true, nullable: true })
+    @Property({ type: 'string', hidden: true, nullable: true })
     resetPasswordToken?: string;
 
-    @Property({ hidden: true, nullable: true })
+    @Property({ type: 'datetime', hidden: true, nullable: true })
     resetPasswordExpires?: Date;
 
-    @Property({ nullable: true })
+    @Property({ type: 'string', nullable: true })
     descripcion?: string;
 
-    @Property({ default: true })
+    @Property({ type: 'boolean', default: true })
     activo!: boolean;
 
     // Dirección única de recogida/entrega

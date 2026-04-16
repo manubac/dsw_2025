@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { orm } from "../shared/db/orm.js";
 
 async function updateSchema() {

@@ -27,6 +27,9 @@ import { PagoExitoso } from "./pages/pagoExitoso";
 import PagoError from "./pages/pagoError";
 import PagoPendiente from "./pages/pagoPendiente";
 
+/* DEV — debug de detección de polígonos */
+import DebugCropPage from "./pages/DebugCropPage";
+
 /**
  * RUTA PROTEGIDA
  */
@@ -195,6 +198,9 @@ function App() {
                 <Route path="pago-exitoso" element={<PagoExitoso />} />
                 <Route path="pago-error" element={<PagoError />} />
                 <Route path="pago-pendiente" element={<PagoPendiente />} />
+
+                {/* Dev tools */}
+                <Route path="debug-crop" element={<DebugCropPage />} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

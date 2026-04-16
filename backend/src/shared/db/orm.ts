@@ -11,11 +11,10 @@ import { Direccion } from "../../direccion/direccion.entity.js"
 import { Intermediario } from "../../intermediario/intermediario.entity.js"
 import { Envio } from "../../envio/envio.entity.js"
 import { Valoracion } from "../../valoracion/valoracion.entity.js"
+import { StagePokemon } from "../../stage/stage.entity.js"
 
 export const orm = await MikroORM.init({
-    entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, User, Direccion, Intermediario, Envio, Valoracion],
-    dbName: process.env.DB_NAME || 'heroclash_dsw',
-    /*type: 'mysql',*/
+    entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, User, Direccion, Intermediario, Envio, Valoracion, StagePokemon],
     clientUrl: process.env.DB_CONNECTION_STRING || 'postgresql://postgres:post1234@localhost:5432/heroclash_dsw',
     highlighter: new SqlHighlighter(),
     debug: true,
@@ -28,9 +27,5 @@ export const orm = await MikroORM.init({
 
 export const syncSchema = async () => {
     const generator = orm.getSchemaGenerator()
-    /*
-    await generator.dropSchema()  --- IGNORE ---
-    await generator.createSchema()  --- IGNORE ---
-    */ 
     await generator.updateSchema()
 }

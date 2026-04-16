@@ -1,0 +1,11 @@
+[
+  { "code": "en", "language": "English", "local": "Inglés" },
+  { "code": "es", "language": "Spanish", "local": "Español" },
+  { "code": "pt", "language": "Portuguese", "local": "Portugués (Brasil)" },
+  { "code": "fr", "language": "French", "local": "Francés" },
+  { "code": "de", "language": "German", "local": "Alemán" },
+  { "code": "it", "language": "Italian", "local": "Italiano" },
+  { "code": "ko", "language": "Korean", "local": "Coreano" },
+  { "code": "th", "language": "Thai", "local": "Tailandés" },
+  { "code": "id", "language": "Indonesian", "local": "Indonesio" }
+]

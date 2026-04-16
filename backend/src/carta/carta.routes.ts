@@ -9,6 +9,7 @@ import {
   scrapeCartas,
   buscarRarezas,
   getPrecioCoolStuff,
+  resolveCartaByCode,
 } from "./carta.controler.js";
 import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
 
@@ -20,6 +21,7 @@ cartaRouter.get("/", findAll);
 // Búsqueda de cartas por juego — requiere estar logueado (cualquier rol)
 cartaRouter.get("/scrape/:juego/rarezas", authenticate, buscarRarezas);
 cartaRouter.get("/scrape/:juego/:nombre", authenticate, scrapeCartas);
+cartaRouter.get("/resolve/:juego", authenticate, resolveCartaByCode);
 cartaRouter.get("/precio-coolstuff", authenticate, getPrecioCoolStuff);
 
 cartaRouter.get("/:id", findOne);

@@ -6,23 +6,29 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 
 @Entity()
 export class Carta extends BaseEntity {
-  @Property()
+  @Property({ type: 'string' })
   name!: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   price?: string;
 
-  @Property({ nullable: true, columnType: 'longtext' })
+  @Property({ nullable: true, columnType: 'text' })
   image?: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   link?: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   rarity?: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   setName?: string;
+
+  @Property({ type: 'string', nullable: true })
+  setCode?: string;
+
+  @Property({ type: 'string', nullable: true })
+  cardNumber?: string;
 
   @ManyToOne(() => CartaClass, { nullable: true })
   cartaClass?: Rel<CartaClass>;

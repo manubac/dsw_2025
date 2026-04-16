@@ -16,17 +16,17 @@ export class Compra extends BaseEntity {
   @Property({ type: "number" })
   total!: number;
 
-  @Property({ default: "pendiente" })
+  @Property({ type: 'string', default: "pendiente" })
   estado!: string;
 
   // Datos de checkout (agregados)
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   nombre?: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   email?: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   telefono?: string;
 
   @ManyToOne(() => Direccion, { nullable: true })
@@ -35,10 +35,10 @@ export class Compra extends BaseEntity {
   @ManyToOne(() => Envio, { nullable: true })
   envio?: Envio;
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   metodoPago?: string;
 
-  
+
   @Property({ type: 'json', nullable: true })
   items?: { cartaId: number; quantity: number; price?: number; title?: string }[];
 }

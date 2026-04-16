@@ -5,6 +5,8 @@ import { ProductFilters } from '../components/ProductFilters'
 import { Hero } from '../components/Hero'
 import { fetchApi } from '../services/api'
 import { FeaturedCards } from '../components/FeaturedCards'
+import { CardScanner, type ScannedCard } from '../components/CardScanner/CardScanner'
+import { ScanLine } from 'lucide-react'
 
 interface Card {
   id: number
@@ -21,6 +23,7 @@ export function HomePage () {
   const [products, setProducts] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const { filterProducts } = useFilters()
   const filteredProducts = filterProducts(products)
 
@@ -59,10 +62,31 @@ export function HomePage () {
     return <div>Error: {error}</div>
   }
 
+  const handleCardsScanned = (cards: ScannedCard[]) => {
+    console.log('Cartas escaneadas:', cards)
+  }
+
   return (
     <>
       <Hero />
       <FeaturedCards cards={featuredCards} />
+
+      {/* Floating scanner button — bottom-right */}
+      <button
+        onClick={() => setScannerOpen(true)}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-semibold px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+        aria-label="Escanear cartas"
+      >
+        <ScanLine size={18} />
+        Escanear cartas
+      </button>
+
+      {scannerOpen && (
+        <CardScanner
+          onCardsScanned={handleCardsScanned}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </>
   )
 } 

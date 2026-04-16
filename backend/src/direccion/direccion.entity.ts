@@ -5,22 +5,22 @@ import { Intermediario } from "../intermediario/intermediario.entity.js";
 
 @Entity()
 export class Direccion extends BaseEntity {
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     provincia!: string;
 
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     ciudad!: string;
 
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     codigoPostal!: string;
 
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     calle!: string;
 
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     altura!: string;
 
-    @Property({ nullable: true })
+    @Property({ type: 'string', nullable: true })
     departamento?: string;
 
     @ManyToOne(() => User, { nullable: true })

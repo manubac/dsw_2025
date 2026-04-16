@@ -4,18 +4,18 @@ import { User } from "../user/user.entity.js";
 
 @Entity()
 export class Valoracion extends BaseEntity {
-  @Property({ nullable: false })
+  @Property({ type: 'number', nullable: false })
   puntuacion!: number; // Rating from 1 to 5
 
-  @Property({ nullable: true })
+  @Property({ type: 'string', nullable: true })
   comentario?: string;
 
   @ManyToOne(() => User, { nullable: false })
   usuario!: User; // User who gave the rating
 
-  @Property({ nullable: false })
+  @Property({ type: 'string', nullable: false })
   tipoObjeto!: string; // 'vendedor', 'intermediario', or 'carta'
 
-  @Property({ nullable: false })
+  @Property({ type: 'number', nullable: false })
   objetoId!: number; // ID of the rated object (vendedor, intermediario, or carta)
 }

@@ -20,13 +20,13 @@ export class Envio extends BaseEntity {
     @Enum(() => EstadoEnvio)
     estado!: EstadoEnvio;
 
-    @Property({ nullable: true })
+    @Property({ type: 'datetime', nullable: true })
     fechaEnvio?: Date;
 
-    @Property({ nullable: true })
+    @Property({ type: 'datetime', nullable: true })
     fechaEntrega?: Date;
 
-    @Property({ nullable: true })
+    @Property({ type: 'string', nullable: true })
     notas?: string;
 
     @ManyToOne(() => Intermediario, { nullable: false })
@@ -35,10 +35,10 @@ export class Envio extends BaseEntity {
     @ManyToOne(() => Intermediario, { nullable: true })
     destinoIntermediario?: Rel<Intermediario>;
 
-    @Property({ nullable: true })
+    @Property({ type: 'number', nullable: true })
     minimoCompras?: number;
 
-    @Property({ nullable: true })
+    @Property({ type: 'number', nullable: true })
     precioPorCompra?: number;
 
     @OneToMany(() => Compra, compra => compra.envio)

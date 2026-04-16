@@ -5,13 +5,13 @@ import { BaseEntity } from '../shared/db/baseEntity.js'
 @Entity()
 export class CartaClass extends BaseEntity {
 
-    @Property({ nullable: false, unique: true })
+    @Property({ type: 'string', nullable: false, unique: true })
     name!: string
 
-    @Property({ nullable: false })
+    @Property({ type: 'string', nullable: false })
     description!: string
 
     @OneToMany(() => Carta, carta => carta.cartaClass, {cascade: [Cascade.ALL]})
-    carta = new Collection<Carta>(this); 
+    carta = new Collection<Carta>(this);
 
 }
