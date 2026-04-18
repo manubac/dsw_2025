@@ -159,8 +159,8 @@ export default function EditarCartaPage() {
     try {
       let cartaId = carta.id;
 
-      // If no carta.id (manual creation), create the carta first
       if (!cartaId) {
+        // Manual creation: crear la carta primero
         const cartaResponse = await api.post("/api/cartas", {
           name: carta.name,
           price: carta.price,
@@ -175,6 +175,17 @@ export default function EditarCartaPage() {
           setMensaje("Error al crear la carta.");
           return;
         }
+      } else {
+        // Carta ya existe: guardar precio y demás campos actualizados
+        await api.put(`/api/cartas/${cartaId}`, {
+          name: carta.name,
+          price: carta.price,
+          image: nuevaImagen || carta.image,
+          link: carta.link,
+          rarity: carta.rarity,
+          setName: carta.setName,
+          userId: user?.id,
+        });
       }
 
       // Create or Update ItemCarta

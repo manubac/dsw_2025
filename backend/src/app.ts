@@ -18,6 +18,7 @@ import { intermediarioRouter } from "./intermediario/intermediario.routes.js";
 import envioRouter from "./envio/envio.router.js";
 import valoracionRouter from "./valoracion/valoracion.routes.js";
 import scanRouter from "./scan/scan.routes.js";
+import { mensajeRouter } from "./mensaje/mensaje.routes.js";
 const app = express();
 
 //  Middlewares base
@@ -51,6 +52,7 @@ app.use("/api/intermediarios", intermediarioRouter);
 app.use("/api/envios", envioRouter);
 app.use("/api/valoraciones", valoracionRouter);
 app.use("/api/scan", scanRouter);
+app.use("/api/mensajes", mensajeRouter);
 // identifyRouter se carga dinámicamente para que un fallo de opencv no tire el servidor.
 // El slot debe registrarse ANTES del 404 handler; el handler interno se swapea cuando el
 // módulo termina de cargar.

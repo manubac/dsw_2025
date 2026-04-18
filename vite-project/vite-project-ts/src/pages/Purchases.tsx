@@ -3,6 +3,7 @@ import { useUser } from '../context/user'
 import { useNavigate } from 'react-router-dom'
 import { ReviewModal } from '../components/ReviewModal';
 import { fetchApi } from '../services/api';
+import { Chat } from '../components/Chat';
 
 
 export function Purchases() {
@@ -11,6 +12,7 @@ export function Purchases() {
   const [compras, setCompras] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [chatAbierto, setChatAbierto] = useState<number | null>(null)
   
   // Review Modal State
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -57,7 +59,7 @@ export function Purchases() {
   }
 
   // Only users (compradores) can view purchases
-  if (user.role !== 'usuario') {
+  if (user.role !== 'usuario' && user.role !== 'user') {
     return (
       <div className="purchases-wrapper">
         <div className="purchases-card">
@@ -112,6 +114,13 @@ export function Purchases() {
                     Envío: {comp.envio.estado}
                   </span>
                 )}
+
+                <button
+                  onClick={() => setChatAbierto(chatAbierto === comp.id ? null : comp.id)}
+                  className="bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded text-xs transition"
+                >
+                  {chatAbierto === comp.id ? 'Cerrar chat' : '💬 Chat'}
+                </button>
               </div>
             </div>
 
@@ -203,6 +212,7 @@ export function Purchases() {
                   )}
                 </ul>
               </div>
+            {chatAbierto === comp.id && <Chat compraId={comp.id} />}
             </div>
           </div>
         ))}

@@ -9,6 +9,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { CardsPage } from "./pages/CardsPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { Checkout } from "./pages/Checkout";
+import { Reservar } from "./pages/Reservar";
 import Purchases from "./pages/Purchases";
 import { CardDetail } from "./pages/CardDetail";
 import PublicarCartaPage from "./pages/PublicarCarta";
@@ -112,12 +113,15 @@ function App() {
                   }
                 />
 
-                {/* Checkout */}
+                {/* Checkout — deshabilitado temporalmente */}
+                <Route path="checkout" element={<Navigate to="/" replace />} />
+
+                {/* Reservar */}
                 <Route
-                  path="checkout"
+                  path="reservar"
                   element={
                     <ProtectedRoute>
-                      <Checkout />
+                      <Reservar />
                     </ProtectedRoute>
                   }
                 />

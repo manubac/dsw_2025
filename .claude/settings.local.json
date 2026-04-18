@@ -3,5 +3,13 @@
     "allow": [
       "Skill(claude-md-management:revise-claude-md)"
     ]
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
   }
 }

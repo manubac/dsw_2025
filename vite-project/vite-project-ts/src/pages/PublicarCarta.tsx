@@ -77,6 +77,9 @@ export default function PublicarCartaPage() {
   const [rarezaElegida, setRarezaElegida] = useState<Rareza | null>(null);
   const [precioCoolStuff, setPrecioCoolStuff] = useState<string | null | "cargando">(null);
 
+  type PreciosPokemon = { coolstuff: string | null; tcgplayer: string | null; cardmarket: string | null; ebay: string | null; pricecharting: string | null; trollandtoad: string | null; };
+  const [preciosPokemon, setPreciosPokemon] = useState<PreciosPokemon | "cargando" | null>(null);
+
   const [scannerOpen, setScannerOpen] = useState(false);
   const [identifying, setIdentifying] = useState(false);
   const [identifyError, setIdentifyError] = useState<string | null>(null);
@@ -280,6 +283,7 @@ export default function PublicarCartaPage() {
     setRarezas([]);
     setRarezaElegida(null);
     setPrecioCoolStuff(null);
+    setPreciosPokemon(null);
 
     if (juego === "pokemon") {
       setCargandoRarezas(true);
@@ -322,18 +326,20 @@ export default function PublicarCartaPage() {
     }
   };
 
-  // Solo para Pokemon: al elegir rareza busca el precio en CoolStuffInc
+  // Solo para Pokemon: al elegir rareza busca precios en todas las tiendas
   const elegirRareza = async (r: Rareza) => {
     setRarezaElegida(r);
-    setPrecioCoolStuff("cargando");
+    setPreciosPokemon("cargando");
     try {
       const params = new URLSearchParams({ nombre: modalCarta!.name });
       if (modalCarta!.setName) params.set("set", modalCarta!.setName);
       if (r.rarity) params.set("rareza", r.rarity);
-      const resp = await fetchApi(`/api/cartas/precio-coolstuff?${params}`);
+      const resp = await fetchApi(`/api/cartas/precios-pokemon?${params}`);
       const data = await resp.json();
-      setPrecioCoolStuff(data.precio ?? null);
+      setPreciosPokemon(data);
+      setPrecioCoolStuff(data.coolstuff ?? null);
     } catch {
+      setPreciosPokemon(null);
       setPrecioCoolStuff(null);
     }
   };
@@ -1125,19 +1131,49 @@ export default function PublicarCartaPage() {
             {/* Precio + Confirmar — se muestra cuando corresponde */}
             {(juego === "digimon" || rarezaElegida) && (
               <div className="border-t p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600">Precio sugerido CoolStuffInc:</span>
-                  {precioCoolStuff === "cargando" ? (
-                    <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-                  ) : precioCoolStuff ? (
-                    <span className="text-green-600 font-bold text-lg">{precioCoolStuff}</span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">No disponible en CoolStuffInc</span>
-                  )}
-                </div>
+                {juego === "pokemon" ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Precios sugeridos de referencia:</p>
+                    {preciosPokemon === "cargando" ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                        Consultando tiendas…
+                      </div>
+                    ) : preciosPokemon ? (
+                      [
+                        { label: "CoolStuffInc", value: preciosPokemon.coolstuff },
+                        { label: "TCGPlayer",    value: preciosPokemon.tcgplayer },
+                        { label: "Cardmarket",   value: preciosPokemon.cardmarket },
+                        { label: "eBay",         value: preciosPokemon.ebay },
+                        { label: "PriceCharting",value: preciosPokemon.pricecharting },
+                        { label: "Troll & Toad", value: preciosPokemon.trollandtoad },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 w-36">{label}:</span>
+                          {value ? (
+                            <span className="text-green-600 font-bold">{value}</span>
+                          ) : (
+                            <span className="text-gray-400">No disponible</span>
+                          )}
+                        </div>
+                      ))
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600">Precio sugerido CoolStuffInc:</span>
+                    {precioCoolStuff === "cargando" ? (
+                      <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                    ) : precioCoolStuff ? (
+                      <span className="text-green-600 font-bold text-lg">{precioCoolStuff}</span>
+                    ) : (
+                      <span className="text-gray-400 text-sm">No disponible en CoolStuffInc</span>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={confirmarPublicacion}
-                  disabled={precioCoolStuff === "cargando"}
+                  disabled={juego === "pokemon" ? preciosPokemon === "cargando" : precioCoolStuff === "cargando"}
                   className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition shadow-md"
                 >
                   Confirmar publicación
