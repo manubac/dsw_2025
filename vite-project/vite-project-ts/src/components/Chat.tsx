@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { io as socketIO } from 'socket.io-client'
 import { useUser } from '../context/user'
 import { fetchApi } from '../services/api'
 
@@ -22,20 +23,30 @@ export function Chat({ compraId }: ChatProps) {
   const [enviando, setEnviando] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const fetchMensajes = async () => {
-    try {
-      const res = await fetchApi(`/api/mensajes/${compraId}`)
-      const json = await res.json()
-      setMensajes(json.data || [])
-    } catch {
-      // silencioso — el polling reintenta
-    }
-  }
-
   useEffect(() => {
-    fetchMensajes()
-    const interval = setInterval(fetchMensajes, 4000)
-    return () => clearInterval(interval)
+    const stored = localStorage.getItem('user')
+    const token = stored ? JSON.parse(stored)?.token : undefined
+
+    const socket = socketIO('http://localhost:3000', {
+      auth: { token },
+    })
+
+    socket.on('connect', () => {
+      socket.emit('join_compra', compraId)
+    })
+
+    socket.on('nuevo_mensaje', (msg: Mensaje) => {
+      setMensajes((prev) => [...prev, msg])
+    })
+
+    fetchApi(`/api/mensajes/${compraId}`)
+      .then((res) => res.json())
+      .then((json) => setMensajes(json.data || []))
+      .catch(() => {})
+
+    return () => {
+      socket.disconnect()
+    }
   }, [compraId])
 
   useEffect(() => {
@@ -55,7 +66,6 @@ export function Chat({ compraId }: ChatProps) {
         body: JSON.stringify({ texto }),
       })
       setTexto('')
-      await fetchMensajes()
     } catch {
       // silencioso
     } finally {
