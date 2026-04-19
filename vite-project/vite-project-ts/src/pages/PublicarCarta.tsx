@@ -600,7 +600,7 @@ export default function PublicarCartaPage() {
     setBulkPublishing(false);
   };
 
-  const handleScanConfirm = (cards: ScannedCard[]) => {
+  const handleScanConfirm = async (cards: ScannedCard[]) => {
     if (cards.length === 0) return;
     const first = cards[0];
     setIdentifyError(null);
@@ -610,13 +610,30 @@ export default function PublicarCartaPage() {
     setMensaje("");
     setHasMore(false);
 
-    // Construir query con los datos disponibles — nombre es opcional
-    // "Charmander MEW 4" | "MEW 4" | "Charmander"
-    const query = [first.name, first.set, first.number].filter(Boolean).join(' ');
-    if (!query) return;
+    if (!first.name && !first.set && !first.number) return;
 
-    setNombre(query);
-    buscarCartas(query);
+    // Intentar resolve directo con set+número (evita filtrar por código interno que pokemontcg.io no conoce)
+    if (juego === "pokemon" && first.set && first.number) {
+      const queryDirect = [first.name, first.set, first.number].filter(Boolean).join(' ');
+      setNombre(queryDirect);
+      setCargando(true);
+      const directa = await tryResolveDirectly(queryDirect, juego);
+      setCargando(false);
+      if (directa) {
+        setResultados([directa]);
+        setNombresVistos(new Set([directa.name.toLowerCase()]));
+        return;
+      }
+    }
+
+    // Fallback: buscar solo por nombre sin el código de set interno
+    const nombreBusqueda = first.name || [first.set, first.number].filter(Boolean).join(' ');
+    if (!nombreBusqueda) return;
+    setNombre(nombreBusqueda);
+    setExpansion("");
+    const vistos = new Set<string>();
+    setNombresVistos(vistos);
+    await cargarPagina(nombreBusqueda, juego, "", 1, true, vistos);
   };
 
   const handleFileIdentify = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -642,22 +659,17 @@ export default function PublicarCartaPage() {
         body: JSON.stringify({ image: dataUrl }),
       });
       const scanData = await res.json();
-
-      const nombre:    string = scanData?.nombre    ?? "";
-      const coleccion: string = scanData?.coleccion ?? "";
-      const numero:    string = scanData?.numero    ?? "";
-      console.log(`[identify] Vision → "${nombre} ${coleccion} ${numero}"`);
-
-      if (!nombre) {
-        setIdentifyError("No se pudo identificar la carta. Intentá con mejor iluminación.");
-        return;
+      if (!res.ok) {
+        throw new Error(scanData?.mensaje ?? `Error del servidor (${res.status})`);
       }
 
-      // Construir query con los datos disponibles — nombre es opcional
-      // "Charmander MEW 4" | "MEW 4" | "Charmander"
-      const query = [nombre, coleccion, numero].filter(Boolean).join(' ');
-      if (!query) {
-        setIdentifyError("No se detectó ningún dato de la carta.");
+      const nombreScan: string = scanData?.nombre    ?? "";
+      const coleccion:  string = scanData?.coleccion ?? "";
+      const numero:     string = scanData?.numero    ?? "";
+      console.log(`[identify] Vision → "${nombreScan} ${coleccion} ${numero}"`);
+
+      if (!nombreScan && !coleccion) {
+        setIdentifyError("No se pudo identificar la carta. Intentá con mejor iluminación.");
         return;
       }
 
@@ -665,8 +677,31 @@ export default function PublicarCartaPage() {
       setNombresVistos(new Set());
       setMensaje("");
       setHasMore(false);
-      setNombre(query);
-      buscarCartas(query);
+
+      // Intentar resolve directo con set+número
+      if (juego === "pokemon" && coleccion && numero) {
+        const queryDirect = [nombreScan, coleccion, numero].filter(Boolean).join(' ');
+        setNombre(queryDirect);
+        setCargando(true);
+        const directa = await tryResolveDirectly(queryDirect, "pokemon");
+        setCargando(false);
+        if (directa) {
+          setResultados([directa]);
+          setNombresVistos(new Set([directa.name.toLowerCase()]));
+          return;
+        }
+      }
+
+      // Fallback: buscar solo por nombre sin código de set interno
+      if (!nombreScan) {
+        setIdentifyError("No se detectó ningún dato de la carta.");
+        return;
+      }
+      setNombre(nombreScan);
+      setExpansion("");
+      const vistos = new Set<string>();
+      setNombresVistos(vistos);
+      await cargarPagina(nombreScan, juego, "", 1, true, vistos);
 
     } catch (err: any) {
       setIdentifyError(err.message ?? "No se pudo identificar la carta.");

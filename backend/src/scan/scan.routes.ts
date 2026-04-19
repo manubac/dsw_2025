@@ -142,6 +142,7 @@ function codeVariants(token: string): string[] {
 
 /**
  * Busca nombre en catálogo por sigla+número (prueba variantes de padding).
+ * Primero usa get_card_name_en_safe; si no hay resultado, consulta v_cards_unified directamente.
  * Devuelve el nombre si existe, null si no.
  */
 async function dbLookupCard(abbr: string, numero: string): Promise<string | null> {
@@ -156,7 +157,53 @@ async function dbLookupCard(abbr: string, numero: string): Promise<string | null
       if (rows[0]?.name) return rows[0].name;
     } catch { /* continúa con el siguiente padding */ }
   }
+  // Fallback: consultar v_cards_unified directamente (cubre sets no indexados por la función SQL)
+  for (const num of nums) {
+    try {
+      const { rows } = await catalogPool.query<{ card_name: string }>(
+        `SELECT card_name FROM v_cards_unified
+         WHERE set_abbr = $1 AND card_number = $2
+         ORDER BY CASE WHEN lang_code = 'en' THEN 0 ELSE 1 END, lang_code
+         LIMIT 1`,
+        [abbr, num],
+      );
+      if (rows[0]?.card_name) return rows[0].card_name;
+    } catch { /* continúa */ }
+  }
   return null;
+}
+
+/**
+ * Busca cartas en v_cards_unified por número, rankeadas por similitud de sigla con el token OCR.
+ * Cubre el caso donde la sigla está garbled/ausente pero el número es confiable.
+ */
+async function queryByNumberWithSiglaRank(
+  numero: string,
+  siglaRef: string,
+): Promise<ReverseLookupMatch[]> {
+  const n = parseInt(numero, 10);
+  if (isNaN(n)) return [];
+  const nums = [...new Set([numero, String(n), String(n).padStart(2, '0'), String(n).padStart(3, '0')])];
+  try {
+    const { rows } = await catalogPool.query<ReverseLookupMatch>(
+      `SELECT set_abbr, set_name, card_number, lang_code, card_name
+       FROM v_cards_unified
+       WHERE card_number = ANY($1::text[])
+       ORDER BY CASE WHEN lang_code = 'en' THEN 0 ELSE 1 END, set_abbr
+       LIMIT 50`,
+      [nums],
+    );
+    if (rows.length === 0) return [];
+    if (!siglaRef) return rows;
+    const ref = siglaRef.toUpperCase();
+    return rows
+      .map(r => ({ r, dist: levenshtein(r.set_abbr.toUpperCase(), ref) }))
+      .sort((a, b) => a.dist - b.dist)
+      .map(({ r }) => r);
+  } catch (err: any) {
+    console.warn('[scan] queryByNumberWithSiglaRank falló:', err.message);
+    return [];
+  }
 }
 
 function extractSetInfo(text: string): SetInfo {
@@ -225,11 +272,18 @@ interface NameResult {
 const HP_MARKER = /^(?:HP|PS|PV|ПС|体力)$/i;
 
 function wordsUntilHp(words: string[]): string {
-  // Detecta también HP "pegado" en OCR: "CX280" = 1-2 letras + 3+ dígitos (ej. HP280 → GX 280)
+  // Detecta HP "pegado": "CX280" = 1-2 letras + 3+ dígitos (ej. HP280 → GX 280)
   const MANGLED_HP = /^[A-Z]{1,2}\d{3,}$/i;
+  // Detecta HP sin texto previo: número standalone múltiplo de 10 en rango típico (30–400).
+  // Cubre casos como "STAGE! Mega Camerupt ex 340" donde "340" es el HP sin etiqueta "HP".
+  const STANDALONE_HP = (w: string) => {
+    const n = parseInt(w, 10);
+    return /^\d{2,3}$/.test(w) && n >= 30 && n <= 400 && n % 10 === 0;
+  };
   const hpIdx = words.findIndex(
     (w, i) => (HP_MARKER.test(w) && /^\d+$/.test(words[i + 1] ?? ''))
               || MANGLED_HP.test(w)
+              || STANDALONE_HP(w)
   );
   return (hpIdx >= 0 ? words.slice(0, hpIdx) : words).join(' ').trim();
 }
@@ -244,17 +298,22 @@ function cleanName(raw: string): string {
     .trim();
 }
 
+// Texto típico de carta que nunca es un nombre de Pokémon.
+// Usado en extractNombre (Fallbacks B y C) y en el cascade para validar ocrNombre.
+const GAME_TEXT = /^(?:evolves |put |attach|flip |search|draw |shuffle|discard|during |if your|when your|this pok|the pok|your opp|weakness|retreat|resistance|energy |damage|prize|bench|does |it is |illus\.|©|®|\d)/i;
+
 /**
  * Valida que un string parezca un nombre de carta Pokémon y no flavor text
  * ni datos del Pokémon ("NO. 488 Lunar Pokémon HT: 4'11"...").
  */
 function isPlausibleName(s: string): boolean {
-  if (!s || s.length < 2 || s.length > 40) return false;
+  if (!s || s.length < 3 || s.length > 40) return false;
   if (!/^[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ'\u3040-\u9FFF]/.test(s)) return false;
   if (/^NO\.\s*\d+/i.test(s)) return false;          // "NO. 488 Pokémon data"
   if (/\d{3,}/.test(s)) return false;                 // 3+ dígitos → flavor text
   if (s.split(/\s+/).length > 5) return false;        // más de 5 palabras → oración
   if (/\b(there is|if you|you may|damage|counter|benched)\b/i.test(s)) return false;
+  if (GAME_TEXT.test(s)) return false;                // texto de juego/flavor
   return true;
 }
 
@@ -274,11 +333,25 @@ function extractNombre(lines: string[]): NameResult {
     if (STAGE_LOOKUP.has(w01)) {
       stageInfo      = STAGE_LOOKUP.get(w01)!;
       stageWordCount = 2;
-      stageRaw       = words[0] + ' ' + words[1];
+      stageRaw       = words[1] !== undefined ? words[0] + ' ' + words[1] : words[0];
     } else if (STAGE_LOOKUP.has(w0)) {
       stageInfo      = STAGE_LOOKUP.get(w0)!;
       stageWordCount = 1;
       stageRaw       = words[0];
+    } else {
+      // Artefacto OCR: "STAGE!" o "STAGE." → limpiar puntuación e intentar de nuevo
+      const w0clean = w0.replace(/[^a-záéíóúàèìòùñü]/g, '');
+      if (STAGE_LOOKUP.has(w0clean)) {
+        stageInfo      = STAGE_LOOKUP.get(w0clean)!;
+        stageWordCount = 1;
+        stageRaw       = words[0];
+      } else if (/^(stage|basic|mega|vmax|vstar|break)$/.test(w0clean)) {
+        // Stage parcial sin número (ej. "STAGE!" cuando OCR dropó el "1"):
+        // usamos stageInfo vacío solo para activar la extracción del nombre en afterStage
+        stageInfo      = { lang: 'unknown', stageKey: 'unknown', isSpecial: false };
+        stageWordCount = 1;
+        stageRaw       = words[0];
+      }
     }
 
     if (!stageInfo) continue;
@@ -341,6 +414,17 @@ function extractNombre(lines: string[]): NameResult {
       if (isPlausibleName(candidate))
         return { nombre: candidate, stage: '', stageLang: '', stageKey: '' };
     }
+  }
+
+  // Fallback C: primeras 8 líneas — la primera que pase isPlausibleName y no sea un label de stage/tipo.
+  // isPlausibleName ya incluye el filtro GAME_TEXT, así que solo se necesita la exclusión de labels.
+  const STAGE_LABELS = /^(?:BASIC|STAGE|MEGA|VMAX|VSTAR|BREAK|GX|EX|TAG|PRISM|LEVEL|LVL|POKÉMON|POKEMON|HP|PS|PV)$/i;
+  for (const line of lines.slice(0, 8)) {
+    const candidate = cleanName(line);
+    if (!isPlausibleName(candidate)) continue;
+    if (STAGE_LOOKUP.has(candidate.toLowerCase())) continue;
+    if (STAGE_LABELS.test(candidate.trim())) continue;
+    return { nombre: candidate, stage: '', stageLang: '', stageKey: '' };
   }
 
   return { nombre: '', stage: '', stageLang: '', stageKey: '' };
@@ -527,13 +611,15 @@ router.post('/', async (req: Request, res: Response) => {
     // Estrategia en cascada hasta encontrar una carta REAL:
     //   (1) Sigla del pie tal cual + número
     //   (2) Variantes de la sigla OCR (ej. "MEGA" → prueba "MEG" y "EGA")
+    //   (2b) Número + ranking por similitud de sigla (cubre sigla garbled y nombre ausente)
     //   (3) Reverse lookup por nombre OCR + número
     //   (4) Fallback OCR (no confirmado por DB)
-    type FuenteColeccion = 'footer' | 'footer-alt' | 'reverse' | 'ocr';
+    type FuenteColeccion = 'footer' | 'footer-alt' | 'number-name' | 'reverse' | 'ocr';
 
     let nombreFinal    = nameResult.nombre;
     let coleccionFinal = coleccionEntry?.abbr ?? rawSet;
     let idiomaFinal    = idiomaEntry?.code.toUpperCase() ?? rawLang;
+    let numeroFinal    = numero;
     let fuente: FuenteColeccion = 'ocr';
     let reverseMatches: ReverseLookupMatch[] = [];
     let dbName: string | null = null;
@@ -541,16 +627,13 @@ router.post('/', async (req: Request, res: Response) => {
     const ocrNombre = nameResult.nombre;
 
     // (1) Sigla primaria del pie + número
+    // La sigla está confirmada en SIGLAS_MAP y el número viene del patrón N/M del pie.
+    // Juntos identifican la carta unívocamente → siempre confiamos en el resultado de DB,
+    // sin validar contra el nombre OCR (que puede estar garbled, ej. "EW" en vez del nombre real).
     if (coleccionEntry && numero) {
       const name = await dbLookupCard(coleccionEntry.abbr, numero);
       if (name) {
-        if (namesOverlap(name, ocrNombre)) {
-          dbName = name; nombreFinal = name; fuente = 'footer';
-        } else {
-          // Carta encontrada pero nombre no coincide con OCR → guardamos como
-          // último recurso pero seguimos buscando algo mejor.
-          console.log(`[scan]   (1) descartar "${name}" en ${coleccionEntry.abbr} — no coincide con OCR "${ocrNombre}"`);
-        }
+        dbName = name; nombreFinal = name; fuente = 'footer';
       }
     }
 
@@ -572,11 +655,64 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
+    // (2b) Número + nombre → colección
+    // Se activa cuando pasos 1/2 fallaron y hay número.
+    // Con nombre confiable: filtra por nombre+número en SQL (sin límite artificial de candidatos).
+    // Sin nombre confiable: busca por número y rankea por similitud de sigla con rawSet.
+    if (!dbName && numero) {
+      const nParsed    = parseInt(numero, 10);
+      const numVariants = !isNaN(nParsed)
+        ? [...new Set([numero, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])]
+        : [numero];
+
+      const ocrNombreConfiable = ocrNombre.length >= 4 && !GAME_TEXT.test(ocrNombre);
+      let candidates: ReverseLookupMatch[] = [];
+
+      if (ocrNombreConfiable) {
+        // Filtrar por nombre+número en SQL: más preciso y sin el límite de candidatos
+        candidates = await queryByName(ocrNombre, numVariants);
+        // Si el nombre completo no da resultados, probar con la primera palabra significativa
+        if (candidates.length === 0) {
+          const PART = new Set(['de', 'del', 'el', 'la', 'los', 'las', 'ex', 'gx', 'vmax', 'vstar']);
+          const firstSig = ocrNombre.split(/\s+/).find(w => w.length >= 4 && !PART.has(w.toLowerCase())) ?? '';
+          if (firstSig && firstSig !== ocrNombre) candidates = await queryByName(firstSig, numVariants);
+        }
+      }
+
+      if (candidates.length === 0) {
+        // Fallback: buscar por número, luego filtrar/rankear en JS
+        const byNum = await queryByNumberWithSiglaRank(numero, rawSet);
+        candidates   = ocrNombreConfiable ? byNum.filter(c => namesOverlap(c.card_name, ocrNombre)) : byNum;
+      }
+
+      // Rankear por similitud de sigla con el token OCR del pie
+      if (candidates.length > 0 && rawSet) {
+        const ref = rawSet.toUpperCase();
+        candidates = [...candidates]
+          .map(r => ({ r, dist: levenshtein(r.set_abbr.toUpperCase(), ref) }))
+          .sort((a, b) => a.dist - b.dist)
+          .map(({ r }) => r);
+      }
+
+      const best = candidates[0] ?? null;
+      if (best) {
+        dbName         = best.card_name;
+        nombreFinal    = best.card_name;
+        coleccionFinal = best.set_abbr;
+        idiomaFinal    = best.lang_code.trim().toUpperCase();
+        numeroFinal    = best.card_number;
+        fuente         = 'number-name';
+        reverseMatches = candidates;
+        console.log(`[scan]   (2b) "${best.card_name}" en ${best.set_abbr}  candidatos: ${candidates.length}`);
+      } else {
+        console.log(`[scan]   (2b) sin resultado — número: "${numero}"  nombre OCR: "${ocrNombre}"  rawSet: "${rawSet}"`);
+      }
+    }
+
     // (3) Reverse lookup por nombre OCR + número
-    // Se activa cuando:
-    //   a) pasos 1/2 no encontraron nada, O
-    //   b) la carta del pie no coincidía con el nombre OCR (y tenemoss nombre)
-    if (!dbName && ocrNombre) {
+    // Se activa cuando pasos 1/2/2b no encontraron nada, hay nombre OCR confiable
+    // (no texto de juego como "Evolves from...") y ese nombre puede servir de búsqueda.
+    if (!dbName && ocrNombre && !GAME_TEXT.test(ocrNombre)) {
       reverseMatches = await reverseLookup(ocrNombre, numero);
       const best = reverseMatches[0] ?? null;
       if (best) {
@@ -585,6 +721,8 @@ router.post('/', async (req: Request, res: Response) => {
         coleccionFinal = best.set_abbr;
         idiomaFinal    = best.lang_code.trim().toUpperCase();
         fuente         = 'reverse';
+        // Si el OCR no detectó número pero la DB sí lo tiene, usarlo
+        if (!numeroFinal) numeroFinal = best.card_number;
       }
     }
 
@@ -615,7 +753,7 @@ router.post('/', async (req: Request, res: Response) => {
     } else {
       console.log(`[scan]   idioma         : (no detectado)`);
     }
-    console.log(`[scan]   número         : "${numero}"`);
+    console.log(`[scan]   número         : "${numeroFinal}"${numero !== numeroFinal ? `  (corregido desde OCR "${numero}")` : ''}`);
     console.log('[scan] ─── resultado final ─────────────────────────────');
     console.log(`[scan]   nombre ocr     : "${nameResult.nombre}"`);
     if (dbName) {
@@ -631,7 +769,7 @@ router.post('/', async (req: Request, res: Response) => {
       success:          true,
       nombre:           nombreFinal,
       coleccion:        coleccionFinal,
-      numero,
+      numero:           numeroFinal,
       idioma:           idiomaFinal,
       fullText,
       fuenteColeccion:  fuente,
