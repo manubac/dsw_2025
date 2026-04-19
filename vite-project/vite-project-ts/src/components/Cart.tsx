@@ -159,14 +159,14 @@ export function Cart () {
       {/* FOOTER */}
       <div className="border-t p-4 flex flex-col gap-3">
         <button
-          onClick={() => navigate("/checkout")}
+          onClick={() => navigate("/reservar")}
           className="
             w-full bg-gradient-to-r from-primary to-secondary
             text-white py-2 rounded-full
             hover:scale-105 transition
           "
         >
-          Ir al Checkout
+          Reservar
         </button>
 
         {cart.length > 0 && (

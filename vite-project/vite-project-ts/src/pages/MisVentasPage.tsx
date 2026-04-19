@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '../context/user';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { Chat } from '../components/Chat';
 
 
 export default function MisVentasPage() {
@@ -10,6 +11,7 @@ export default function MisVentasPage() {
   const [ventas, setVentas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [chatAbierto, setChatAbierto] = useState<number | null>(null);
 
   const fetchVentas = async () => {
     if (!user) return;
@@ -74,13 +76,21 @@ export default function MisVentasPage() {
             >
               <div className="flex justify-between items-center p-4 border-b">
                 <strong className="text-lg">Pedido #{venta.id}</strong>
-                <span className="px-3 py-1 text-sm rounded-full bg-orange-100 text-orange-700 font-medium">
-                  {venta.estado === 'ENVIADO_A_INTERMEDIARIO'
-                    ? 'Enviado a Intermediario'
-                    : venta.estado === 'ENTREGADO'
-                    ? 'Entregado'
-                    : (venta.envio?.estado || venta.estado)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 text-sm rounded-full bg-orange-100 text-orange-700 font-medium">
+                    {venta.estado === 'ENVIADO_A_INTERMEDIARIO'
+                      ? 'Enviado a Intermediario'
+                      : venta.estado === 'ENTREGADO'
+                      ? 'Entregado'
+                      : (venta.envio?.estado || venta.estado)}
+                  </span>
+                  <button
+                    onClick={() => setChatAbierto(chatAbierto === venta.id ? null : venta.id)}
+                    className="bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded-full text-sm transition"
+                  >
+                    {chatAbierto === venta.id ? 'Cerrar chat' : '💬 Chat'}
+                  </button>
+                </div>
               </div>
 
               <div className="p-4 space-y-4">
@@ -139,6 +149,12 @@ export default function MisVentasPage() {
                       Ya envié el paquete al Intermediario
                     </button>
                   )}
+
+                {chatAbierto === venta.id && (
+                  <div className="px-4 pb-4">
+                    <Chat compraId={venta.id} />
+                  </div>
+                )}
               </div>
             </div>
           ))}

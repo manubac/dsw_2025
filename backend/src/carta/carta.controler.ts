@@ -44,11 +44,6 @@ async function findAll(req: Request, res: Response) {
     
     // Mapear campos de la carta para coincidir con las expectativas del frontend (title, thumbnail, etc.)
     const cartasFormateadas = cartas
-        .filter(carta => {
-            // Comprobar si la carta tiene algún item con stock > 0
-            const hasStock = carta.items.getItems().some(item => item.stock > 0);
-            return hasStock;
-        })
         .map(carta => {
         // Recolectar todos los intermediarios de todos los items vinculados a esta carta (deduplicados)
         const interMap = new Map<number, any>();
@@ -288,8 +283,117 @@ async function fetchPrecioCoolStuff(nombre: string, setName?: string): Promise<s
   }
 }
 
+async function fetchPrecioTCGPlayer(nombre: string, setName?: string): Promise<string | null> {
+  try {
+    const query = setName ? `${nombre} ${setName}` : nombre;
+    const url = `https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&q=${encodeURIComponent(query)}&view=list`;
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      timeout: 10000,
+    });
+    const html: string = r.data;
+    const match = html.match(/"marketPrice":\s*"?(\d+\.?\d{2})"?/) ||
+                  html.match(/["']price["']:\s*"?(\d+\.\d{2})"?/) ||
+                  html.match(/\$\s*(\d+\.\d{2})/);
+    return match ? `$${match[1]}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPrecioCardmarket(nombre: string, setName?: string): Promise<string | null> {
+  try {
+    const query = setName ? `${nombre} ${setName}` : nombre;
+    const url = `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(query)}&sortBy=price_asc&perSite=4`;
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      timeout: 10000,
+    });
+    const html: string = r.data;
+    const match = html.match(/(\d+[,.]\d{2})\s*€/) ||
+                  html.match(/€\s*(\d+[,.]?\d{2})/);
+    if (!match) return null;
+    const val = match[1].replace(',', '.');
+    return `€${val}`;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPrecioEbay(nombre: string, setName?: string): Promise<string | null> {
+  try {
+    const query = setName ? `${nombre} ${setName} pokemon card` : `${nombre} pokemon card`;
+    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_BIN=1&_sop=15`;
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      timeout: 10000,
+    });
+    const html: string = r.data;
+    const jsonLdMatch = html.match(/"price":\s*"(\d+\.?\d{0,2})"/);
+    const plainMatch = html.match(/\$\s*(\d+\.\d{2})/);
+    const match = jsonLdMatch || plainMatch;
+    return match ? `$${match[1]}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPrecioPriceCharting(nombre: string, setName?: string): Promise<string | null> {
+  try {
+    const query = setName ? `${nombre} ${setName}` : nombre;
+    const url = `https://www.pricecharting.com/search-products?q=${encodeURIComponent(query)}&type=card`;
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      timeout: 10000,
+    });
+    const html: string = r.data;
+    const match = html.match(/class="price[^"]*"[^>]*>\$\s*(\d+\.\d{2})/) ||
+                  html.match(/\$\s*(\d+\.\d{2})/);
+    return match ? `$${match[1]}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPrecioTrollandToad(nombre: string, setName?: string): Promise<string | null> {
+  try {
+    const query = setName ? `${nombre} ${setName}` : nombre;
+    const url = `https://www.trollandtoad.com/search?search_words=${encodeURIComponent(query)}&search=true&category_id=94`;
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      timeout: 10000,
+    });
+    const html: string = r.data;
+    const match = html.match(/\$\s*(\d+\.\d{2})/);
+    return match ? `$${match[1]}` : null;
+  } catch {
+    return null;
+  }
+}
+
 const PAGE_SIZE = 8;
-const POKEMON_FETCH_SIZE = PAGE_SIZE * 4;
+const POKEMON_PAGE_SIZE = 20;
+const POKEMON_FETCH_SIZE = POKEMON_PAGE_SIZE * 3;
 
 // Construye la query para la Pokemon TCG API.
 // Busca por nombre de carta. Si se especifica un set (nombre o código), lo agrega como filtro AND.
@@ -331,14 +435,14 @@ export async function scrapeCartas(req: Request, res: Response) {
       const totalCount: number = r.data.totalCount ?? 0;
       const raw = (r.data.data || []).map((card: any) => ({
         name: card.name,
-        image: card.images?.large,
+        image: card.images?.small,
         setName: card.set?.name,
         setId: card.set?.id,
       }));
       // Misma carta en el mismo set con distintas rarezas = 1 entrada
       const unicos = deduplicarPorNombre(raw);
-      cartas = unicos.slice(0, PAGE_SIZE);
-      hasMore = unicos.length > PAGE_SIZE || page * POKEMON_FETCH_SIZE < totalCount;
+      cartas = unicos.slice(0, POKEMON_PAGE_SIZE);
+      hasMore = unicos.length > POKEMON_PAGE_SIZE || page * POKEMON_FETCH_SIZE < totalCount;
 
     } else if (juego === "magic") {
       // Scryfall entiende texto libre: nombres, set codes (e:m10), nombres de set (s:"10th Edition")
@@ -620,6 +724,32 @@ export async function getPrecioCoolStuff(req: Request, res: Response) {
 
   const precio = await fetchPrecioCoolStuff(nombre, setName);
   return res.status(200).json({ precio });
+}
+
+// Devuelve precios de múltiples tiendas en paralelo — solo para Pokemon
+export async function getPreciosPokemon(req: Request, res: Response) {
+  const nombre = req.query.nombre as string;
+  const setName = req.query.set as string | undefined;
+  if (!nombre) return res.status(400).json({ message: "Falta el nombre de la carta." });
+
+  const [coolstuff, tcgplayer, cardmarket, ebay, pricecharting, trollandtoad] =
+    await Promise.allSettled([
+      fetchPrecioCoolStuff(nombre, setName),
+      fetchPrecioTCGPlayer(nombre, setName),
+      fetchPrecioCardmarket(nombre, setName),
+      fetchPrecioEbay(nombre, setName),
+      fetchPrecioPriceCharting(nombre, setName),
+      fetchPrecioTrollandToad(nombre, setName),
+    ]);
+
+  return res.status(200).json({
+    coolstuff:     coolstuff.status     === "fulfilled" ? coolstuff.value     : null,
+    tcgplayer:     tcgplayer.status     === "fulfilled" ? tcgplayer.value     : null,
+    cardmarket:    cardmarket.status    === "fulfilled" ? cardmarket.value    : null,
+    ebay:          ebay.status          === "fulfilled" ? ebay.value          : null,
+    pricecharting: pricecharting.status === "fulfilled" ? pricecharting.value : null,
+    trollandtoad:  trollandtoad.status  === "fulfilled" ? trollandtoad.value  : null,
+  });
 }
 
 export {

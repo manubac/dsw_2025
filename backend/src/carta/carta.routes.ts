@@ -9,6 +9,7 @@ import {
   scrapeCartas,
   buscarRarezas,
   getPrecioCoolStuff,
+  getPreciosPokemon,
   resolveCartaByCode,
 } from "./carta.controler.js";
 import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
@@ -23,6 +24,7 @@ cartaRouter.get("/scrape/:juego/rarezas", authenticate, buscarRarezas);
 cartaRouter.get("/scrape/:juego/:nombre", authenticate, scrapeCartas);
 cartaRouter.get("/resolve/:juego", authenticate, resolveCartaByCode);
 cartaRouter.get("/precio-coolstuff", authenticate, getPrecioCoolStuff);
+cartaRouter.get("/precios-pokemon", authenticate, getPreciosPokemon);
 
 cartaRouter.get("/:id", findOne);
 

@@ -123,7 +123,7 @@ async function add(req: AuthRequest, res: Response) {
            }
            
            // Buscar un ItemCarta específico con suficiente stock
-           const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty && item.estado !== 'pausado');
+           const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty);
            
            if (!availableItem) {
                return res.status(400).json({ message: `No hay suficiente stock para la carta: ${carta.name} (Solicitado: ${requestedQty})` });
@@ -133,7 +133,6 @@ async function add(req: AuthRequest, res: Response) {
            availableItem.stock -= requestedQty;
            if (availableItem.stock <= 0) {
                availableItem.stock = 0;
-               availableItem.estado = 'pausado';
            }
            
            finalItemCartas.push(availableItem);
