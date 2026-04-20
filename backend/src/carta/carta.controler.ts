@@ -636,7 +636,28 @@ export async function resolveCartaByCode(req: Request, res: Response) {
       const r = await axios.get(
         `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`
       );
-      const card = r.data.data?.[0];
+      let card = r.data.data?.[0];
+
+      // Fallback: si pokemontcg.io no conoce el set (ej. siglas TCGdex como "JTG"),
+      // buscar por nombre OCR + número para obtener la carta de todas formas.
+      if (!card) {
+        const nameHint = req.query.name as string | undefined;
+        if (nameHint) {
+          const nParsed = parseInt(number, 10);
+          const numVars = [...new Set([number, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])];
+          for (const num of numVars) {
+            try {
+              const q2 = `name:"${nameHint}" number:${num}`;
+              const r2 = await axios.get(
+                `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=5`
+              );
+              card = r2.data.data?.[0];
+              if (card) break;
+            } catch { /* continúa */ }
+          }
+        }
+      }
+
       if (!card) return res.status(404).json({ message: "Carta no encontrada." });
       return res.json({
         data: {

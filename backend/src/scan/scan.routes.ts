@@ -490,6 +490,7 @@ async function queryByName(
     OR REGEXP_REPLACE(LOWER(card_name),'[^a-z0-9áéíóúàèìòùñü]','','g') LIKE '%' || $2 || '%'
   )`;
 
+  try {
   if (variants.length > 0) {
     const { rows } = await catalogPool.query<ReverseLookupMatch>(
       `SELECT set_abbr, set_name, card_number, lang_code, card_name
@@ -511,6 +512,10 @@ async function queryByName(
     [term, normTerm],
   );
   return rows;
+  } catch (err: any) {
+    console.warn('[scan] queryByName falló:', err.message);
+    return [];
+  }
 }
 
 /**
@@ -714,6 +719,14 @@ router.post('/', async (req: Request, res: Response) => {
     // (no texto de juego como "Evolves from...") y ese nombre puede servir de búsqueda.
     if (!dbName && ocrNombre && !GAME_TEXT.test(ocrNombre)) {
       reverseMatches = await reverseLookup(ocrNombre, numero);
+      // Rankear candidatos por similitud de sigla con rawSet (igual que paso 2b)
+      if (reverseMatches.length > 1 && rawSet) {
+        const ref = rawSet.toUpperCase();
+        reverseMatches = [...reverseMatches]
+          .map(r => ({ r, dist: levenshtein(r.set_abbr.toUpperCase(), ref) }))
+          .sort((a, b) => a.dist - b.dist)
+          .map(({ r }) => r);
+      }
       const best = reverseMatches[0] ?? null;
       if (best) {
         dbName         = best.card_name;
@@ -724,6 +737,33 @@ router.post('/', async (req: Request, res: Response) => {
         // Si el OCR no detectó número pero la DB sí lo tiene, usarlo
         if (!numeroFinal) numeroFinal = best.card_number;
       }
+    }
+
+    // (2c) Post-confirmación: nombre EN definitivo + número OCR → colección exacta
+    // Cuando pasos 2b/3 encontraron el nombre buscando por nombre OCR (posiblemente en
+    // otro idioma o parcial), usamos el nombre EN confirmado + el número OCR para hacer
+    // una búsqueda precisa que devuelva la colección y número definitivos.
+    if (dbName && numero) {
+      const nParsed = parseInt(numero, 10);
+      const numVars = !isNaN(nParsed)
+        ? [...new Set([numero, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])]
+        : [numero];
+      try {
+        const { rows } = await catalogPool.query<{ set_abbr: string; card_number: string }>(
+          `SELECT set_abbr, card_number FROM v_cards_unified
+           WHERE LOWER(card_name) = LOWER($1) AND lang_code = 'en'
+             AND card_number = ANY($2::text[])
+           LIMIT 1`,
+          [dbName, numVars],
+        );
+        if (rows[0]) {
+          if (coleccionFinal !== rows[0].set_abbr || numeroFinal !== rows[0].card_number) {
+            console.log(`[scan]   (2c) colección ${coleccionFinal}→${rows[0].set_abbr}  número ${numeroFinal}→${rows[0].card_number}`);
+            coleccionFinal = rows[0].set_abbr;
+            numeroFinal    = rows[0].card_number;
+          }
+        }
+      } catch { /* continúa con los valores anteriores */ }
     }
 
     // ── Log detallado ─────────────────────────────────────────────────────────
