@@ -35,13 +35,28 @@ interface QueueItem {
   uid: string;
   parsed: ParsedCard;
   format: DetectedFormat;
-  status: "loading" | "found" | "not_found";
+  status: "loading" | "found" | "not_found" | "ambiguous";
   carta?: CartaResultado & { rarity?: string };
+  candidates?: CartaResultado[];
   price: string;
+  quantity: number;
   checked: boolean;
   published?: boolean;
   publishError?: string;
+  rarezas?: Rareza[];
+  rarezasLoading?: boolean;
+  rarezaElegida?: Rareza | null;
 }
+
+type PriceSiteKey = "coolstuff" | "tcgplayer" | "cardmarket" | "ebay" | "pricecharting" | "trollandtoad";
+const PRICE_SITES: { key: PriceSiteKey; label: string }[] = [
+  { key: "coolstuff",    label: "CoolStuffInc" },
+  { key: "tcgplayer",   label: "TCGPlayer" },
+  { key: "cardmarket",  label: "Cardmarket" },
+  { key: "ebay",        label: "eBay" },
+  { key: "pricecharting", label: "PriceCharting" },
+  { key: "trollandtoad", label: "Troll & Toad" },
+];
 
 const JUEGOS: { value: Juego; label: string }[] = [
   { value: "pokemon",  label: "Pokémon TCG"         },
@@ -91,10 +106,21 @@ export default function PublicarCartaPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [applyingPrices, setApplyingPrices] = useState(false);
   const [bulkPublishing, setBulkPublishing] = useState(false);
+  const [bundleAll, setBundleAll] = useState(false);
+  const rarezasLoadingSet = useRef(new Set<string>());
 
   const [sugerencias, setSugerencias] = useState<string[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
+
+  const [selectedPriceSite, setSelectedPriceSite] = useState<PriceSiteKey>("coolstuff");
+
+  // Estado del popup de rareza (hold-to-open)
+  interface RarityPopupState { uid: string; anchorRect: DOMRect; hoveredIdx: number | null; rarezas: Rareza[]; }
+  const [rarityPopup, setRarityPopup] = useState<RarityPopupState | null>(null);
+  const rarityHoveredRef = useRef<{ idx: number | null; rareza: Rareza | null }>({ idx: null, rareza: null });
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdFiredRef = useRef(false);
 
   const busquedaRef = useRef({ nombre: "", juego: "pokemon" as Juego, expansion: "" });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -200,6 +226,40 @@ export default function PublicarCartaPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Auto-carga rarezas cuando una carta pasa a "found" (Pokémon)
+  useEffect(() => {
+    const toLoad = queue.filter(it =>
+      it.format === "pokemon" &&
+      it.status === "found" &&
+      it.carta &&
+      !it.rarezas &&
+      !it.rarezasLoading &&
+      !rarezasLoadingSet.current.has(it.uid)
+    );
+    toLoad.forEach(it => {
+      rarezasLoadingSet.current.add(it.uid);
+      loadRarezas(it.uid, it.carta!).finally(() => rarezasLoadingSet.current.delete(it.uid));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue]);
+
+  // Popup de rareza: seleccionar al soltar el mouse
+  useEffect(() => {
+    if (!rarityPopup) return;
+    const handleMouseUp = () => {
+      const { rareza } = rarityHoveredRef.current;
+      const uid = rarityPopup.uid;
+      if (rareza) {
+        setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezaElegida: rareza } : it));
+      }
+      rarityHoveredRef.current = { idx: null, rareza: null };
+      setRarityPopup(null);
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rarityPopup?.uid]);
 
   const buscarCartas = async (nombreOverride?: string) => {
     const n = (nombreOverride ?? nombre).trim();
@@ -397,10 +457,11 @@ export default function PublicarCartaPage() {
 
     if (juegoActual === "pokemon") {
       // Acepta "Charmander MEW 4"  o  "MEW 4"  (nombre opcional)
-      const m = texto.match(/^(?:.+?\s+)?([A-Z][A-Z0-9]{1,7})\s+(\d+)$/);
+      const m = texto.match(/^(?:(.+?)\s+)?([A-Z][A-Z0-9]{1,7})\s+(\d+)$/);
       if (!m) return null;
-      params.set("set", m[1]);
-      params.set("number", m[2]);
+      params.set("set", m[2]);
+      params.set("number", m[3]);
+      if (m[1]) params.set("name", m[1]);
     } else if (juegoActual === "magic") {
       const m = texto.match(/^(.+?)\s+\(([A-Z0-9]{2,5})\)\s+(\d+[a-z]?)$/);
       if (!m) return null;
@@ -432,6 +493,7 @@ export default function PublicarCartaPage() {
     if (fmt === "pokemon" && parsed.set && parsed.number) {
       params.set("set", parsed.set);
       params.set("number", parsed.number);
+      if (parsed.name) params.set("name", parsed.name);
     } else if (fmt === "magic" && parsed.set && parsed.number) {
       params.set("set", parsed.set);
       params.set("number", parsed.number);
@@ -448,14 +510,83 @@ export default function PublicarCartaPage() {
     try {
       const res = await fetchApi(buildResolveUrl(item.parsed, item.format));
       const data = await res.json();
-      if (res.ok && data.data) {
-        return { ...item, status: "found", carta: data.data };
-      }
+      if (res.ok && data.data)        return { ...item, status: "found",     carta: data.data };
+      if (res.ok && data.candidates)  return { ...item, status: "ambiguous", candidates: data.candidates };
       return { ...item, status: "not_found" };
     } catch {
       return { ...item, status: "not_found" };
     }
   }, []);
+
+  // ─── Rareza helpers ────────────────────────────────────────────────────────
+
+  function preselectRareza(rarezas: Rareza[]): Rareza | null {
+    if (rarezas.length === 0) return null;
+    const common = rarezas.find(r => r.rarity?.toLowerCase() === "common");
+    if (common) return common;
+    const reverse = rarezas.find(r => r.rarity?.toLowerCase().includes("reverse"));
+    if (reverse) return reverse;
+    return rarezas[0];
+  }
+
+  const loadRarezas = async (uid: string, carta: CartaResultado) => {
+    setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezasLoading: true } : it));
+    try {
+      const params = new URLSearchParams({ nombre: carta.name });
+      if (carta.setName) params.set("set", carta.setName);
+      const r = await fetchApi(`/api/cartas/scrape/pokemon/rarezas?${params}`);
+      const data = await r.json();
+      const rarezas: Rareza[] = data.data ?? [];
+      const rarezaElegida = preselectRareza(rarezas);
+      setQueue(prev => prev.map(it =>
+        it.uid === uid ? { ...it, rarezas, rarezaElegida, rarezasLoading: false } : it
+      ));
+    } catch {
+      setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezasLoading: false } : it));
+    }
+  };
+
+  const cycleRareza = (uid: string, rarezas: Rareza[], current: Rareza | null) => {
+    if (rarezas.length <= 1) return;
+    const idx = current ? rarezas.findIndex(r => r.cardId === current.cardId) : -1;
+    const next = rarezas[(idx + 1) % rarezas.length];
+    setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezaElegida: next } : it));
+  };
+
+  // ─── Handlers del chip de rareza ───────────────────────────────────────────
+
+  const handleRarezaMouseDown = (e: React.MouseEvent, uid: string, item: QueueItem) => {
+    e.preventDefault();
+    holdFiredRef.current = false;
+    rarityHoveredRef.current = { idx: null, rareza: null };
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    holdTimerRef.current = setTimeout(() => {
+      holdFiredRef.current = true;
+      if (item.rarezas && item.rarezas.length > 0) {
+        setRarityPopup({ uid, anchorRect: rect, hoveredIdx: null, rarezas: item.rarezas });
+      }
+      holdTimerRef.current = null;
+    }, 280);
+  };
+
+  const handleRarezaMouseUp = (uid: string, item: QueueItem) => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdFiredRef.current) return; // el popup cierra y selecciona vía mouseup global
+    // Click corto: cargar rarezas si no hay, o ciclar
+    if (!item.rarezas && !item.rarezasLoading && item.carta) {
+      loadRarezas(uid, item.carta);
+    } else if (item.rarezas) {
+      cycleRareza(uid, item.rarezas, item.rarezaElegida ?? null);
+    }
+  };
+
+  const handleRarezaHover = (idx: number, rareza: Rareza) => {
+    rarityHoveredRef.current = { idx, rareza };
+    setRarityPopup(prev => prev ? { ...prev, hoveredIdx: idx } : null);
+  };
 
   // Parsea una línea suelta en el formato del juego activo
   const parseSingleLine = (line: string, j: Juego): ParsedCard | null => {
@@ -523,12 +654,12 @@ export default function PublicarCartaPage() {
         format: fmt,
         status: "loading" as const,
         price: "",
+        quantity: 1,
         checked: true,
       }))
     );
 
     setQueue((prev) => [...prev, ...newItems]);
-    setPanelOpen(true);
 
     const BATCH = 5;
     for (let i = 0; i < newItems.length; i += BATCH) {
@@ -541,29 +672,45 @@ export default function PublicarCartaPage() {
     }
   };
 
-  const applyAllCoolStuffPrices = async () => {
+  const applyAllPrices = async () => {
+    // Capturar snapshot actual para no depender de closure stale
+    const snapshot = queue.filter(it => it.status === "found" && !it.published && !!it.carta);
+    if (snapshot.length === 0) return;
+
     setApplyingPrices(true);
     setQueue((prev) => prev.map((it) =>
       it.status === "found" && !it.published ? { ...it, price: "…" } : it
     ));
 
-    for (const item of queue) {
-      if (item.status !== "found" || item.published || !item.carta) continue;
+    const site = selectedPriceSite; // fijar sitio al momento de iniciar
+
+    for (const item of snapshot) {
+      let precio = "";
       try {
-        const params = new URLSearchParams({ nombre: item.carta.name });
-        if (item.carta.setName) params.set("set", item.carta.setName);
-        if (item.carta.rarity) params.set("rareza", item.carta.rarity);
-        const res = await fetchApi(`/api/cartas/precio-coolstuff?${params}`);
-        const data = await res.json();
-        const precio: string = data.precio ?? "";
-        setQueue((prev) =>
-          prev.map((it) => (it.uid === item.uid ? { ...it, price: precio } : it))
-        );
-      } catch {
-        setQueue((prev) =>
-          prev.map((it) => (it.uid === item.uid ? { ...it, price: "" } : it))
-        );
-      }
+        const params = new URLSearchParams({ nombre: item.carta!.name });
+        if (item.carta!.setName) params.set("set", item.carta!.setName);
+        const rarity = item.rarezaElegida?.rarity ?? item.carta!.rarity;
+        if (rarity) params.set("rareza", rarity);
+
+        const res = await fetchApi(`/api/cartas/precios-pokemon?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          precio = (data[site] as string | null) ?? "";
+        }
+
+        // Fallback a precio-coolstuff si el sitio es coolstuff y precios-pokemon no devolvió nada
+        if (!precio && site === "coolstuff") {
+          const res2 = await fetchApi(`/api/cartas/precio-coolstuff?${params}`);
+          if (res2.ok) {
+            const d2 = await res2.json();
+            precio = (d2.precio as string | null) ?? "";
+          }
+        }
+      } catch { /* precio queda "" */ }
+
+      setQueue((prev) =>
+        prev.map((it) => (it.uid === item.uid ? { ...it, price: precio } : it))
+      );
     }
     setApplyingPrices(false);
   };
@@ -580,10 +727,10 @@ export default function PublicarCartaPage() {
       await api.post("/api/cartas", {
         name: item.carta.name,
         price: item.price || null,
-        image: item.carta.image ?? null,
+        image: item.rarezaElegida?.image ?? item.carta.image ?? null,
         link: null,
-        rarity: item.carta.rarity ?? null,
-        setName: item.carta.setName ?? null,
+        rarity: item.rarezaElegida?.rarity ?? item.carta.rarity ?? null,
+        setName: item.rarezaElegida?.setName ?? item.carta.setName ?? null,
         cartaClass: cartaClassMatch?.id ?? null,
         userId: user.id,
       });
@@ -599,14 +746,47 @@ export default function PublicarCartaPage() {
 
   const publishAllChecked = async () => {
     setBulkPublishing(true);
-    const pending = queue.filter((it) => it.checked && it.status === "found" && !it.published);
-    for (const item of pending) {
-      await publishQueueItem(item);
+    const pending = queue.filter((it) => it.checked && it.status === "found" && !it.published && it.carta);
+
+    if (bundleAll && pending.length > 0) {
+      // Publicación única: sumatoria de (precio × cantidad)
+      const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
+      const total = pending.reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
+      const juegoLabel = JUEGOS.find(j => j.value === pending[0].format)?.label ?? pending[0].format;
+      const cartaClassMatch = cartaClasses.find(cc =>
+        cc.name.toLowerCase().includes(pending[0].format) ||
+        cc.name.toLowerCase().includes(juegoLabel.toLowerCase().split(":")[0].trim())
+      );
+      try {
+        await api.post("/api/cartas", {
+          name: pending.map(it => it.carta!.name).join(" + "),
+          price: total > 0 ? `$${total.toFixed(2)}` : null,
+          image: pending[0].rarezaElegida?.image ?? pending[0].carta!.image ?? null,
+          link: null,
+          rarity: null,
+          setName: null,
+          cartaClass: cartaClassMatch?.id ?? null,
+          userId: user!.id,
+        });
+        setQueue(prev => prev.map(it =>
+          pending.find(p => p.uid === it.uid) ? { ...it, published: true, publishError: undefined } : it
+        ));
+      } catch {
+        setQueue(prev => prev.map(it =>
+          pending.find(p => p.uid === it.uid) ? { ...it, publishError: "Error al publicar" } : it
+        ));
+      }
+    } else {
+      for (const item of pending) {
+        for (let q = 0; q < item.quantity; q++) {
+          await publishQueueItem(item);
+        }
+      }
     }
     setBulkPublishing(false);
   };
 
-  const handleScanConfirm = (cards: ScannedCard[]) => {
+  const handleScanConfirm = async (cards: ScannedCard[]) => {
     if (cards.length === 0) return;
     const first = cards[0];
     setIdentifyError(null);
@@ -616,13 +796,42 @@ export default function PublicarCartaPage() {
     setMensaje("");
     setHasMore(false);
 
-    // Construir query con los datos disponibles — nombre es opcional
-    // "Charmander MEW 4" | "MEW 4" | "Charmander"
-    const query = [first.name, first.set, first.number].filter(Boolean).join(' ');
-    if (!query) return;
+    if (!first.name && !first.set && !first.number) return;
 
-    setNombre(query);
-    buscarCartas(query);
+    const hasDirect = juego === "pokemon" && !!first.set && !!first.number;
+    const queryDirect = hasDirect
+      ? [first.name, first.set, first.number].filter(Boolean).join(' ')
+      : '';
+    const nombreBusqueda = first.name || [first.set, first.number].filter(Boolean).join(' ');
+
+    // Si tenemos set+número, agregar directo a la cola, limpiar barra y sugerencias
+    if (hasDirect) {
+      setNombre("");
+      setMostrarSugerencias(false);
+      setSugerencias([]);
+      const newItem: QueueItem = {
+        uid: `scan-${Date.now()}`,
+        parsed: { quantity: 1, name: first.name || "", set: first.set, number: first.number },
+        format: "pokemon" as DetectedFormat,
+        status: "loading",
+        price: "",
+        quantity: 1,
+        checked: true,
+      };
+      setQueue(prev => [...prev, newItem]);
+      resolveItem(newItem).then(resolved =>
+        setQueue(q => q.map(it => it.uid === newItem.uid ? resolved : it))
+      );
+      return;
+    }
+
+    // Sin set+número: búsqueda por nombre en la grilla
+    setNombre(nombreBusqueda);
+    if (!nombreBusqueda) return;
+    setExpansion("");
+    const vistos = new Set<string>();
+    setNombresVistos(vistos);
+    await cargarPagina(nombreBusqueda, juego, "", 1, true, vistos);
   };
 
   const handleFileIdentify = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -648,22 +857,17 @@ export default function PublicarCartaPage() {
         body: JSON.stringify({ image: dataUrl }),
       });
       const scanData = await res.json();
-
-      const nombre:    string = scanData?.nombre    ?? "";
-      const coleccion: string = scanData?.coleccion ?? "";
-      const numero:    string = scanData?.numero    ?? "";
-      console.log(`[identify] Vision → "${nombre} ${coleccion} ${numero}"`);
-
-      if (!nombre) {
-        setIdentifyError("No se pudo identificar la carta. Intentá con mejor iluminación.");
-        return;
+      if (!res.ok) {
+        throw new Error(scanData?.mensaje ?? `Error del servidor (${res.status})`);
       }
 
-      // Construir query con los datos disponibles — nombre es opcional
-      // "Charmander MEW 4" | "MEW 4" | "Charmander"
-      const query = [nombre, coleccion, numero].filter(Boolean).join(' ');
-      if (!query) {
-        setIdentifyError("No se detectó ningún dato de la carta.");
+      const nombreScan: string = scanData?.nombre    ?? "";
+      const coleccion:  string = scanData?.coleccion ?? "";
+      const numero:     string = scanData?.numero    ?? "";
+      console.log(`[identify] Vision → "${nombreScan} ${coleccion} ${numero}"`);
+
+      if (!nombreScan && !coleccion) {
+        setIdentifyError("No se pudo identificar la carta. Intentá con mejor iluminación.");
         return;
       }
 
@@ -671,8 +875,40 @@ export default function PublicarCartaPage() {
       setNombresVistos(new Set());
       setMensaje("");
       setHasMore(false);
-      setNombre(query);
-      buscarCartas(query);
+
+      const hasDirectFile = juego === "pokemon" && !!coleccion && !!numero;
+
+      // Si tenemos colección+número, agregar directo a la cola, limpiar barra y sugerencias
+      if (hasDirectFile) {
+        setNombre("");
+        setMostrarSugerencias(false);
+        setSugerencias([]);
+        const newItem: QueueItem = {
+          uid: `scan-${Date.now()}`,
+          parsed: { quantity: 1, name: nombreScan || "", set: coleccion, number: numero },
+          format: "pokemon" as DetectedFormat,
+          status: "loading",
+          price: "",
+          quantity: 1,
+          checked: true,
+        };
+        setQueue(prev => [...prev, newItem]);
+        resolveItem(newItem).then(resolved =>
+          setQueue(q => q.map(it => it.uid === newItem.uid ? resolved : it))
+        );
+        return;
+      }
+
+      // Fallback: buscar solo por nombre en la grilla
+      if (!nombreScan) {
+        setIdentifyError("No se detectó ningún dato de la carta.");
+        return;
+      }
+      setNombre(nombreScan);
+      setExpansion("");
+      const vistos = new Set<string>();
+      setNombresVistos(vistos);
+      await cargarPagina(nombreScan, juego, "", 1, true, vistos);
 
     } catch (err: any) {
       setIdentifyError(err.message ?? "No se pudo identificar la carta.");
@@ -899,6 +1135,20 @@ export default function PublicarCartaPage() {
         )}
       </div>
 
+      {/* Botón flotante de cola — pequeño tab en el borde derecho */}
+      {queue.length > 0 && !panelOpen && (
+        <button
+          onClick={() => setPanelOpen(true)}
+          title="Abrir cola de publicación"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-1 bg-green-500 hover:bg-green-600 text-white py-2 px-1 rounded-l-lg shadow-lg transition-colors"
+        >
+          <ChevronRight size={13} />
+          <span className="text-[10px] font-bold leading-none bg-white text-green-600 rounded-full w-4 h-4 flex items-center justify-center">
+            {queue.filter(i => !i.published).length}
+          </span>
+        </button>
+      )}
+
       {/* Panel lateral de cola */}
       {panelOpen && (
         <>
@@ -922,20 +1172,52 @@ export default function PublicarCartaPage() {
 
             {/* Acciones */}
             <div className="px-5 py-3 border-b flex flex-wrap gap-2">
-              <button
-                onClick={applyAllCoolStuffPrices}
-                disabled={applyingPrices || queue.every((i) => i.status !== "found" || i.published)}
-                className="flex-1 text-sm font-semibold bg-amber-50 border border-amber-300 text-amber-700 px-3 py-2 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition"
-              >
-                {applyingPrices ? "Aplicando precios…" : "Aplicar precios CoolStuffInc"}
-              </button>
-              <button
-                onClick={publishAllChecked}
-                disabled={bulkPublishing || queue.every((i) => !i.checked || i.status !== "found" || !!i.published)}
-                className="flex-1 text-sm font-semibold bg-green-500 text-white px-3 py-2 rounded-xl hover:bg-green-600 disabled:opacity-50 transition"
-              >
-                {bulkPublishing ? "Publicando…" : `Publicar seleccionadas (${queue.filter((i) => i.checked && i.status === "found" && !i.published).length})`}
-              </button>
+              <div className="flex flex-1 gap-1.5 min-w-0">
+                <select
+                  value={selectedPriceSite}
+                  onChange={e => setSelectedPriceSite(e.target.value as PriceSiteKey)}
+                  disabled={applyingPrices}
+                  className="text-xs border border-amber-300 rounded-lg px-2 py-1.5 bg-amber-50 text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
+                >
+                  {PRICE_SITES.map(s => (
+                    <option key={s.key} value={s.key}>{s.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={applyAllPrices}
+                  disabled={applyingPrices || queue.every((i) => i.status !== "found" || !!i.published)}
+                  className="flex-1 text-sm font-semibold bg-amber-50 border border-amber-300 text-amber-700 px-3 py-1.5 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition"
+                >
+                  {applyingPrices ? "Aplicando…" : "Aplicar precios"}
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none px-1">
+                  <input
+                    type="checkbox"
+                    checked={bundleAll}
+                    onChange={e => setBundleAll(e.target.checked)}
+                    className="accent-green-500"
+                  />
+                  Todo en una publicación
+                  {bundleAll && (() => {
+                    const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
+                    const total = queue
+                      .filter(it => it.checked && it.status === "found" && !it.published)
+                      .reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
+                    return total > 0
+                      ? <span className="ml-auto font-semibold text-green-600">${total.toFixed(2)}</span>
+                      : null;
+                  })()}
+                </label>
+                <button
+                  onClick={publishAllChecked}
+                  disabled={bulkPublishing || queue.every((i) => !i.checked || i.status !== "found" || !!i.published)}
+                  className="text-sm font-semibold bg-green-500 text-white px-3 py-2 rounded-xl hover:bg-green-600 disabled:opacity-50 transition"
+                >
+                  {bulkPublishing ? "Publicando…" : `Publicar seleccionadas (${queue.filter((i) => i.checked && i.status === "found" && !i.published).length})`}
+                </button>
+              </div>
             </div>
 
             {/* Lista */}
@@ -958,14 +1240,16 @@ export default function PublicarCartaPage() {
                       className="mt-1 accent-green-500"
                     />
                   )}
-                  {/* Thumbnail */}
+                  {/* Thumbnail — muestra la imagen de la rareza elegida si está disponible */}
                   <div className="w-10 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-100 flex items-center justify-center">
                     {item.status === "loading" ? (
                       <Loader2 size={16} className="animate-spin text-gray-400" />
                     ) : item.status === "not_found" ? (
                       <AlertCircle size={16} className="text-red-400" />
-                    ) : item.carta?.image ? (
-                      <img src={item.carta.image} alt={item.carta.name} className="w-full h-full object-cover" />
+                    ) : item.status === "ambiguous" ? (
+                      <span className="text-[10px] text-amber-500 font-bold text-center leading-tight px-0.5">?</span>
+                    ) : (item.rarezaElegida?.image ?? item.carta?.image) ? (
+                      <img src={item.rarezaElegida?.image ?? item.carta!.image} alt={item.carta!.name} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-xs text-gray-400">?</span>
                     )}
@@ -981,8 +1265,40 @@ export default function PublicarCartaPage() {
                     )}
                     {item.status === "not_found" && (
                       <p className="text-sm text-red-500 truncate">
-                        No encontrada: {item.parsed.name || item.parsed.id || `#${item.parsed.passcode}`}
+                        No encontrada:{' '}
+                        {item.parsed.name
+                          || item.parsed.id
+                          || (item.parsed.set && item.parsed.number ? `${item.parsed.set} #${item.parsed.number}` : undefined)
+                          || (item.parsed.passcode != null ? `#${item.parsed.passcode}` : undefined)
+                          || '(sin identificar)'}
                       </p>
+                    )}
+                    {item.status === "ambiguous" && item.candidates && (
+                      <div className="flex flex-col gap-1">
+                        <p className="text-xs text-amber-600 font-medium">
+                          {item.candidates.length} versiones — elegí una:
+                        </p>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {item.candidates.map((c, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setQueue(prev => prev.map(it =>
+                                it.uid === item.uid ? { ...it, status: "found", carta: c, candidates: undefined } : it
+                              ))}
+                              className="flex-shrink-0 flex flex-col items-center gap-0.5 rounded-lg border-2 border-transparent hover:border-indigo-400 p-1 transition-all bg-gray-50 hover:bg-indigo-50"
+                              title={`${c.name} — ${c.setName} #${c.number}`}
+                            >
+                              {c.image
+                                ? <img src={c.image} alt={c.name} className="w-9 h-[52px] object-cover rounded" />
+                                : <div className="w-9 h-[52px] bg-gray-200 rounded flex items-center justify-center text-[9px] text-gray-400">?</div>
+                              }
+                              <span className="text-[9px] text-gray-500 max-w-[44px] truncate text-center leading-tight">
+                                {c.setName?.replace(/^Scarlet & Violet[—–-]\s*/i, "SV ") ?? c.setId}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     {item.status === "found" && item.carta && (
                       <>
@@ -993,34 +1309,76 @@ export default function PublicarCartaPage() {
                         {item.carta.setName && (
                           <p className="text-xs text-gray-500 truncate">{item.carta.setName}</p>
                         )}
+                        {/* Chip de rareza */}
+                        {!item.published && (
+                          <button
+                            onMouseDown={e => handleRarezaMouseDown(e, item.uid, item)}
+                            onMouseUp={() => handleRarezaMouseUp(item.uid, item)}
+                            onMouseLeave={() => {
+                              if (holdTimerRef.current && !holdFiredRef.current) {
+                                clearTimeout(holdTimerRef.current);
+                                holdTimerRef.current = null;
+                              }
+                            }}
+                            className={`mt-1 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border select-none transition-all
+                              ${item.rarezasLoading ? "opacity-60 cursor-wait" : "cursor-pointer"}
+                              ${!item.rarezas || item.rarezas.length <= 1
+                                ? "border-gray-200 bg-gray-50 text-gray-400 opacity-50"
+                                : "border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                              }`}
+                            title={item.rarezas && item.rarezas.length > 1 ? "Click: cambiar · Mantener: elegir versión" : "Click para cargar versiones"}
+                          >
+                            {item.rarezasLoading
+                              ? <span className="w-2.5 h-2.5 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />
+                              : null}
+                            {item.rarezaElegida?.rarity ?? item.rarezas?.[0]?.rarity ?? "Versión"}
+                            {item.rarezas && item.rarezas.length > 1 && (
+                              <span className="text-indigo-400 text-[10px]">×{item.rarezas.length}</span>
+                            )}
+                          </button>
+                        )}
                         {item.publishError && (
                           <p className="text-xs text-red-500">{item.publishError}</p>
                         )}
                         {!item.published && (
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <input
-                              type="text"
-                              value={item.price}
-                              onChange={(e) =>
-                                setQueue((prev) =>
-                                  prev.map((it) => (it.uid === item.uid ? { ...it, price: e.target.value } : it))
-                                )
-                              }
-                              placeholder="Precio (ej: $4.99)"
-                              className="w-28 text-xs border rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-green-400"
-                            />
-                            <button
-                              onClick={() => publishQueueItem(item)}
-                              className="text-xs bg-green-500 text-white px-2 py-1 rounded-lg hover:bg-green-600 transition"
-                            >
-                              Publicar
-                            </button>
-                            <button
-                              onClick={() => setQueue((prev) => prev.filter((it) => it.uid !== item.uid))}
-                              className="text-xs text-gray-400 hover:text-red-400 transition"
-                            >
-                              <X size={14} />
-                            </button>
+                          <div className="flex flex-col gap-1 mt-1.5">
+                            <div className="flex items-center gap-1.5">
+                              {/* Cantidad */}
+                              <div className="flex items-center border rounded-lg overflow-hidden text-xs">
+                                <button
+                                  onClick={() => setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it))}
+                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold"
+                                >−</button>
+                                <span className="px-2 py-1 min-w-[24px] text-center font-semibold">{item.quantity}</span>
+                                <button
+                                  onClick={() => setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, quantity: it.quantity + 1 } : it))}
+                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold"
+                                >+</button>
+                              </div>
+                              <input
+                                type="text"
+                                value={item.price}
+                                onChange={(e) =>
+                                  setQueue((prev) =>
+                                    prev.map((it) => (it.uid === item.uid ? { ...it, price: e.target.value } : it))
+                                  )
+                                }
+                                placeholder="Precio (ej: $4.99)"
+                                className="w-24 text-xs border rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-green-400"
+                              />
+                              <button
+                                onClick={() => publishQueueItem(item)}
+                                className="text-xs bg-green-500 text-white px-2 py-1 rounded-lg hover:bg-green-600 transition"
+                              >
+                                Pub.
+                              </button>
+                              <button
+                                onClick={() => setQueue((prev) => prev.filter((it) => it.uid !== item.uid))}
+                                className="text-xs text-gray-400 hover:text-red-400 transition"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
                           </div>
                         )}
                       </>
@@ -1049,6 +1407,53 @@ export default function PublicarCartaPage() {
           </div>
         </>
       )}
+
+      {/* Popup de rareza (hold-to-open) */}
+      {rarityPopup && (() => {
+        const popupW = Math.min(rarityPopup.rarezas.length * 88 + 16, window.innerWidth - 16);
+        const anchorCx = rarityPopup.anchorRect.left + rarityPopup.anchorRect.width / 2;
+        let left = Math.max(8, anchorCx - popupW / 2);
+        left = Math.min(left, window.innerWidth - popupW - 8);
+        const spaceAbove = rarityPopup.anchorRect.top - 8;
+        const popupH = 148;
+        const top = spaceAbove >= popupH
+          ? rarityPopup.anchorRect.top - popupH - 6
+          : rarityPopup.anchorRect.bottom + 6;
+        return (
+          <div
+            className="fixed z-[9999] flex gap-2 p-2 bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-700 select-none"
+            style={{ left, top, width: popupW }}
+            onMouseDown={e => e.preventDefault()}
+          >
+            {rarityPopup.rarezas.map((r, idx) => (
+              <div
+                key={r.cardId}
+                onMouseEnter={() => handleRarezaHover(idx, r)}
+                className={`flex flex-col items-center gap-1 p-1.5 rounded-xl cursor-pointer transition-all flex-shrink-0
+                  ${rarityPopup.hoveredIdx === idx
+                    ? "bg-indigo-500/30 ring-2 ring-indigo-400"
+                    : "hover:bg-white/10"
+                  }`}
+                style={{ width: 80 }}
+              >
+                <div className="w-[60px] h-[84px] rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0">
+                  {r.image
+                    ? <img src={r.image} alt={r.rarity ?? ""} className="w-full h-full object-cover" draggable={false} />
+                    : <span className="text-gray-500 text-xs text-center px-1">{r.rarity ?? "?"}</span>
+                  }
+                </div>
+                <span className={`text-[10px] text-center leading-tight max-w-[72px] truncate font-medium
+                  ${rarityPopup.hoveredIdx === idx ? "text-indigo-200" : "text-gray-300"}`}>
+                  {r.rarity ?? "Sin rareza"}
+                </span>
+                {r.finish && (
+                  <span className="text-[9px] text-gray-500 text-center truncate max-w-[72px]">{r.finish}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Modal de versiones */}
       {modalCarta && (

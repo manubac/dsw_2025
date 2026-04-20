@@ -1,4 +1,6 @@
 [
+  { "id": "sve", "abbr": "SVE", "name_en": "Scarlet & Violet Energy" },
+  { "id": "mee", "abbr": "MEE", "name_en": "Mega Evolution Energy" },
   { "id": "me3", "abbr": "PFO", "name_en": "Mega Evolution—Perfect Order" },
   { "id": "me2", "abbr": "ASH", "name_en": "Mega Evolution—Ascended Heroes" },
   { "id": "me1.5", "abbr": "PHF", "name_en": "Mega Evolution—Phantasmal Flames" },

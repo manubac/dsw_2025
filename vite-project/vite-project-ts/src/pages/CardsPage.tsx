@@ -54,9 +54,9 @@ export function CardsPage() {
     if (m) {
       setResolving(true);
       try {
-        const res = await fetchApi(
-          `/api/cartas/resolve/pokemon?set=${encodeURIComponent(m[2])}&number=${encodeURIComponent(m[3])}`
-        );
+        const params = new URLSearchParams({ set: m[2], number: m[3] });
+        if (m[1]) params.set("name", m[1]);
+        const res = await fetchApi(`/api/cartas/resolve/pokemon?${params}`);
         const data = await res.json();
         if (res.ok && data.data?.name) {
           setFilters((prev: any) => ({ ...prev, query: data.data.name }));

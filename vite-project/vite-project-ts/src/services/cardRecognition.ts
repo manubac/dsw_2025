@@ -1,21 +1,15 @@
 // cardRecognition.ts
-// Llama al endpoint Node.js POST /api/identify (multipart/form-data).
-// Fallback: POST /api/scan con Google Cloud Vision (Base64).
+// Identifica una carta Pokémon usando POST /api/scan (Google Cloud Vision).
+// Recibe un data-URL (canvas.toDataURL) y devuelve los datos de la carta.
 
 export interface ScannedCardResult {
-  id?: number        // id de la Carta en la DB, si se encontró con match exact
   name: string
   set: string
-  setCode?: string   // código corto del set (ptcgoCode) para usar en resolve, ej: "SV04"
   number: string
   imageDataUrl: string
   needsReview: boolean
-}
-
-// Convierte un data-URL (canvas.toDataURL) en un Blob para FormData
-async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
-  const res = await fetch(dataUrl)
-  return res.blob()
+  fuenteColeccion?: string   // 'footer' | 'footer-alt' | 'reverse' | 'ocr'
+  candidatos?: unknown[]
 }
 
 export async function recognizeCard(
@@ -24,15 +18,10 @@ export async function recognizeCard(
 ): Promise<ScannedCardResult> {
   onStatusChange('scanning')
 
-  // Convertir el data-URL a Blob y enviarlo como multipart/form-data
-  const blob = await dataUrlToBlob(imageDataUrl)
-  const formData = new FormData()
-  formData.append('image', blob, 'scan.jpg')
-
-  const res = await fetch('/api/identify', {
+  const res = await fetch('/api/scan', {
     method: 'POST',
-    body: formData,
-    // No poner Content-Type — el browser lo setea con el boundary correcto
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: imageDataUrl }),
   })
 
   if (!res.ok) {
@@ -43,34 +32,28 @@ export async function recognizeCard(
   onStatusChange('looking-up')
 
   const data = await res.json()
-  console.log('[cardRecognition] respuesta del backend:', JSON.stringify(data, null, 2))
+  console.log('[cardRecognition] respuesta /api/scan:', JSON.stringify(data, null, 2))
 
-  // El endpoint devolvió success: false (carta no encontrada en la DB)
-  // Igual aprovechamos los datos OCR para intentar el resolve por scraping
   if (!data.success) {
     return {
-      name:         data.debug?.ocr_raw?.nombre          ?? '',
-      set:          '',
-      setCode:      data.debug?.ocr_raw?.codigoColeccion ?? '',
-      number:       data.debug?.ocr_raw?.numero          ?? '',
+      name:          data.nombre          ?? '',
+      set:           data.coleccion        ?? '',
+      number:        data.numero           ?? '',
       imageDataUrl,
-      needsReview:  true,
+      needsReview:   true,
+      fuenteColeccion: data.fuenteColeccion,
     }
   }
 
-  const { carta, match, confidence } = data
-
-  // needsReview = true cuando la confianza es baja o el match no fue exacto
-  const needsReview = confidence === 'low' || match === 'fuzzy' || match === 'embedding'
+  const needsReview = !data.nombre || data.fuenteColeccion === 'ocr' || data.fuenteColeccion === 'reverse' || data.fuenteColeccion === 'number-name'
 
   return {
-    id:           match === 'exact' ? carta.id : undefined,
-    name:         carta.nombre   ?? '',
-    set:          carta.coleccion ?? '',
-    setCode:      carta.setCode  ?? undefined,
-    number:       carta.numero   ?? '',
-    // imagen_url puede ser URL externa o vacío; el componente usa imageDataUrl como fallback
-    imageDataUrl: carta.imagen_url || imageDataUrl,
+    name:            data.nombre    ?? '',
+    set:             data.coleccion ?? '',
+    number:          data.numero    ?? '',
+    imageDataUrl,
     needsReview,
+    fuenteColeccion: data.fuenteColeccion,
+    candidatos:      data.candidatos,
   }
 }

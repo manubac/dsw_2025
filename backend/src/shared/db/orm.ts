@@ -16,6 +16,7 @@ import { Mensaje } from "../../mensaje/mensaje.entity.js"
 
 export const orm = await MikroORM.init({
     entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, User, Direccion, Intermediario, Envio, Valoracion, StagePokemon, Mensaje],
+    dbName: process.env.DB_NAME || 'heroclash_dsw',
     clientUrl: process.env.DB_CONNECTION_STRING || 'postgresql://postgres:post1234@localhost:5432/heroclash_dsw',
     highlighter: new SqlHighlighter(),
     debug: true,
@@ -28,5 +29,5 @@ export const orm = await MikroORM.init({
 
 export const syncSchema = async () => {
     const generator = orm.getSchemaGenerator()
-    await generator.updateSchema()
+    await generator.updateSchema({ dropTables: false })
 }
