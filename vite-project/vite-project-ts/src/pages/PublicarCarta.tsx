@@ -35,8 +35,9 @@ interface QueueItem {
   uid: string;
   parsed: ParsedCard;
   format: DetectedFormat;
-  status: "loading" | "found" | "not_found";
+  status: "loading" | "found" | "not_found" | "ambiguous";
   carta?: CartaResultado & { rarity?: string };
+  candidates?: CartaResultado[];
   price: string;
   quantity: number;
   checked: boolean;
@@ -509,9 +510,8 @@ export default function PublicarCartaPage() {
     try {
       const res = await fetchApi(buildResolveUrl(item.parsed, item.format));
       const data = await res.json();
-      if (res.ok && data.data) {
-        return { ...item, status: "found", carta: data.data };
-      }
+      if (res.ok && data.data)        return { ...item, status: "found",     carta: data.data };
+      if (res.ok && data.candidates)  return { ...item, status: "ambiguous", candidates: data.candidates };
       return { ...item, status: "not_found" };
     } catch {
       return { ...item, status: "not_found" };
@@ -1246,6 +1246,8 @@ export default function PublicarCartaPage() {
                       <Loader2 size={16} className="animate-spin text-gray-400" />
                     ) : item.status === "not_found" ? (
                       <AlertCircle size={16} className="text-red-400" />
+                    ) : item.status === "ambiguous" ? (
+                      <span className="text-[10px] text-amber-500 font-bold text-center leading-tight px-0.5">?</span>
                     ) : (item.rarezaElegida?.image ?? item.carta?.image) ? (
                       <img src={item.rarezaElegida?.image ?? item.carta!.image} alt={item.carta!.name} className="w-full h-full object-cover" />
                     ) : (
@@ -1263,8 +1265,40 @@ export default function PublicarCartaPage() {
                     )}
                     {item.status === "not_found" && (
                       <p className="text-sm text-red-500 truncate">
-                        No encontrada: {item.parsed.name || item.parsed.id || `#${item.parsed.passcode}`}
+                        No encontrada:{' '}
+                        {item.parsed.name
+                          || item.parsed.id
+                          || (item.parsed.set && item.parsed.number ? `${item.parsed.set} #${item.parsed.number}` : undefined)
+                          || (item.parsed.passcode != null ? `#${item.parsed.passcode}` : undefined)
+                          || '(sin identificar)'}
                       </p>
+                    )}
+                    {item.status === "ambiguous" && item.candidates && (
+                      <div className="flex flex-col gap-1">
+                        <p className="text-xs text-amber-600 font-medium">
+                          {item.candidates.length} versiones — elegí una:
+                        </p>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {item.candidates.map((c, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setQueue(prev => prev.map(it =>
+                                it.uid === item.uid ? { ...it, status: "found", carta: c, candidates: undefined } : it
+                              ))}
+                              className="flex-shrink-0 flex flex-col items-center gap-0.5 rounded-lg border-2 border-transparent hover:border-indigo-400 p-1 transition-all bg-gray-50 hover:bg-indigo-50"
+                              title={`${c.name} — ${c.setName} #${c.number}`}
+                            >
+                              {c.image
+                                ? <img src={c.image} alt={c.name} className="w-9 h-[52px] object-cover rounded" />
+                                : <div className="w-9 h-[52px] bg-gray-200 rounded flex items-center justify-center text-[9px] text-gray-400">?</div>
+                              }
+                              <span className="text-[9px] text-gray-500 max-w-[44px] truncate text-center leading-tight">
+                                {c.setName?.replace(/^Scarlet & Violet[—–-]\s*/i, "SV ") ?? c.setId}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     {item.status === "found" && item.carta && (
                       <>

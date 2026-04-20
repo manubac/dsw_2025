@@ -616,59 +616,64 @@ export async function resolveCartaByCode(req: Request, res: Response) {
     }
 
     if (juego === "pokemon") {
-      const set = req.query.set as string;
-      const number = req.query.number as string;
+      const set       = req.query.set    as string;
+      const number    = req.query.number as string;
+      const nameHint  = req.query.name   as string | undefined;
       if (!set || !number) return res.status(400).json({ message: "Faltan parámetros set y number." });
 
-      // Paso 1: resolver el ptcgoCode (PAF, PAR, SV3…) al set.id real (sv4pt5, sv4, sv3…).
-      // El endpoint /v2/sets sí soporta búsqueda por ptcgoCode.
+      const toCardData = (c: any) => ({
+        name:    c.name,
+        image:   c.images?.large,
+        rarity:  c.rarity,
+        setName: c.set?.name,
+        setId:   c.set?.id,
+        number:  c.number,
+      });
+
+      // Paso 1: resolver ptcgoCode → set.id real en pokemontcg.io
       let setId = set.toLowerCase();
+      let setResolved = false;
       try {
         const setsRes = await axios.get(
           `https://api.pokemontcg.io/v2/sets?q=ptcgoCode:${encodeURIComponent(set)}&pageSize=1`
         );
         const foundSet = setsRes.data.data?.[0];
-        if (foundSet?.id) setId = foundSet.id;
-      } catch { /* si falla el lookup usamos el código tal cual */ }
+        if (foundSet?.id) { setId = foundSet.id; setResolved = true; }
+      } catch { /* usamos el código tal cual */ }
 
-      // Paso 2: buscar la carta por set.id + número
-      const q = `set.id:${setId} number:${number}`;
-      const r = await axios.get(
-        `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`
-      );
-      let card = r.data.data?.[0];
-
-      // Fallback: si pokemontcg.io no conoce el set (ej. siglas TCGdex como "JTG"),
-      // buscar por nombre OCR + número para obtener la carta de todas formas.
-      if (!card) {
-        const nameHint = req.query.name as string | undefined;
-        if (nameHint) {
-          const nParsed = parseInt(number, 10);
-          const numVars = [...new Set([number, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])];
-          for (const num of numVars) {
-            try {
-              const q2 = `name:"${nameHint}" number:${num}`;
-              const r2 = await axios.get(
-                `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=5`
-              );
-              card = r2.data.data?.[0];
-              if (card) break;
-            } catch { /* continúa */ }
-          }
-        }
+      // Paso 2: buscar por set.id + número (todas las variantes de padding)
+      const nParsed  = parseInt(number, 10);
+      const numVars  = [...new Set([number, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])];
+      let card: any  = null;
+      for (const num of numVars) {
+        try {
+          const q = `set.id:${setId} number:${num}`;
+          const r = await axios.get(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`);
+          card = r.data.data?.[0] ?? null;
+          if (card) break;
+        } catch { /* continúa */ }
       }
 
-      if (!card) return res.status(404).json({ message: "Carta no encontrada." });
-      return res.json({
-        data: {
-          name: card.name,
-          image: card.images?.large,
-          rarity: card.rarity,
-          setName: card.set?.name,
-          setId: card.set?.id,
-          number: card.number,
-        },
-      });
+      if (card) return res.json({ data: toCardData(card) });
+
+      // Paso 3: fallback por nombre+número — SOLO cuando el set no fue reconocido por pokemontcg.io.
+      // Si el set sí fue reconocido (setResolved=true) pero no hay carta con ese número,
+      // no hacemos fallback: evita devolver otra carta con mismo número de distinta colección.
+      if (!setResolved && nameHint) {
+        const seen = new Map<string, any>();
+        for (const num of numVars) {
+          try {
+            const q2 = `name:"${nameHint}" number:${num}`;
+            const r2 = await axios.get(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20`);
+            for (const c of r2.data.data ?? []) seen.set(c.id, c);
+          } catch { /* continúa */ }
+        }
+        const unique = [...seen.values()];
+        if (unique.length === 1) return res.json({ data: toCardData(unique[0]) });
+        if (unique.length  > 1) return res.json({ candidates: unique.map(toCardData) });
+      }
+
+      return res.status(404).json({ message: "Carta no encontrada." });
     }
 
     if (juego === "magic") {

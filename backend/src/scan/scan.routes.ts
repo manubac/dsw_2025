@@ -431,6 +431,204 @@ function extractNombre(lines: string[]): NameResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Energy card detection
+// "ENERGÍA" / "ENERGY" / "ENERGIE" en mayúsculas = indicador de tipo en carta
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface EnergyInfo {
+  isEnergy: boolean;
+  isBasic:  boolean;
+  langCode: string;   // idioma detectado desde el nombre de energía, o ''
+}
+
+// Palabra "ENERGÍA/ENERGY/etc." en mayúsculas como token suelto = indicador de tipo
+const ENERGY_TYPE_RE = /\bENERG(?:[ÍI]A|Y|IE)\b/;
+
+// Nombres de "Energía Básica" en cada idioma → para confirmar básica y detectar idioma
+const BASIC_ENERGY_I18N: Array<{ re: RegExp; lang: string }> = [
+  { re: /energ[íi]a\s+b[aá]sica/i, lang: 'ES' },   // Español
+  { re: /energia\s+b[aá]sica/i,     lang: 'PT' },   // Português
+  { re: /basic\s+energy/i,          lang: 'EN' },   // English
+  { re: /[eé]nergie\s+de\s+base/i,  lang: 'FR' },   // Français
+  { re: /basisenergie/i,            lang: 'DE' },   // Deutsch
+  { re: /energia\s+di\s+base/i,     lang: 'IT' },   // Italiano
+  { re: /energi\s+dasar/i,          lang: 'ID' },   // Indonesian
+];
+
+function detectEnergyCard(text: string): EnergyInfo {
+  if (!ENERGY_TYPE_RE.test(text)) return { isEnergy: false, isBasic: false, langCode: '' };
+  for (const { re, lang } of BASIC_ENERGY_I18N) {
+    if (re.test(text)) return { isEnergy: true, isBasic: true, langCode: lang };
+  }
+  return { isEnergy: true, isBasic: false, langCode: '' };
+}
+
+/**
+ * Extrae sigla + idioma + número desde el pie de una carta de energía.
+ *
+ * Algoritmo posicional — no depende de que los tokens estén en la misma línea:
+ *
+ *  1. Recoge todos los tokens de 2-5 letras ASCII puras ([A-Z], sin acentos)
+ *     y todos los números standalone de 1-3 dígitos (excluyendo años 4+ dígitos
+ *     y valores > 300 que no son números de carta).
+ *  2. Para cada número candidato, mira las 1-2 palabras inmediatamente anteriores
+ *     (por posición en el texto) y deduce:
+ *       - Si la palabra más cercana tiene ≥ 3 letras  → es el código de set
+ *         (puede llevar sufijo de idioma fusionado, ej. "SVEB", "MEELA")
+ *       - Si la palabra más cercana tiene 2 letras   → es el idioma (ej. "LA", "ES"),
+ *         y la siguiente palabra anterior es el código de set
+ *       - Si la palabra más cercana tiene 1 letra     → artefacto OCR, ignorar;
+ *         buscar la siguiente palabra anterior como set
+ *  3. Devuelve el primer par (set, número) encontrado.
+ *
+ * Casos cubiertos:
+ *   "SVEB 007"     → rawSet=SVEB, numero=7    (sufijo de idioma fusionado)
+ *   "MEELA 008"    → rawSet=MEELA, numero=8   (set+lang fusionados)
+ *   "MEE LA 002"   → rawSet=MEE, rawLang=LA, numero=2
+ *   "MEE A 004"    → rawSet=MEE, numero=4     ("A" descartado por ser 1 letra)
+ *   "MEE\nLA\n002" → igual que "MEE LA 002" (cruza líneas)
+ */
+function extractEnergySetInfo(text: string): SetInfo {
+  const upper = text.toUpperCase();
+
+  // Tokens de 2-5 letras ASCII puras (Á, É, Í… quedan fuera de [A-Z])
+  const words: Array<{ val: string; idx: number }> = [];
+  for (const m of upper.matchAll(/\b([A-Z]{2,5})\b/g)) {
+    words.push({ val: m[1], idx: m.index! });
+  }
+
+  // Números standalone: 1-3 dígitos, no parte de runs de 4+ dígitos (años, copyright)
+  const nums: Array<{ val: string; idx: number }> = [];
+  for (const m of upper.matchAll(/(?<!\d)(\d{1,3})(?!\d)/g)) {
+    const n = parseInt(m[1], 10);
+    if (n >= 1 && n <= 300) nums.push({ val: m[1], idx: m.index! });
+  }
+
+  if (!nums.length || !words.length) return { rawSet: '', rawLang: '', numero: '' };
+
+  for (const num of nums) {
+    // Palabras que aparecen ANTES de este número, ordenadas por proximidad
+    const before = words
+      .filter(w => w.idx < num.idx)
+      .sort((a, b) => b.idx - a.idx);   // más cercana primero
+
+    if (!before.length) continue;
+
+    const w0 = before[0];   // palabra más cercana al número
+    const w1 = before[1];   // segunda más cercana (puede no existir)
+
+    // w0 de ≥ 3 letras → es el código de set (ej. "MEE", "SVEB", "MEELA")
+    if (w0.val.length >= 3) {
+      return { rawSet: w0.val, rawLang: '', numero: String(parseInt(num.val, 10)) };
+    }
+
+    // w0 de 2 letras → probable código de idioma (ej. "LA", "ES", "PT")
+    // → buscar el set en w1
+    if (w0.val.length === 2 && w1 && w1.val.length >= 2) {
+      return {
+        rawSet:  w1.val,
+        rawLang: w0.val,   // se valida en el handler; si no está en IDIOMAS se descarta
+        numero:  String(parseInt(num.val, 10)),
+      };
+    }
+
+    // w0 de 1 letra (artefacto OCR, ej. "A" de "LA") → ignorar, buscar set en w1
+    if (w0.val.length === 1 && w1 && w1.val.length >= 2) {
+      return { rawSet: w1.val, rawLang: '', numero: String(parseInt(num.val, 10)) };
+    }
+  }
+
+  return { rawSet: '', rawLang: '', numero: '' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Búsqueda predictiva de energía en DB
+//
+// En lugar de intentar parsear el texto a un formato exacto (frágil ante OCR),
+// extrae TODOS los candidatos posibles y hace una sola consulta SQL que los
+// prueba a la vez. Lo que exista en la DB gana.
+//
+// Candidatos set:    todos los tokens ASCII 2-5 letras del texto + sus ventanas de 3.
+// Candidatos número: todos los números 1-300 del texto + variantes de padding.
+// Ranking:           prioriza el par (set, número) cuyo token set aparece más
+//                    cerca del número en el texto (distancia de caracteres).
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface EnergyMatch {
+  setAbbr:    string;
+  cardNumber: string;
+  cardName:   string;
+}
+
+async function findEnergyCardInDB(fullText: string): Promise<EnergyMatch | null> {
+  const upper = fullText.toUpperCase();
+
+  // Números candidatos con su posición en el texto (excluye años 4+ dígitos)
+  const rawNums = [...upper.matchAll(/(?<!\d)(\d{1,3})(?!\d)/g)]
+    .map(m => ({ val: m[1], idx: m.index! }))
+    .filter(({ val }) => { const v = parseInt(val, 10); return v >= 1 && v <= 300; });
+
+  if (!rawNums.length) return null;
+
+  // Variantes de padding: "7" → ["7","07","007"]
+  const numVariants = [...new Set(
+    rawNums.flatMap(({ val }) => {
+      const v = parseInt(val, 10);
+      return [val, String(v), v.toString().padStart(2, '0'), v.toString().padStart(3, '0')];
+    }),
+  )];
+
+  // Tokens ASCII uppercase (2-5 letras, sin acentos) + ventanas de 3 letras
+  // Ej: "SVEB" → {SVEB, SVE, VEB}   "MEELA" → {MEELA, MEE, EEL, ELA}
+  const tokenPos = new Map<string, number>();   // code → posición más temprana
+  for (const m of upper.matchAll(/\b([A-Z]{2,5})\b/g)) {
+    const tok = m[1]; const idx = m.index!;
+    if (!tokenPos.has(tok)) tokenPos.set(tok, idx);
+    for (let i = 0; i <= tok.length - 3; i++) {
+      const sub = tok.slice(i, i + 3);
+      if (!tokenPos.has(sub)) tokenPos.set(sub, idx);
+    }
+  }
+
+  if (!tokenPos.size) return null;
+
+  try {
+    // Una sola consulta: prueba todos los (set_abbr, card_number) posibles a la vez
+    const { rows } = await catalogPool.query<{ set_abbr: string; card_number: string; card_name: string }>(
+      `SELECT set_abbr, card_number, card_name
+       FROM v_cards_unified
+       WHERE set_abbr    = ANY($1::text[])
+         AND card_number = ANY($2::text[])
+         AND lang_code   = 'en'
+       LIMIT 20`,
+      [[...tokenPos.keys()], numVariants],
+    );
+
+    if (!rows.length) return null;
+
+    // Rankear por distancia (en caracteres) entre la posición del set token
+    // y la posición del número candidato en el texto OCR.
+    // El par más cercano corresponde al pie de la carta real.
+    const scored = rows.map(row => {
+      const setPos = tokenPos.get(row.set_abbr) ?? Infinity;
+      const numPos = rawNums.find(({ val }) => {
+        const v = parseInt(val, 10);
+        return [val, String(v), v.toString().padStart(2, '0'), v.toString().padStart(3, '0')]
+          .includes(row.card_number);
+      })?.idx ?? Infinity;
+      return { ...row, dist: Math.abs(setPos - numPos) };
+    });
+
+    scored.sort((a, b) => a.dist - b.dist);
+    const best = scored[0];
+    return { setAbbr: best.set_abbr, cardNumber: best.card_number, cardName: best.card_name };
+  } catch (err: any) {
+    console.warn('[scan] findEnergyCardInDB falló:', err.message);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Reverse lookup — busca en v_cards_unified por nombre (y número opcional)
 // cuando no se detectó la colección desde el pie de la carta.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -602,15 +800,39 @@ router.post('/', async (req: Request, res: Response) => {
 
     const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
 
+    // ── Detección temprana de carta de energía ────────────────────────────────
+    const energyInfo = detectEnergyCard(fullText);
+
     // ── Pie de carta: sigla + idioma + número ─────────────────────────────────
-    const { rawSet, rawLang, numero } = extractSetInfo(fullText);
+    let { rawSet, rawLang, numero } = extractSetInfo(fullText);
+
+    // Cartas de energía no tienen formato N/M en el pie → fallback a "SIGLA [LANG] NNN"
+    if (energyInfo.isEnergy && !rawSet) {
+      const ef = extractEnergySetInfo(fullText);
+      if (ef.rawSet) {
+        rawSet  = ef.rawSet;
+        numero  = ef.numero;
+        if (ef.rawLang) rawLang = ef.rawLang;
+      }
+    }
+
+    // Si el idioma del pie no se reconoce (ej. "LA" para Latinoamérica) o está vacío,
+    // usar el idioma detectado desde el texto de la energía básica ("Energía Básica" → ES).
+    if (energyInfo.isBasic && energyInfo.langCode && !resolveIdioma(rawLang)) {
+      rawLang = energyInfo.langCode;
+    }
+
     const coleccionEntry = rawSet  ? resolveColeccion(rawSet)  : null;
     const idiomaEntry    = rawLang
       ? resolveIdioma(rawLang)
       : coleccionEntry ? resolveIdioma('EN') : null;   // si hay colección pero no idioma → EN por defecto
 
     // ── Nombre de la carta ───────────────────────────────────────────────────
-    const nameResult = extractNombre(lines);
+    // Para cartas de energía el nombre viene solo de la DB (colección+número),
+    // no del OCR — "Energía Básica" no es el nombre real de la carta.
+    const nameResult = energyInfo.isEnergy
+      ? { nombre: '', stage: '', stageLang: '', stageKey: '' }
+      : extractNombre(lines);
 
     // ── Resolución validada contra la DB ─────────────────────────────────────
     // Estrategia en cascada hasta encontrar una carta REAL:
@@ -631,10 +853,28 @@ router.post('/', async (req: Request, res: Response) => {
 
     const ocrNombre = nameResult.nombre;
 
+    // (1-energía) Búsqueda predictiva para cartas de energía
+    // Una sola consulta SQL prueba todos los tokens del texto (+ ventanas de 3 letras)
+    // contra todos los números 1-300 del texto. Lo que esté en la DB gana.
+    // Ranking por proximidad de texto: el par (set, número) más cercano en el OCR
+    // corresponde al pie de carta real.
+    if (energyInfo.isEnergy) {
+      const em = await findEnergyCardInDB(fullText);
+      if (em) {
+        dbName         = em.cardName;
+        nombreFinal    = em.cardName;
+        coleccionFinal = em.setAbbr;
+        numeroFinal    = em.cardNumber;
+        rawSet         = em.setAbbr;    // para logging correcto
+        fuente         = 'footer';
+        console.log(`[scan]   (1-energía) "${em.cardName}" en ${em.setAbbr}#${em.cardNumber}`);
+      }
+    }
+
     // (1) Sigla primaria del pie + número
     // La sigla está confirmada en SIGLAS_MAP y el número viene del patrón N/M del pie.
-    // Juntos identifican la carta unívocamente → siempre confiamos en el resultado de DB,
-    // sin validar contra el nombre OCR (que puede estar garbled, ej. "EW" en vez del nombre real).
+    // Juntos identifican la carta unívocamente → siempre confiamos en el resultado de DB.
+
     if (coleccionEntry && numero) {
       const name = await dbLookupCard(coleccionEntry.abbr, numero);
       if (name) {
@@ -664,7 +904,8 @@ router.post('/', async (req: Request, res: Response) => {
     // Se activa cuando pasos 1/2 fallaron y hay número.
     // Con nombre confiable: filtra por nombre+número en SQL (sin límite artificial de candidatos).
     // Sin nombre confiable: busca por número y rankea por similitud de sigla con rawSet.
-    if (!dbName && numero) {
+    // Para cartas de energía se omite: no hay nombre Pokémon útil en el OCR.
+    if (!dbName && numero && !energyInfo.isEnergy) {
       const nParsed    = parseInt(numero, 10);
       const numVariants = !isNaN(nParsed)
         ? [...new Set([numero, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])]
@@ -717,7 +958,8 @@ router.post('/', async (req: Request, res: Response) => {
     // (3) Reverse lookup por nombre OCR + número
     // Se activa cuando pasos 1/2/2b no encontraron nada, hay nombre OCR confiable
     // (no texto de juego como "Evolves from...") y ese nombre puede servir de búsqueda.
-    if (!dbName && ocrNombre && !GAME_TEXT.test(ocrNombre)) {
+    // Para cartas de energía se omite: no tiene nombre Pokémon en el OCR.
+    if (!dbName && ocrNombre && !GAME_TEXT.test(ocrNombre) && !energyInfo.isEnergy) {
       reverseMatches = await reverseLookup(ocrNombre, numero);
       // Rankear candidatos por similitud de sigla con rawSet (igual que paso 2b)
       if (reverseMatches.length > 1 && rawSet) {
@@ -769,6 +1011,11 @@ router.post('/', async (req: Request, res: Response) => {
     // ── Log detallado ─────────────────────────────────────────────────────────
     console.log('\n[scan] ─────────────────────────────────────────────────');
     console.log(`[scan] texto: "${fullText.replace(/\n/g, ' | ')}"`);
+    if (energyInfo.isEnergy) {
+      console.log(`[scan] ─── carta de energía ────────────────────────────`);
+      console.log(`[scan]   tipo           : ${energyInfo.isBasic ? 'Energía Básica' : 'Energía especial'}`);
+      if (energyInfo.langCode) console.log(`[scan]   idioma (energía): "${energyInfo.langCode}"`);
+    }
     console.log('[scan] ─── stage detectado ─────────────────────────────');
     if (nameResult.stage) {
       console.log(`[scan]   stage raw      : "${nameResult.stage}"`);
