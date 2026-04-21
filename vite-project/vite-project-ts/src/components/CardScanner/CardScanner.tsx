@@ -13,9 +13,18 @@ export interface ScannedCard {
 
 type ScanStatus = 'scanning' | 'looking-up' | 'done' | 'review'
 
+interface Candidato {
+  set_abbr:    string
+  set_name:    string
+  card_number: string
+  lang_code:   string
+  card_name:   string
+}
+
 interface QueueItem extends ScannedCard {
-  itemId: number
-  status: ScanStatus
+  itemId:     number
+  status:     ScanStatus
+  candidatos: Candidato[]
 }
 
 interface CardScannerProps {
@@ -100,11 +109,12 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
     // Agregar placeholder con estado "scanning" de inmediato
     setQueue(prev => [...prev, {
       itemId,
-      name: '',
-      set: '',
-      number: '',
+      name:       '',
+      set:        '',
+      number:     '',
       imageDataUrl,
-      status: 'scanning',
+      status:     'scanning',
+      candidatos: [],
     }])
 
     try {
@@ -126,17 +136,18 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
         item.itemId === itemId
           ? {
               ...item,
-              name:   nombre,
-              set:    coleccion,
-              number: numero,
-              status: canResolve ? 'done' : 'review',
+              name:       nombre,
+              set:        coleccion,
+              number:     numero,
+              status:     canResolve ? 'done' : 'review',
+              candidatos: scanData?.candidatos ?? [],
             }
           : item
       ))
     } catch (err) {
       console.error('Card recognition error:', err)
       setQueue(prev => prev.map(item =>
-        item.itemId === itemId ? { ...item, status: 'review' } : item
+        item.itemId === itemId ? { ...item, status: 'review', candidatos: [] } : item
       ))
     } finally {
       setCapturing(false)
@@ -145,6 +156,14 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
 
   const updateCard = (itemId: number, field: keyof Omit<ScannedCard, 'imageDataUrl' | 'id'>, value: string) => {
     setQueue(prev => prev.map(item => item.itemId === itemId ? { ...item, [field]: value } : item))
+  }
+
+  const applyCandidato = (itemId: number, c: Candidato) => {
+    setQueue(prev => prev.map(item =>
+      item.itemId === itemId
+        ? { ...item, name: c.card_name, set: c.set_abbr, number: c.card_number, status: 'done', candidatos: [] }
+        : item
+    ))
   }
 
   const removeCard = (itemId: number) => {
@@ -270,6 +289,23 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
                         className={styles.fieldInputSmall}
                       />
                     </div>
+                    {card.status === 'review' && card.candidatos.length > 0 && (
+                      <div className={styles.candidatos}>
+                        <span className={styles.candidatosLabel}>Posibles coincidencias:</span>
+                        {card.candidatos.slice(0, 5).map((c, i) => (
+                          <button
+                            key={i}
+                            className={styles.candidatoBtn}
+                            onClick={() => applyCandidato(card.itemId, c)}
+                          >
+                            {c.card_name}
+                            <span className={styles.candidatoMeta}>
+                              {c.set_abbr} #{c.card_number} · {c.lang_code.toUpperCase()}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => removeCard(card.itemId)}

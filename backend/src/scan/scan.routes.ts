@@ -236,8 +236,20 @@ function extractSetInfo(text: string): SetInfo {
       rawSet  = last.slice(1, 4);   // prefijo+set+lang: saltar primera letra
       rawLang = last.slice(4, 6);
     } else {
-      rawSet  = last.slice(0, 3);
-      rawLang = last.slice(3, 5);
+      // length 5: puede ser [PREFIJO][SET3][SUF] (ej. "HSSPS" → SSP) o [SET3][LANG2].
+      // Buscar ventana de 3 que exista en SIGLAS_MAP; si no, caer al comportamiento original.
+      let foundIdx = -1;
+      for (let i = 0; i <= last.length - 3; i++) {
+        if (SIGLAS_MAP.has(last.slice(i, i + 3))) { foundIdx = i; break; }
+      }
+      if (foundIdx >= 0) {
+        rawSet = last.slice(foundIdx, foundIdx + 3);
+        const after = last.slice(foundIdx + 3);
+        if (after.length === 2) rawLang = after;
+      } else {
+        rawSet  = last.slice(0, 3);
+        rawLang = last.slice(3, 5);
+      }
     }
   } else if (last.length === 3) {
     rawSet = last;
@@ -418,7 +430,7 @@ function extractNombre(lines: string[]): NameResult {
 
   // Fallback C: primeras 8 líneas — la primera que pase isPlausibleName y no sea un label de stage/tipo.
   // isPlausibleName ya incluye el filtro GAME_TEXT, así que solo se necesita la exclusión de labels.
-  const STAGE_LABELS = /^(?:BASIC|STAGE|MEGA|VMAX|VSTAR|BREAK|GX|EX|TAG|PRISM|LEVEL|LVL|POKÉMON|POKEMON|HP|PS|PV)$/i;
+  const STAGE_LABELS = /^(?:BASIC|STAGE|MEGA|VMAX|VSTAR|BREAK|GX|EX|TAG|PRISM|LEVEL|LVL|POKÉMON|POKEMON|HP|PS|PV|TRAINER|ENTRENADOR|TREINADOR|ENTRAÎNEUR|ALLENATORE|ITEM|SUPPORTER|SUPPORTEUR|APOIANTE|SOSTENITORE|UNTERSTÜTZER|STADIUM|ESTADIO|STADE|STADION|STADIO|TOOL|HERRAMIENTA|FERRAMENTA|OUTIL|WERKZEUG)$/i;
   for (const line of lines.slice(0, 8)) {
     const candidate = cleanName(line);
     if (!isPlausibleName(candidate)) continue;
@@ -542,6 +554,69 @@ function extractEnergySetInfo(text: string): SetInfo {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Trainer card detection
+// Detecta si la carta es de tipo Trainer e infiere el idioma desde la etiqueta.
+// TRAINER/ENTRENADOR/TREINADOR/etc. como token suelto = tipo de carta Trainer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TrainerInfo {
+  isTrainer: boolean;
+  langCode:  string;
+  subtype:   string;   // 'Stadium' | 'Item' | 'Tool' | 'Supporter' | ''
+}
+
+// Etiqueta de tipo Trainer — palabras únicas por idioma primero.
+const TRAINER_TYPE_LABELS: Array<{ pattern: string; lang: string }> = [
+  { pattern: 'ENTRENADOR', lang: 'ES' },
+  { pattern: 'TREINADOR',  lang: 'PT' },
+  { pattern: 'ENTRAÎNEUR', lang: 'FR' },
+  { pattern: 'ALLENATORE', lang: 'IT' },
+  { pattern: 'TRAINER',    lang: 'EN' },   // EN y DE comparten esta etiqueta
+];
+
+// Subtipo Trainer — los específicos de idioma van primero dentro de cada grupo.
+// La propiedad `lang` solo se usa cuando el tipo Trainer ya detectó EN (ambiguo con DE).
+const TRAINER_SUBTYPE_LABELS: Array<{ pattern: string; subtype: string; lang?: string }> = [
+  { pattern: 'ESTADIO',      subtype: 'Stadium',   lang: 'ES' },
+  { pattern: 'STADE',        subtype: 'Stadium',   lang: 'FR' },
+  { pattern: 'STADION',      subtype: 'Stadium',   lang: 'DE' },
+  { pattern: 'STADIUM',      subtype: 'Stadium' },
+  { pattern: 'APOIANTE',     subtype: 'Supporter', lang: 'PT' },
+  { pattern: 'SOSTENITORE',  subtype: 'Supporter', lang: 'IT' },
+  { pattern: 'UNTERSTÜTZER', subtype: 'Supporter', lang: 'DE' },
+  { pattern: 'SUPPORTEUR',   subtype: 'Supporter', lang: 'FR' },
+  { pattern: 'SUPPORTER',    subtype: 'Supporter' },
+  { pattern: 'HERRAMIENTA',  subtype: 'Tool',      lang: 'ES' },
+  { pattern: 'FERRAMENTA',   subtype: 'Tool',      lang: 'PT' },
+  { pattern: 'OUTIL',        subtype: 'Tool',      lang: 'FR' },
+  { pattern: 'WERKZEUG',     subtype: 'Tool',      lang: 'DE' },
+  { pattern: 'TOOL',         subtype: 'Tool' },
+  { pattern: 'ITEM',         subtype: 'Item' },    // Compartido por varios idiomas
+];
+
+function detectTrainerCard(text: string): TrainerInfo {
+  const upper = text.toUpperCase();
+
+  for (const { pattern, lang } of TRAINER_TYPE_LABELS) {
+    if (!upper.includes(pattern)) continue;
+
+    // Detectar subtipo dentro de la misma carta
+    for (const entry of TRAINER_SUBTYPE_LABELS) {
+      if (upper.includes(entry.pattern)) {
+        // Si el subtipo tiene idioma propio y el trainer detectó EN (ambiguo con DE),
+        // usar el idioma del subtipo para mayor precisión.
+        const langCode = (lang === 'EN' && entry.lang) ? entry.lang : lang;
+        return { isTrainer: true, langCode, subtype: entry.subtype };
+      }
+    }
+
+    return { isTrainer: true, langCode: lang, subtype: '' };
+  }
+
+  return { isTrainer: false, langCode: '', subtype: '' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Búsqueda predictiva de energía en DB
 //
 // En lugar de intentar parsear el texto a un formato exacto (frágil ante OCR),
@@ -659,7 +734,9 @@ function namesOverlap(a: string, b: string): boolean {
   const na = normalizeName(a);
   const nb = normalizeName(b);
   if (!na || !nb) return true;
-  const prefix = Math.min(7, Math.min(na.length, nb.length));
+  // Prefix 6: "Ciudad Leudal" y "Ciudad Feudal" comparten "ciudad" (6 chars)
+  // y aún diferencia "Charmander" de "Charmeleon" ("charma" ≠ "charme").
+  const prefix = Math.min(6, Math.min(na.length, nb.length));
   return na.includes(nb.slice(0, prefix)) || nb.includes(na.slice(0, prefix));
 }
 
@@ -800,8 +877,9 @@ router.post('/', async (req: Request, res: Response) => {
 
     const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
 
-    // ── Detección temprana de carta de energía ────────────────────────────────
-    const energyInfo = detectEnergyCard(fullText);
+    // ── Detección temprana de tipo de carta ──────────────────────────────────
+    const energyInfo  = detectEnergyCard(fullText);
+    const trainerInfo = detectTrainerCard(fullText);
 
     // ── Pie de carta: sigla + idioma + número ─────────────────────────────────
     let { rawSet, rawLang, numero } = extractSetInfo(fullText);
@@ -816,10 +894,12 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    // Si el idioma del pie no se reconoce (ej. "LA" para Latinoamérica) o está vacío,
-    // usar el idioma detectado desde el texto de la energía básica ("Energía Básica" → ES).
+    // Si el idioma del pie no se reconoce, intentar inferirlo desde el tipo de carta.
+    // Prioridad: energía básica > etiqueta TRAINER/ENTRENADOR/etc.
     if (energyInfo.isBasic && energyInfo.langCode && !resolveIdioma(rawLang)) {
       rawLang = energyInfo.langCode;
+    } else if (trainerInfo.isTrainer && trainerInfo.langCode && !resolveIdioma(rawLang)) {
+      rawLang = trainerInfo.langCode;
     }
 
     const coleccionEntry = rawSet  ? resolveColeccion(rawSet)  : null;
@@ -931,12 +1011,21 @@ router.post('/', async (req: Request, res: Response) => {
         candidates   = ocrNombreConfiable ? byNum.filter(c => namesOverlap(c.card_name, ocrNombre)) : byNum;
       }
 
-      // Rankear por similitud de sigla con el token OCR del pie
-      if (candidates.length > 0 && rawSet) {
-        const ref = rawSet.toUpperCase();
+      // Rankear: nombre OCR como criterio primario, sigla como desempate.
+      // Evita que un rawSet garbled (ej. "CHI" de "Chikazowa") imponga una
+      // colección incorrecta cuando el nombre apunta a otra carta.
+      if (candidates.length > 0) {
+        const setRef  = rawSet.toUpperCase();
+        const nameRef = normalizeName(ocrNombre);
         candidates = [...candidates]
-          .map(r => ({ r, dist: levenshtein(r.set_abbr.toUpperCase(), ref) }))
-          .sort((a, b) => a.dist - b.dist)
+          .map(r => ({
+            r,
+            nameDist: nameRef.length >= 4
+              ? levenshtein(normalizeName(r.card_name), nameRef)
+              : 999,
+            setDist: rawSet ? levenshtein(r.set_abbr.toUpperCase(), setRef) : 999,
+          }))
+          .sort((a, b) => a.nameDist - b.nameDist || a.setDist - b.setDist)
           .map(({ r }) => r);
       }
 
@@ -961,12 +1050,19 @@ router.post('/', async (req: Request, res: Response) => {
     // Para cartas de energía se omite: no tiene nombre Pokémon en el OCR.
     if (!dbName && ocrNombre && !GAME_TEXT.test(ocrNombre) && !energyInfo.isEnergy) {
       reverseMatches = await reverseLookup(ocrNombre, numero);
-      // Rankear candidatos por similitud de sigla con rawSet (igual que paso 2b)
-      if (reverseMatches.length > 1 && rawSet) {
-        const ref = rawSet.toUpperCase();
+      // Rankear: nombre primero (misma lógica que paso 2b), sigla como desempate.
+      if (reverseMatches.length > 1) {
+        const setRef  = rawSet ? rawSet.toUpperCase() : '';
+        const nameRef = normalizeName(ocrNombre);
         reverseMatches = [...reverseMatches]
-          .map(r => ({ r, dist: levenshtein(r.set_abbr.toUpperCase(), ref) }))
-          .sort((a, b) => a.dist - b.dist)
+          .map(r => ({
+            r,
+            nameDist: nameRef.length >= 4
+              ? levenshtein(normalizeName(r.card_name), nameRef)
+              : 999,
+            setDist: setRef ? levenshtein(r.set_abbr.toUpperCase(), setRef) : 999,
+          }))
+          .sort((a, b) => a.nameDist - b.nameDist || a.setDist - b.setDist)
           .map(({ r }) => r);
       }
       const best = reverseMatches[0] ?? null;
@@ -978,6 +1074,109 @@ router.post('/', async (req: Request, res: Response) => {
         fuente         = 'reverse';
         // Si el OCR no detectó número pero la DB sí lo tiene, usarlo
         if (!numeroFinal) numeroFinal = best.card_number;
+      }
+    }
+
+    // (val) Validación de nombre: verifica que el resultado de pasos 2/2b/3 coincida
+    // con el nombre OCR en ALGÚN idioma de la DB. Umbral 0.35 — hasta ~35% de chars
+    // distintos (OCR con ruido), rechaza cartas con nombre claramente diferente.
+    // No aplica a: footer exacto (colección verificada) ni energías.
+    // Si el descarte viene del paso 2b (que bloqueó el paso 3), hace un retry con
+    // reverseLookup para encontrar la colección correcta por nombre+número.
+    if (dbName && ocrNombre && !GAME_TEXT.test(ocrNombre)
+        && fuente !== 'footer' && !energyInfo.isEnergy) {
+      const ocrNorm = normalizeName(ocrNombre);
+      if (ocrNorm.length >= 4) {
+        const nameVariants: string[] = [normalizeName(dbName)];
+        try {
+          const { rows } = await catalogPool.query<{ card_name: string }>(
+            `SELECT DISTINCT card_name FROM v_cards_unified
+             WHERE set_abbr = $1 AND card_number = $2`,
+            [coleccionFinal, numeroFinal],
+          );
+          nameVariants.push(...rows.map(r => normalizeName(r.card_name)).filter(Boolean));
+        } catch { /* continúa con solo dbName */ }
+
+        const minScore = Math.min(...nameVariants.map(nn =>
+          nn.length >= 2 ? levenshtein(ocrNorm, nn) / Math.max(ocrNorm.length, nn.length) : 1,
+        ));
+
+        if (minScore > 0.35) {
+          const prevFuente = fuente;
+          console.log(`[scan]   (val) descartando "${dbName}" (score ${minScore.toFixed(2)}) — "${ocrNombre}" no coincide en ningún idioma`);
+          dbName         = null;
+          nombreFinal    = ocrNombre;
+          coleccionFinal = coleccionEntry?.abbr ?? '';
+          fuente         = 'ocr';
+          reverseMatches = [];
+
+          // Si llegamos desde paso 2b (paso 3 fue bloqueado), ejecutar paso 3 ahora
+          // como último intento: busca por nombre+número en cualquier colección,
+          // rankeado por similitud de nombre. Mismo umbral estricto (0.35).
+          if (prevFuente === 'number-name' && numero) {
+            const retryMatches = await reverseLookup(ocrNombre, numero);
+            const setRef  = rawSet ? rawSet.toUpperCase() : '';
+            if (retryMatches.length > 0) {
+              const ranked = [...retryMatches]
+                .map(r => {
+                  const nn = normalizeName(r.card_name);
+                  return {
+                    r,
+                    nameScore: nn.length >= 2
+                      ? levenshtein(ocrNorm, nn) / Math.max(ocrNorm.length, nn.length)
+                      : 1,
+                    setDist: setRef ? levenshtein(r.set_abbr.toUpperCase(), setRef) : 999,
+                  };
+                })
+                .sort((a, b) => a.nameScore - b.nameScore || a.setDist - b.setDist);
+              const best = ranked[0];
+              if (best.nameScore <= 0.35) {
+                dbName         = best.r.card_name;
+                nombreFinal    = best.r.card_name;
+                coleccionFinal = best.r.set_abbr;
+                idiomaFinal    = best.r.lang_code.trim().toUpperCase();
+                fuente         = 'reverse';
+                if (!numeroFinal) numeroFinal = best.r.card_number;
+                reverseMatches = retryMatches;
+                console.log(`[scan]   (val-retry) "${best.r.card_name}" en ${best.r.set_abbr} (score ${best.nameScore.toFixed(2)})`);
+              } else {
+                console.log(`[scan]   (val-retry) sin coincidencia válida — mejor: "${ranked[0].r.card_name}" (score ${best.nameScore.toFixed(2)})`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // (num-fallback) Último recurso cuando la búsqueda por nombre falló completamente:
+    // buscar todas las cartas con ese número en el idioma detectado (y EN como referencia)
+    // para proveer candidatos al frontend. No sobreescribe el nombre OCR, solo popula
+    // reverseMatches. Útil cuando el nombre OCR está en un idioma no indexado en la DB
+    // (ej. ES "Ciudad Leudal" → EN "Levincia") y el número es el único dato confiable.
+    if (fuente === 'ocr' && numero && !energyInfo.isEnergy) {
+      const nParsed  = parseInt(numero, 10);
+      const numVars  = !isNaN(nParsed)
+        ? [...new Set([numero, String(nParsed), String(nParsed).padStart(2, '0'), String(nParsed).padStart(3, '0')])]
+        : [numero];
+      const langPref = (idiomaFinal || 'en').toLowerCase();
+      try {
+        const { rows } = await catalogPool.query<ReverseLookupMatch>(
+          `SELECT set_abbr, set_name, card_number, lang_code, card_name
+           FROM v_cards_unified
+           WHERE card_number = ANY($1::text[])
+           ORDER BY CASE WHEN lang_code = $2    THEN 0
+                         WHEN lang_code = 'en'  THEN 1
+                         ELSE 2 END,
+                    set_abbr, card_number
+           LIMIT 20`,
+          [numVars, langPref],
+        );
+        if (rows.length > 0) {
+          reverseMatches = rows;
+          console.log(`[scan]   (num-fallback) ${rows.length} candidatos por número "${numero}" (idioma preferido: ${langPref})`);
+        }
+      } catch (err: any) {
+        console.warn('[scan] num-fallback falló:', err.message);
       }
     }
 
@@ -1015,6 +1214,11 @@ router.post('/', async (req: Request, res: Response) => {
       console.log(`[scan] ─── carta de energía ────────────────────────────`);
       console.log(`[scan]   tipo           : ${energyInfo.isBasic ? 'Energía Básica' : 'Energía especial'}`);
       if (energyInfo.langCode) console.log(`[scan]   idioma (energía): "${energyInfo.langCode}"`);
+    }
+    if (trainerInfo.isTrainer) {
+      console.log(`[scan] ─── carta de trainer ────────────────────────────`);
+      if (trainerInfo.subtype) console.log(`[scan]   subtipo        : "${trainerInfo.subtype}"`);
+      console.log(`[scan]   idioma (trainer): "${trainerInfo.langCode}"`);
     }
     console.log('[scan] ─── stage detectado ─────────────────────────────');
     if (nameResult.stage) {
@@ -1055,12 +1259,12 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(200).json({
       success:          true,
       nombre:           nombreFinal,
-      coleccion:        coleccionFinal,
+      coleccion:        SIGLAS_MAP.has(coleccionFinal.toUpperCase()) ? coleccionFinal : '',
       numero:           numeroFinal,
       idioma:           idiomaFinal,
       fullText,
       fuenteColeccion:  fuente,
-      candidatos:       reverseMatches.length > 1 ? reverseMatches : undefined,
+      candidatos:       reverseMatches.length > 0 ? reverseMatches : undefined,
     });
 
   } catch (err: any) {

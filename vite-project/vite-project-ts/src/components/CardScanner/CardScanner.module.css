@@ -430,3 +430,49 @@
   background: #fee2e2;
   color: #991b1b;
 }
+
+/* ── Candidatos (sugerencias de num-fallback) ── */
+.candidatos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.25rem;
+}
+
+.candidatosLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.candidatoBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1e40af;
+  transition: background 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+
+.candidatoBtn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.candidatoMeta {
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: #6b7280;
+  flex-shrink: 0;
+}
