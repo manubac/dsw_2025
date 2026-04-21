@@ -272,6 +272,15 @@ export function Header() {
                   Mi Perfil
                 </button>
 
+                {(user.role === 'user' || user.role === 'usuario') && (
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/wishlist') }}
+                    className="block w-full text-left px-4 py-2 hover:bg-orange-100 text-red-500 font-medium"
+                  >
+                    ♥ Mis Favoritos
+                  </button>
+                )}
+
                 {user.role === 'user' && (
                   <button
                     onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}

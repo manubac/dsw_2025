@@ -5,6 +5,7 @@ import { AddToCartIcon } from '../components/Icons'
 // import axios from 'axios'
 import { fetchApi, api } from '../services/api'
 import { useUser } from '../context/user'
+import WishlistModal from '../components/WishlistModal'
 
 
 export function CardDetail() {
@@ -16,6 +17,9 @@ export function CardDetail() {
   const [quantity, setQuantity] = useState(1)
   const [card, setCard] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [enFavoritos, setEnFavoritos] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
+  const [showWishlistModal, setShowWishlistModal] = useState(false)
 
   useEffect(() => {
     const fetchCard = async () => {
@@ -39,6 +43,42 @@ export function CardDetail() {
       fetchCard()
     }
   }, [id, navigate])
+
+  useEffect(() => {
+    if (!user || (user.role !== 'user' && user.role !== 'usuario') || !card?.id) return
+    fetchApi('/api/wishlist')
+      .then(r => r.json())
+      .then(json => {
+        const entries = json.data || []
+        const found = entries.some((e: any) =>
+          (card.cartaClass?.id && e.cartaClass?.id === card.cartaClass.id) ||
+          (!card.cartaClass?.id && e.cartaId === card.id)
+        )
+        setEnFavoritos(found)
+      })
+      .catch(() => {})
+  }, [card, user])
+
+  const handleToggleWishlist = async () => {
+    if (!card?.id || wishlistLoading) return
+
+    if (enFavoritos) {
+      setWishlistLoading(true)
+      try {
+        const deleteUrl = card.cartaClass?.id
+          ? `/api/wishlist/${card.cartaClass.id}`
+          : `/api/wishlist/carta/${card.id}`
+        await fetchApi(deleteUrl, { method: 'DELETE' })
+        setEnFavoritos(false)
+      } catch {
+        // silencioso
+      } finally {
+        setWishlistLoading(false)
+      }
+    } else {
+      setShowWishlistModal(true)
+    }
+  }
 
   if (loading) {
     return <div className="loading">Loading...</div>
@@ -152,6 +192,19 @@ export function CardDetail() {
               </div>
             </div>
           )}
+
+          {(user?.role === 'usuario' || user?.role === 'user') && (
+            <button
+              onClick={handleToggleWishlist}
+              disabled={wishlistLoading}
+              title={enFavoritos ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              className={`mt-2 text-xl transition disabled:opacity-30 ${
+                enFavoritos ? 'text-red-500 hover:text-red-400' : 'text-gray-400 hover:text-red-400'
+              }`}
+            >
+              {enFavoritos ? '♥' : '♡'}
+            </button>
+          )}
         </div>
 
         {/* Rareza */}
@@ -249,7 +302,7 @@ export function CardDetail() {
         </div>
 
         {/* Botones vendedor */}
-        {user && card?.uploader && user.id === card.uploader.id && (
+        {user && user.role === 'vendedor' && card?.uploader && user.id === card.uploader.id && (
           <div className="mt-4 flex gap-3">
             <button
               onClick={() => navigate('/editar-carta', { state: { carta: card } })}
@@ -307,6 +360,18 @@ export function CardDetail() {
         </div>
       </div>
     </div>
+
+    {showWishlistModal && (
+      <WishlistModal
+        cartaClassId={card?.cartaClass?.id}
+        cartaId={!card?.cartaClass?.id ? card?.id : undefined}
+        onSaved={() => {
+          setEnFavoritos(true)
+          setShowWishlistModal(false)
+        }}
+        onCancel={() => setShowWishlistModal(false)}
+      />
+    )}
   </div>
 )
 }

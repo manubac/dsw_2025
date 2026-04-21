@@ -12,7 +12,7 @@ export class Carta extends BaseEntity {
   @Property({ type: 'string', nullable: true })
   price?: string;
 
-  @Property({ nullable: true, columnType: 'text' })
+  @Property({ type: 'string', nullable: true, columnType: 'text' })
   image?: string;
 
   @Property({ type: 'string', nullable: true })
@@ -29,6 +29,9 @@ export class Carta extends BaseEntity {
 
   @Property({ type: 'string', nullable: true })
   cardNumber?: string;
+
+  @Property({ type: 'string', nullable: true })
+  lang?: string; // 'es' | 'en' | 'jp' | 'fr' | 'de' | 'it' | 'pt' | 'ko' | 'zh-tw'
 
   @ManyToOne(() => CartaClass, { nullable: true })
   cartaClass?: Rel<CartaClass>;

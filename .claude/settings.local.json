@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Skill(claude-md-management:revise-claude-md)"
+      "Skill(claude-md-management:revise-claude-md)",
+      "Bash(pnpm add *)",
+      "Bash(npx tsc *)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_select_option",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "Bash(git pull *)",
+      "Bash(git fetch *)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(pnpm schema:update)",
+      "Bash(PGPASSWORD=post1234 psql -U postgres -h localhost -d heroclash_dsw -c \"SELECT w.id, w.\\\\\"userId\\\\\", w.\\\\\"cartaId\\\\\", w.\\\\\"cartaClass_id\\\\\", w.notificar, w.\\\\\"ultimaNotificacion\\\\\" FROM wishlist w;\")",
+      "Bash(node -e ' *)"
     ]
   },
   "extraKnownMarketplaces": {
