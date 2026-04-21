@@ -4,7 +4,7 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM"],
     "jsx": "react-jsx",
-  "moduleResolution": "node",
+  "moduleResolution": "Bundler",
   "strict": true,
   "skipLibCheck": true,
   "allowJs": true,

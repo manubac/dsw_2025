@@ -15,6 +15,7 @@ interface CartaResultado {
   rarity?: string;
   setName?: string;
   setId?: string;
+  number?: string;
 }
 
 interface Rareza {
