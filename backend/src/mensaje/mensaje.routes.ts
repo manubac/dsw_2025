@@ -3,6 +3,7 @@ import { orm } from "../shared/db/orm.js";
 import { Mensaje } from "./mensaje.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import { authenticate, AuthRequest } from "../shared/middleware/auth.js";
+import { io } from "../socket/index.js";
 
 export const mensajeRouter = Router();
 
@@ -50,6 +51,9 @@ mensajeRouter.post("/:compraId", authenticate, async (req: AuthRequest, res: Res
     });
 
     await em.flush();
+
+    io.to(`compra-${compraId}`).emit('nuevo_mensaje', mensaje);
+
     res.status(201).json({ data: mensaje });
   } catch (error: any) {
     res.status(500).json({ message: "Error al enviar mensaje", error: error.message });

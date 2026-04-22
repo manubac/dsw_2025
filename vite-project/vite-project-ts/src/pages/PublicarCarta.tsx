@@ -19,7 +19,6 @@ interface CartaResultado {
   number?: string;
 }
 
-// Mapea el Juego interno al GameSlug del servicio TCG
 function toSlug(juego: Juego): GameSlug {
   return juego === "magic" ? "mtg" : juego === "yugioh" ? "ygo" : juego as GameSlug;
 }

@@ -39,7 +39,7 @@ export function UserProfilePage() {
     if (user?.id) {
       loadDirecciones();
     }
-  }, [user?.id, loadDirecciones]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manejar cambios en el formulario de dirección
   const handleDireccionChange = (e: React.ChangeEvent<HTMLInputElement>) => {

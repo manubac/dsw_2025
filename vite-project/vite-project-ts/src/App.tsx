@@ -23,6 +23,7 @@ import { VendedorProfile } from "./pages/VendedorProfile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { PagoExitoso } from "./pages/pagoExitoso";
+import WishlistPage from "./pages/WishlistPage";
 
 /* ✅ NUEVO — páginas de resultado de pago */
 import PagoError from "./pages/pagoError";
@@ -122,6 +123,16 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Reservar />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Wishlist */}
+                <Route
+                  path="wishlist"
+                  element={
+                    <ProtectedRoute>
+                      <WishlistPage />
                     </ProtectedRoute>
                   }
                 />

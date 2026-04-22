@@ -6,6 +6,7 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import axios from "axios";
+import { notifyWishlistSubscribers } from "../wishlist/wishlistNotifier.js";
 
 
 const em = orm.em;
@@ -27,6 +28,8 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
     mana: req.body.mana,
     attack: req.body.attack,
     items: req.body.items,
+    lang: req.body.lang,
+    ciudad: req.body.ciudad,
   };
 
   // Eliminar claves undefined
@@ -163,6 +166,9 @@ async function add(req: Request, res: Response) {
 
       const carta = em.create(Carta, cartaData);
     await em.flush();
+
+    // Fire-and-forget: el notifier carga la carta completa con su propio EM
+    if (carta.id) notifyWishlistSubscribers(orm.em.fork(), carta.id).catch(console.error);
 
     res.status(201).json({ message: "Carta created", data: carta });
   } catch (error: any) {

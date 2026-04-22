@@ -7,7 +7,7 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 
 @Entity()
 export class ItemCarta extends BaseEntity {
-    @Property({ type: 'string', nullable: true, unique: true })
+    @Property({ type: 'string', nullable: true })
     name!: string
 
     @Property({ type: 'string' })
