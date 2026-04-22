@@ -15,15 +15,24 @@ async function apiFetch(url: string): Promise<Response> {
   }
 }
 
+// Número base: strip de sufijos de variante paralela
+// Ej: "BT1-009_P1" → "BT1-009", "ST17-02-p1" → "ST17-02"
+// NO toca códigos de promo como "ST1-P001" (3 dígitos) ni letras parte del número
+function baseCode(code: string): string {
+  return code.replace(/-[Pp]\d$/, '').split('_')[0];
+}
+
 function toCard(card: any): ExternalCard {
+  const setId = card.set?.id ?? '';
+  const base = baseCode(card.code ?? '');
   return {
-    id: `digimon_${card.id ?? card.code}`,
+    id: `digimon_${setId}_${base}`,
     game: 'digimon',
     name: card.name,
     language: 'en',
-    set: card.set?.id ?? '',
+    set: setId,
     setName: card.set?.name ?? '',
-    number: card.code ?? '',
+    number: base,
     rarity: card.rarity ?? card.cardType ?? undefined,
     imageUrl: card.images?.small,
   };
@@ -32,29 +41,42 @@ function toCard(card: any): ExternalCard {
 export async function searchDigimon(query: string, options: SearchOptions = {}): Promise<SearchResult> {
   const { page = 1 } = options;
   const r = await apiFetch(
-    `${BASE}/cards?name=${encodeURIComponent(query.trim())}&page=${page}&limit=${PAGE_SIZE}`
+    `${BASE}?name=${encodeURIComponent(query.trim())}&page=${page}&limit=${PAGE_SIZE}`
   );
   if (!r.ok) throw new Error(`Digimon API: ${r.status}`);
   const data = await r.json();
+
+  // Deduplicar por id (colapsa promos del mismo set+número base)
+  const seen = new Set<string>();
+  const cards: ExternalCard[] = [];
+  for (const c of (data.data ?? []).map(toCard)) {
+    if (!seen.has(c.id)) { seen.add(c.id); cards.push(c); }
+  }
   return {
-    cards: (data.data ?? []).map(toCard),
+    cards,
     hasMore: (data.page ?? 1) < (data.totalPages ?? 1),
     total: data.total,
   };
 }
 
-export async function getDigimonRarities(name: string): Promise<RarityVariant[]> {
+export async function getDigimonRarities(name: string, setId?: string, number?: string): Promise<RarityVariant[]> {
   const r = await apiFetch(
-    `${BASE}/cards?name=${encodeURIComponent(name)}&limit=100`
+    `${BASE}?name=${encodeURIComponent(name)}&limit=100`
   );
   if (!r.ok) throw new Error(`Digimon API: ${r.status}`);
   const data = await r.json();
   const all: any[] = data.data ?? [];
 
-  // Filtra por coincidencia exacta de nombre, si hay; si no, devuelve todos
-  const nameLower = name.toLowerCase();
-  const exact = all.filter(c => c.name?.toLowerCase() === nameLower);
-  const cards = exact.length > 0 ? exact : all;
+  let cards: any[];
+  if (setId && number) {
+    // Variantes del mismo set + número base exacto
+    cards = all.filter(c => c.set?.id === setId && baseCode(c.code ?? '') === number);
+    if (cards.length === 0) cards = all;
+  } else {
+    const nameLower = name.toLowerCase();
+    const exact = all.filter(c => c.name?.toLowerCase() === nameLower);
+    cards = exact.length > 0 ? exact : all;
+  }
 
   return cards.map(c => ({
     cardId: c.id ?? c.code,
@@ -67,7 +89,7 @@ export async function getDigimonRarities(name: string): Promise<RarityVariant[]>
 
 export async function resolveDigimon(idOrName: string, byName = false): Promise<ExternalCard | null> {
   if (byName) {
-    const r = await apiFetch(`${BASE}/cards?name=${encodeURIComponent(idOrName)}&limit=5`);
+    const r = await apiFetch(`${BASE}?name=${encodeURIComponent(idOrName)}&limit=5`);
     if (!r.ok) return null;
     const data = await r.json();
     const card = data.data?.[0];
@@ -76,7 +98,7 @@ export async function resolveDigimon(idOrName: string, byName = false): Promise<
 
   // Resolución por código (ej: BT1-009): buscar por nombre y filtrar por code exacto
   try {
-    const r = await apiFetch(`${BASE}/cards?name=${encodeURIComponent(idOrName)}&limit=10`);
+    const r = await apiFetch(`${BASE}?name=${encodeURIComponent(idOrName)}&limit=10`);
     if (r.ok) {
       const data = await r.json();
       const match = (data.data ?? []).find(

@@ -161,8 +161,11 @@ export default function PublicarCartaPage() {
         page: pagina,
       });
 
+      // Digimon/Riftbound agrupan por set+número base; el resto por nombre+set
       const cardKey = (c: CartaResultado) =>
-        `${c.name.toLowerCase()}|${(c.setId ?? "").toLowerCase()}`;
+        (juegoBusqueda === "digimon" || juegoBusqueda === "riftbound")
+          ? `${(c.setId ?? "").toLowerCase()}|${(c.number ?? "").toLowerCase()}`
+          : `${c.name.toLowerCase()}|${(c.setId ?? "").toLowerCase()}`;
       const nuevas: CartaResultado[] = result.cards
         .map(c => ({ name: c.name, image: c.imageUrl, rarity: c.rarity, setName: c.setName, setId: c.set, number: c.number }))
         .filter(c => !vistos.has(cardKey(c)));
@@ -349,7 +352,9 @@ export default function PublicarCartaPage() {
       const variants = await getCardRarities(
         toSlug(juego),
         carta.name,
-        juego === "pokemon" ? carta.setName : undefined
+        juego === "pokemon" ? carta.setName : undefined,
+        (juego === "digimon" || juego === "riftbound") ? carta.setId : undefined,
+        (juego === "digimon" || juego === "riftbound") ? carta.number : undefined
       );
       setRarezas(variants.map(v => ({
         cardId: v.cardId,
@@ -1090,10 +1095,16 @@ export default function PublicarCartaPage() {
 
       {/* Grid de resultados */}
       {resultados.length > 0 && (() => {
-        // Para no-Pokémon: agrupar por nombre (una carta = una entrada, las variantes se ven en el modal)
+        // Pokémon: sin dedup adicional (ya viene deduplicado del servicio)
+        // Digimon/Riftbound: una entrada por set+número base
+        // MTG/YGO: una entrada por nombre
         const items = juego === "pokemon"
           ? resultados
-          : resultados.filter((c, idx, arr) => arr.findIndex(x => x.name.toLowerCase() === c.name.toLowerCase()) === idx);
+          : (juego === "digimon" || juego === "riftbound")
+            ? resultados.filter((c, idx, arr) => arr.findIndex(x =>
+                x.setId === c.setId && x.number === c.number) === idx)
+            : resultados.filter((c, idx, arr) => arr.findIndex(x =>
+                x.name.toLowerCase() === c.name.toLowerCase()) === idx);
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-10">
             {items.map((carta, i) => (

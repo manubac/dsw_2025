@@ -24,14 +24,16 @@ export async function searchCards(
 export async function getCardRarities(
   game: GameSlug,
   name: string,
-  setName?: string
+  setName?: string,
+  setId?: string,
+  number?: string
 ): Promise<RarityVariant[]> {
   switch (game) {
     case 'pokemon':   return getPokemonRarities(name, setName);
     case 'mtg':       return getMtgRarities(name, setName);
     case 'ygo':       return getYgoRarities(name, setName);
-    case 'digimon':   return getDigimonRarities(name);
-    case 'riftbound': return getRiftboundRarities(name);
+    case 'digimon':   return getDigimonRarities(name, setId, number);
+    case 'riftbound': return getRiftboundRarities(name, setId, number);
   }
 }
 
