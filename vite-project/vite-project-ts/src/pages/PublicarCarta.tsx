@@ -3,11 +3,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useUser } from "../context/user";
 import { api, fetchApi } from "../services/api";
+import { searchCards, getCardRarities, resolveCard, type GameSlug } from "../services/tcg";
 import { CardScanner, type ScannedCard } from "../components/CardScanner/CardScanner";
 import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink } from "lucide-react";
 import { type ParsedCard, type DetectedFormat } from "../utils/deckParsers";
 
-type Juego = "pokemon" | "magic" | "yugioh" | "digimon";
+type Juego = "pokemon" | "magic" | "yugioh" | "digimon" | "riftbound";
 
 interface CartaResultado {
   name: string;
@@ -15,6 +16,12 @@ interface CartaResultado {
   rarity?: string;
   setName?: string;
   setId?: string;
+  number?: string;
+}
+
+// Mapea el Juego interno al GameSlug del servicio TCG
+function toSlug(juego: Juego): GameSlug {
+  return juego === "magic" ? "mtg" : juego === "yugioh" ? "ygo" : juego as GameSlug;
 }
 
 interface Rareza {
@@ -59,17 +66,19 @@ const PRICE_SITES: { key: PriceSiteKey; label: string }[] = [
 ];
 
 const JUEGOS: { value: Juego; label: string }[] = [
-  { value: "pokemon",  label: "Pokémon TCG"         },
-  { value: "magic",    label: "Magic: The Gathering" },
-  { value: "yugioh",   label: "Yu-Gi-Oh!"            },
-  { value: "digimon",  label: "Digimon TCG"          },
+  { value: "pokemon",   label: "Pokémon TCG"         },
+  { value: "magic",     label: "Magic: The Gathering" },
+  { value: "yugioh",    label: "Yu-Gi-Oh!"            },
+  { value: "digimon",   label: "Digimon TCG"          },
+  { value: "riftbound", label: "Riftbound (LoL)"      },
 ];
 
 const PLACEHOLDERS: Record<Juego, string> = {
-  pokemon: "Pikachu, Charizard...",
-  magic:   "Lightning Bolt, Black Lotus...",
-  yugioh:  "Blue-Eyes, Dark Magician...",
-  digimon: "Agumon, Gabumon...",
+  pokemon:   "Pikachu, Charizard...",
+  magic:     "Lightning Bolt, Black Lotus...",
+  yugioh:    "Blue-Eyes, Dark Magician...",
+  digimon:   "Agumon, Gabumon...",
+  riftbound: "Jinx, Yasuo, Ahri...",
 };
 
 export default function PublicarCartaPage() {
@@ -148,36 +157,32 @@ export default function PublicarCartaPage() {
     else setCargandoMas(true);
 
     try {
-      const params = new URLSearchParams({ page: String(pagina) });
-      if (juegoBusqueda === "pokemon" && expansionBusqueda.trim()) {
-        params.set("set", expansionBusqueda.trim());
-      }
-      const response = await fetchApi(
-        `/api/cartas/scrape/${juegoBusqueda}/${encodeURIComponent(nombreBusqueda)}?${params}`
-      );
-      const data = await response.json();
+      const result = await searchCards(toSlug(juegoBusqueda), nombreBusqueda, {
+        set: expansionBusqueda.trim() || undefined,
+        page: pagina,
+      });
 
-      if (!response.ok) {
-        if (reemplazar) setMensaje(data.message || "No se encontraron resultados.");
+      const cardKey = (c: CartaResultado) =>
+        `${c.name.toLowerCase()}|${(c.setId ?? "").toLowerCase()}`;
+      const nuevas: CartaResultado[] = result.cards
+        .map(c => ({ name: c.name, image: c.imageUrl, rarity: c.rarity, setName: c.setName, setId: c.set, number: c.number }))
+        .filter(c => !vistos.has(cardKey(c)));
+
+      if (nuevas.length === 0 && pagina === 1) {
+        if (reemplazar) setMensaje("No se encontraron resultados.");
         setHasMore(false);
         return;
       }
 
-      // Filtrar duplicados que ya se mostraron (por nombre + setId)
-      const cardKey = (c: CartaResultado) =>
-        `${c.name.toLowerCase()}|${(c.setId ?? "").toLowerCase()}`;
-      const nuevas: CartaResultado[] = (data.data as CartaResultado[]).filter(
-        c => !vistos.has(cardKey(c))
-      );
       const nuevosVistos = new Set(vistos);
       nuevas.forEach(c => nuevosVistos.add(cardKey(c)));
 
       setResultados(prev => reemplazar ? nuevas : [...prev, ...nuevas]);
       setNombresVistos(nuevosVistos);
-      setHasMore(data.hasMore ?? false);
+      setHasMore(result.hasMore);
       setPage(pagina);
     } catch {
-      if (reemplazar) setMensaje("No se pudo conectar con el servidor.");
+      if (reemplazar) setMensaje("No se pudo conectar con la API de cartas.");
     } finally {
       setCargando(false);
       setCargandoMas(false);
@@ -196,17 +201,10 @@ export default function PublicarCartaPage() {
     debounceRef.current = setTimeout(async () => {
       setCargandoSugerencias(true);
       try {
-        const response = await fetchApi(
-          `/api/cartas/scrape/${juego}/${encodeURIComponent(trimmed)}?page=1`
-        );
-        const data = await response.json();
-        if (response.ok && data.data) {
-          const nombres = [...new Set<string>(
-            (data.data as CartaResultado[]).map(c => c.name)
-          )].slice(0, 8);
-          setSugerencias(nombres);
-          setMostrarSugerencias(nombres.length > 0);
-        }
+        const result = await searchCards(toSlug(juego), trimmed, { page: 1 });
+        const nombres = [...new Set<string>(result.cards.map(c => c.name))].slice(0, 8);
+        setSugerencias(nombres);
+        setMostrarSugerencias(nombres.length > 0);
       } catch {
         setSugerencias([]);
       } finally {
@@ -345,44 +343,27 @@ export default function PublicarCartaPage() {
     setPrecioCoolStuff(null);
     setPreciosPokemon(null);
 
-    if (juego === "pokemon") {
-      setCargandoRarezas(true);
-      try {
-        const params = new URLSearchParams({ nombre: carta.name });
-        if (carta.setName) params.set("set", carta.setName);
-        const r = await fetchApi(`/api/cartas/scrape/${juego}/rarezas?${params}`);
-        const data = await r.json();
-        setRarezas(data.data ?? []);
-      } catch {
-        setRarezas([]);
-      } finally {
-        setCargandoRarezas(false);
-      }
-    } else if (juego === "magic" || juego === "yugioh") {
-      // Para Magic y YuGiOh: cargar todas las reimpresiones en distintos sets
-      setCargandoRarezas(true);
-      try {
-        const params = new URLSearchParams({ nombre: carta.name });
-        const r = await fetchApi(`/api/cartas/scrape/${juego}/rarezas?${params}`);
-        const data = await r.json();
-        setRarezas(data.data ?? []);
-      } catch {
-        setRarezas([]);
-      } finally {
-        setCargandoRarezas(false);
-      }
-    } else {
-      // Digimon: la carta ya está determinada, buscar precio directamente
-      setPrecioCoolStuff("cargando");
-      try {
-        const params = new URLSearchParams({ nombre: carta.name });
-        if (carta.setName) params.set("set", carta.setName);
-        const resp = await fetchApi(`/api/cartas/precio-coolstuff?${params}`);
-        const data = await resp.json();
-        setPrecioCoolStuff(data.precio ?? null);
-      } catch {
-        setPrecioCoolStuff(null);
-      }
+    setCargandoRarezas(true);
+    try {
+      // Para Pokémon filtramos por set (cada entrada del grid es set-específica).
+      // Para el resto queremos TODAS las variantes/ediciones — no pasamos setName.
+      const variants = await getCardRarities(
+        toSlug(juego),
+        carta.name,
+        juego === "pokemon" ? carta.setName : undefined
+      );
+      setRarezas(variants.map(v => ({
+        cardId: v.cardId,
+        rarity: v.rarity,
+        number: v.number,
+        image: v.imageUrl,
+        finish: v.finish,
+        setName: v.setName,
+      })));
+    } catch {
+      setRarezas([]);
+    } finally {
+      setCargandoRarezas(false);
     }
   };
 
@@ -404,9 +385,14 @@ export default function PublicarCartaPage() {
     }
   };
 
-  const confirmarPublicacion = async () => {
+  // Para juegos no-Pokémon: selecciona una variante/reimpresión sin buscar precios
+  const seleccionarVariante = (r: Rareza) => {
+    setRarezaElegida(r);
+  };
+
+  // Añade la carta seleccionada del modal a la cola (sin publicar todavía)
+  const agregarACola = () => {
     if (!user || !modalCarta) return;
-    // Para Pokemon, debe haber elegido rareza
     if (juego === "pokemon" && !rarezaElegida) return;
 
     const juegoLabel = JUEGOS.find(j => j.value === juego)?.label ?? juego;
@@ -414,30 +400,43 @@ export default function PublicarCartaPage() {
       cc.name.toLowerCase().includes(juego) ||
       cc.name.toLowerCase().includes(juegoLabel.toLowerCase().split(":")[0].trim())
     );
+    void cartaClassMatch; // usado en publishQueueItem por format
 
-    const precioFinal = typeof precioCoolStuff === "string" && precioCoolStuff !== "cargando"
-      ? precioCoolStuff
-      : null;
+    const precioFinal = (() => {
+      if (typeof preciosPokemon !== "string" && preciosPokemon?.coolstuff) return preciosPokemon.coolstuff;
+      if (typeof precioCoolStuff === "string" && precioCoolStuff !== "cargando") return precioCoolStuff;
+      return "";
+    })();
 
-    try {
-      const res = await api.post("/api/cartas", {
-        name: modalCarta.name,
-        price: precioFinal,
-        image: rarezaElegida?.image ?? modalCarta.image ?? null,
-        link: null,
-        rarity: rarezaElegida?.rarity ?? modalCarta.rarity ?? null,
-        setName: rarezaElegida?.setName ?? modalCarta.setName ?? null,
-        cartaClass: cartaClassMatch?.id ?? null,
-        userId: user.id,
-      });
+    const carta: CartaResultado = {
+      name: modalCarta.name,
+      image: rarezaElegida?.image ?? modalCarta.image,
+      rarity: rarezaElegida?.rarity ?? modalCarta.rarity,
+      setName: rarezaElegida?.setName ?? modalCarta.setName,
+      setId: modalCarta.setId,
+      number: rarezaElegida?.number ?? modalCarta.number,
+    };
 
-      const created = res.data?.data;
-      if (!created) { setMensaje("No se pudo crear la carta."); return; }
-      setModalCarta(null);
-      navigate("/editar-carta", { state: { carta: created } });
-    } catch {
-      setMensaje("Error al crear la carta.");
-    }
+    const newItem: QueueItem = {
+      uid: `grid-${Date.now()}`,
+      parsed: { quantity: 1, name: modalCarta.name, set: modalCarta.setId, number: modalCarta.number },
+      format: juego as DetectedFormat,
+      status: "found",
+      carta,
+      rarezaElegida: rarezaElegida,
+      rarezas: rarezas.length > 0 ? rarezas : undefined,
+      price: precioFinal,
+      quantity: 1,
+      checked: true,
+    };
+
+    setQueue(prev => [...prev, newItem]);
+    setModalCarta(null);
+    setRarezaElegida(null);
+    setRarezas([]);
+    setPrecioCoolStuff(null);
+    setPreciosPokemon(null);
+    setPanelOpen(true);
   };
 
   const crearCartaManual = () => {
@@ -453,66 +452,58 @@ export default function PublicarCartaPage() {
   //   YuGiOh:  "89631139"                 → passcode numérico de 6-10 dígitos
   //   Digimon:  "BT1-009"                 → id con formato XX#-###
   const tryResolveDirectly = async (texto: string, juegoActual: Juego): Promise<CartaResultado | null> => {
-    const params = new URLSearchParams();
+    let rParams: { set?: string; number?: string; passcode?: string; id?: string; name?: string } | null = null;
 
     if (juegoActual === "pokemon") {
-      // Acepta "Charmander MEW 4"  o  "MEW 4"  (nombre opcional)
       const m = texto.match(/^(?:(.+?)\s+)?([A-Z][A-Z0-9]{1,7})\s+(\d+)$/);
       if (!m) return null;
-      params.set("set", m[2]);
-      params.set("number", m[3]);
-      if (m[1]) params.set("name", m[1]);
+      rParams = { set: m[2], number: m[3], name: m[1] ?? undefined };
     } else if (juegoActual === "magic") {
       const m = texto.match(/^(.+?)\s+\(([A-Z0-9]{2,5})\)\s+(\d+[a-z]?)$/);
       if (!m) return null;
-      params.set("set", m[2].toLowerCase());
-      params.set("number", m[3]);
+      rParams = { set: m[2].toLowerCase(), number: m[3] };
     } else if (juegoActual === "yugioh") {
       if (!/^\d{6,10}$/.test(texto)) return null;
-      params.set("passcode", texto);
+      rParams = { passcode: texto };
     } else if (juegoActual === "digimon") {
       if (!/^[A-Z]{1,4}\d{0,3}-\d{3,4}$/.test(texto)) return null;
-      params.set("id", texto);
+      rParams = { id: texto };
     } else {
       return null;
     }
 
     try {
-      const res = await fetchApi(`/api/cartas/resolve/${juegoActual}?${params}`);
-      const data = await res.json();
-      if (res.ok && data.data) return data.data as CartaResultado;
-      return null;
+      const result = await resolveCard(toSlug(juegoActual), rParams);
+      if (!result) return null;
+      const card = Array.isArray(result) ? result[0] : result;
+      return { name: card.name, image: card.imageUrl, rarity: card.rarity, setName: card.setName, setId: card.set, number: card.number };
     } catch {
       return null;
     }
   };
 
-  // Construye los query params para el endpoint /resolve/:juego
-  const buildResolveUrl = (parsed: ParsedCard, fmt: DetectedFormat): string => {
-    const params = new URLSearchParams();
-    if (fmt === "pokemon" && parsed.set && parsed.number) {
-      params.set("set", parsed.set);
-      params.set("number", parsed.number);
-      if (parsed.name) params.set("name", parsed.name);
-    } else if (fmt === "magic" && parsed.set && parsed.number) {
-      params.set("set", parsed.set);
-      params.set("number", parsed.number);
-    } else if (fmt === "yugioh" && parsed.passcode !== undefined) {
-      params.set("passcode", String(parsed.passcode));
-    } else if (fmt === "digimon") {
-      if (parsed.id) params.set("id", parsed.id);
-      else if (parsed.name) params.set("name", parsed.name);
-    }
-    return `/api/cartas/resolve/${fmt}?${params}`;
-  };
-
   const resolveItem = useCallback(async (item: QueueItem): Promise<QueueItem> => {
     try {
-      const res = await fetchApi(buildResolveUrl(item.parsed, item.format));
-      const data = await res.json();
-      if (res.ok && data.data)        return { ...item, status: "found",     carta: data.data };
-      if (res.ok && data.candidates)  return { ...item, status: "ambiguous", candidates: data.candidates };
-      return { ...item, status: "not_found" };
+      const p = item.parsed;
+      const fmt = item.format as Juego;
+      const rParams: { set?: string; number?: string; passcode?: string; id?: string; name?: string } = {};
+      if (fmt === "pokemon" && p.set && p.number) {
+        rParams.set = p.set; rParams.number = p.number; if (p.name) rParams.name = p.name;
+      } else if (fmt === "magic" && p.set && p.number) {
+        rParams.set = p.set; rParams.number = p.number;
+      } else if (fmt === "yugioh" && p.passcode !== undefined) {
+        rParams.passcode = String(p.passcode);
+      } else if (fmt === "digimon") {
+        if (p.id) rParams.id = p.id;
+        else if (p.name) rParams.name = p.name;
+      }
+
+      const result = await resolveCard(toSlug(fmt), rParams);
+      if (!result) return { ...item, status: "not_found" };
+      if (Array.isArray(result)) {
+        return { ...item, status: "ambiguous", candidates: result.map(c => ({ name: c.name, image: c.imageUrl, rarity: c.rarity, setName: c.setName, setId: c.set, number: c.number })) };
+      }
+      return { ...item, status: "found", carta: { name: result.name, image: result.imageUrl, rarity: result.rarity, setName: result.setName, setId: result.set, number: result.number } };
     } catch {
       return { ...item, status: "not_found" };
     }
@@ -532,11 +523,15 @@ export default function PublicarCartaPage() {
   const loadRarezas = async (uid: string, carta: CartaResultado) => {
     setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezasLoading: true } : it));
     try {
-      const params = new URLSearchParams({ nombre: carta.name });
-      if (carta.setName) params.set("set", carta.setName);
-      const r = await fetchApi(`/api/cartas/scrape/pokemon/rarezas?${params}`);
-      const data = await r.json();
-      const rarezas: Rareza[] = data.data ?? [];
+      const variants = await getCardRarities('pokemon', carta.name, carta.setName);
+      const rarezas: Rareza[] = variants.map(v => ({
+        cardId: v.cardId,
+        rarity: v.rarity,
+        number: v.number,
+        image: v.imageUrl,
+        finish: v.finish,
+        setName: v.setName,
+      }));
       const rarezaElegida = preselectRareza(rarezas);
       setQueue(prev => prev.map(it =>
         it.uid === uid ? { ...it, rarezas, rarezaElegida, rarezasLoading: false } : it
@@ -607,6 +602,7 @@ export default function PublicarCartaPage() {
       if (/^\d{6,10}$/.test(line)) return { quantity: 1, name: "", passcode: +line };
       return null;
     }
+    if (j === "riftbound") return null; // sin formato estándar de importación
     if (j === "digimon") {
       // "BT1-009 4 Agumon"  o  "BT1-009"
       const m = line.match(/^([A-Z]{1,4}\d{0,3}-\d{3,4})\s+(\d+)\s+(.+)$/);
@@ -727,10 +723,11 @@ export default function PublicarCartaPage() {
       await api.post("/api/cartas", {
         name: item.carta.name,
         price: item.price || null,
-        image: item.rarezaElegida?.image ?? item.carta.image ?? null,
         link: null,
         rarity: item.rarezaElegida?.rarity ?? item.carta.rarity ?? null,
         setName: item.rarezaElegida?.setName ?? item.carta.setName ?? null,
+        setCode: item.carta.setId ?? null,
+        cardNumber: item.rarezaElegida?.number ?? item.carta.number ?? null,
         cartaClass: cartaClassMatch?.id ?? null,
         userId: user.id,
       });
@@ -761,7 +758,6 @@ export default function PublicarCartaPage() {
         await api.post("/api/cartas", {
           name: pending.map(it => it.carta!.name).join(" + "),
           price: total > 0 ? `$${total.toFixed(2)}` : null,
-          image: pending[0].rarezaElegida?.image ?? pending[0].carta!.image ?? null,
           link: null,
           rarity: null,
           setName: null,
@@ -1094,36 +1090,43 @@ export default function PublicarCartaPage() {
       </div>
 
       {/* Grid de resultados */}
-      {resultados.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-10">
-          {resultados.map((carta, i) => (
-            <div
-              key={i}
-              className="bg-gradient-to-b from-green-50 to-transparent rounded-2xl shadow-md p-4 flex flex-col items-center transition hover:scale-[1.02]"
-            >
-              {carta.image && (
-                <img src={carta.image} alt={carta.name} className="w-[150px] h-[210px] object-contain mb-2" />
-              )}
-              <h3 className="text-base font-semibold text-center leading-tight">{carta.name}</h3>
-              {carta.setName && (
-                <p className="text-xs text-green-700 font-medium text-center mt-1 bg-green-100 px-2 py-0.5 rounded-full">
-                  {carta.setName}
-                </p>
-              )}
-              {/* Rareza visible solo en juegos no-Pokemon (en Pokemon se elige en el modal) */}
-              {juego !== "pokemon" && carta.rarity && (
-                <p className="text-xs text-gray-500 text-center mt-1">{carta.rarity}</p>
-              )}
-              <button
-                onClick={() => abrirModal(carta)}
-                className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-semibold transition shadow-sm"
+      {resultados.length > 0 && (() => {
+        // Para no-Pokémon: agrupar por nombre (una carta = una entrada, las variantes se ven en el modal)
+        const items = juego === "pokemon"
+          ? resultados
+          : resultados.filter((c, idx, arr) => arr.findIndex(x => x.name.toLowerCase() === c.name.toLowerCase()) === idx);
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-10">
+            {items.map((carta, i) => (
+              <div
+                key={i}
+                className="bg-gradient-to-b from-green-50 to-transparent rounded-2xl shadow-md p-4 flex flex-col items-center transition hover:scale-[1.02]"
               >
-                Publicar esta carta
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+                {carta.image && (
+                  <img src={carta.image} alt={carta.name} className="w-[150px] h-[210px] object-contain mb-2" />
+                )}
+                <h3 className="text-base font-semibold text-center leading-tight">{carta.name}</h3>
+                {juego === "pokemon" && carta.setName && (
+                  <p className="text-xs text-green-700 font-medium text-center mt-1 bg-green-100 px-2 py-0.5 rounded-full">
+                    {carta.setName}
+                  </p>
+                )}
+                {juego !== "pokemon" && (
+                  <p className="text-xs text-indigo-600 font-medium text-center mt-1">
+                    Ver colecciones y rarezas →
+                  </p>
+                )}
+                <button
+                  onClick={() => abrirModal(carta)}
+                  className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-semibold transition shadow-sm"
+                >
+                  Añadir a cola
+                </button>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Sentinel infinite scroll */}
       <div ref={sentinelRef} className="flex justify-center py-8">
@@ -1477,66 +1480,55 @@ export default function PublicarCartaPage() {
               <button onClick={() => setModalCarta(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
 
-            {/* Reimpresiones/Rarezas — Pokemon, Magic y YuGiOh */}
-            {(juego === "pokemon" || juego === "magic" || juego === "yugioh") && (
-              <div className="overflow-y-auto flex-1 p-6">
-                {juego !== "pokemon" && (
-                  <p className="text-sm text-gray-500 mb-3 text-center">Elegí la reimpresión que querés publicar</p>
-                )}
-                {cargandoRarezas ? (
-                  <div className="flex justify-center py-10">
-                    <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : rarezas.length === 0 ? (
-                  <p className="text-center text-gray-500">No se encontraron versiones.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {rarezas.map(r => (
-                      <button
-                        key={r.cardId}
-                        onClick={() => elegirRareza(r)}
-                        className={`rounded-xl border-2 p-3 flex flex-col items-center gap-2 transition ${
-                          rarezaElegida?.cardId === r.cardId
-                            ? "border-green-500 bg-green-50"
-                            : "border-gray-200 hover:border-green-300"
-                        }`}
-                      >
-                        {r.image && (
-                          <img src={r.image} alt={r.rarity ?? ""} className="w-[80px] h-[112px] object-contain" />
-                        )}
-                        {r.setName && (
-                          <span className="text-xs text-green-700 font-medium text-center bg-green-100 px-2 py-0.5 rounded-full leading-tight">
-                            {r.setName}
-                          </span>
-                        )}
-                        <span className="text-sm font-semibold text-center leading-tight">
-                          {r.rarity ?? "Sin rareza"}
+            {/* Versiones / Rarezas — todos los juegos */}
+            <div className="overflow-y-auto flex-1 p-6">
+              {juego !== "pokemon" && (
+                <p className="text-sm text-gray-500 mb-3 text-center">
+                  Elegí la colección y rareza que querés publicar
+                </p>
+              )}
+              {cargandoRarezas ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : rarezas.length === 0 ? (
+                <p className="text-center text-gray-500">No se encontraron versiones.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {rarezas.map(r => (
+                    <button
+                      key={r.cardId}
+                      onClick={() => juego === "pokemon" ? elegirRareza(r) : seleccionarVariante(r)}
+                      className={`rounded-xl border-2 p-3 flex flex-col items-center gap-2 transition ${
+                        rarezaElegida?.cardId === r.cardId
+                          ? "border-green-500 bg-green-50"
+                          : "border-gray-200 hover:border-green-300"
+                      }`}
+                    >
+                      {r.image && (
+                        <img src={r.image} alt={r.rarity ?? ""} className="w-[80px] h-[112px] object-contain" />
+                      )}
+                      {r.setName && (
+                        <span className="text-xs text-green-700 font-medium text-center bg-green-100 px-2 py-0.5 rounded-full leading-tight">
+                          {r.setName}
                         </span>
-                        {r.finish && <span className="text-xs text-gray-500 text-center">{r.finish}</span>}
-                        {r.number && <span className="text-xs text-gray-400">#{r.number}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      )}
+                      <span className="text-sm font-semibold text-center leading-tight">
+                        {r.rarity ?? "Sin rareza"}
+                      </span>
+                      {r.finish && <span className="text-xs text-gray-500 text-center">{r.finish}</span>}
+                      {r.number && <span className="text-xs text-gray-400">#{r.number}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-            {/* Para Digimon: imagen + info de la carta directamente */}
-            {juego === "digimon" && (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 gap-4">
-                {modalCarta.image && (
-                  <img src={modalCarta.image} alt={modalCarta.name} className="w-[150px] h-[210px] object-contain" />
-                )}
-                {modalCarta.rarity && (
-                  <p className="text-sm text-gray-600">{modalCarta.rarity}</p>
-                )}
-              </div>
-            )}
-
-            {/* Precio + Confirmar — se muestra cuando corresponde */}
-            {(juego === "digimon" || rarezaElegida) && (
+            {/* Footer del modal — precios de referencia (Pokémon) + Añadir a cola */}
+            {(rarezaElegida || (juego !== "pokemon" && !cargandoRarezas && rarezas.length === 0)) && (
               <div className="border-t p-6 space-y-4">
-                {juego === "pokemon" ? (
+                {/* Precios de referencia — solo Pokémon */}
+                {juego === "pokemon" && (
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-gray-700 mb-1">Precios sugeridos de referencia:</p>
                     {preciosPokemon === "cargando" ? (
@@ -1555,33 +1547,29 @@ export default function PublicarCartaPage() {
                       ].map(({ label, value }) => (
                         <div key={label} className="flex items-center justify-between text-sm">
                           <span className="text-gray-600 w-36">{label}:</span>
-                          {value ? (
-                            <span className="text-green-600 font-bold">{value}</span>
-                          ) : (
-                            <span className="text-gray-400">No disponible</span>
-                          )}
+                          {value
+                            ? <span className="text-green-600 font-bold">{value}</span>
+                            : <span className="text-gray-400">No disponible</span>}
                         </div>
                       ))
                     ) : null}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-600">Precio sugerido CoolStuffInc:</span>
-                    {precioCoolStuff === "cargando" ? (
-                      <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-                    ) : precioCoolStuff ? (
-                      <span className="text-green-600 font-bold text-lg">{precioCoolStuff}</span>
-                    ) : (
-                      <span className="text-gray-400 text-sm">No disponible en CoolStuffInc</span>
-                    )}
+                )}
+                {/* Variante seleccionada — para juegos no-Pokémon */}
+                {juego !== "pokemon" && rarezaElegida && (
+                  <div className="text-sm text-gray-600 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
+                    <span className="font-semibold text-green-700">{rarezaElegida.setName ?? "Sin colección"}</span>
+                    {rarezaElegida.rarity && <span className="ml-2 text-gray-500">· {rarezaElegida.rarity}</span>}
+                    {rarezaElegida.number && <span className="ml-2 text-gray-400">#{rarezaElegida.number}</span>}
+                    {rarezaElegida.finish && <span className="ml-2 text-gray-400">· {rarezaElegida.finish}</span>}
                   </div>
                 )}
                 <button
-                  onClick={confirmarPublicacion}
-                  disabled={juego === "pokemon" ? preciosPokemon === "cargando" : precioCoolStuff === "cargando"}
+                  onClick={agregarACola}
+                  disabled={juego === "pokemon" && preciosPokemon === "cargando"}
                   className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition shadow-md"
                 >
-                  Confirmar publicación
+                  Añadir a cola
                 </button>
               </div>
             )}

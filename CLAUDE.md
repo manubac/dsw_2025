@@ -163,6 +163,36 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 - **Google Cloud Vision:** `@google-cloud/vision` — requiere `GOOGLE_APPLICATION_CREDENTIALS` apuntando a `google-key.json` en la raíz del repo
 - **TCGdex API:** `https://api.tcgdex.net/v2/{lang}/sets/{setId}` — usado por scripts de sincronización con delay de 300-350ms entre llamadas
 
+## Búsqueda de Cartas (vista /publicar)
+
+Las llamadas a APIs TCG se hacen **desde el frontend directamente** — no pasan por Express.
+
+### Servicio TCG (`src/services/tcg/`)
+
+```
+index.ts       ← searchCards(), getCardRarities(), resolveCard()
+types.ts       ← GameSlug, ExternalCard, RarityVariant, SearchOptions
+pokemon.ts     ← Pokémon TCG — TCGDex API (api.tcgdex.net/v2)
+scryfall.ts    ← Magic: The Gathering (api.scryfall.com) — filtra idiomas asiáticos
+ygoprodeck.ts  ← Yu-Gi-Oh! (db.ygoprodeck.com)
+digimon.ts     ← Digimon TCG — apitcg.com/api/digimon (requiere x-api-key header)
+riftbound.ts   ← Riftbound LoL TCG — apitcg.com/api/riftbound (requiere x-api-key header)
+```
+
+**`ExternalCard`** tiene `imageUrl?: string` para display únicamente — **no se guarda en BD**.  
+Al publicar (`POST /api/cartas`) solo se envían: `name`, `rarity`, `setName`, `setCode`, `cardNumber`.  
+Idiomas soportados: `en | es | pt | fr | de | it | ru` (no japonés, chino ni coreano).
+
+**API key de apitcg.com:** apitcg.com tiene restricciones CORS, por lo que Digimon y Riftbound se proxean a través del backend Express:
+- Ruta proxy: `GET /api/tcg/digimon` y `GET /api/tcg/riftbound` → `tcgproxy/tcgproxy.routes.ts`
+- La key vive en `backend/.env` como `APITCG_KEY`, nunca expuesta al browser
+- Los servicios frontend usan `/api/tcg/{game}` (vía Vite proxy → Express)
+
+### Scrapers de precio (backend — solo para /publicar)
+
+`GET /api/cartas/precio-coolstuff` y `GET /api/cartas/precios-pokemon` — solo precios, sin imágenes.  
+Implementados con axios + regex en `carta.controler.ts`. Tiendas: CoolStuffInc, TCGPlayer, Cardmarket, eBay, PriceCharting, Troll & Toad.
+
 ## Scripts de DB (`backend/src/scripts/`)
 - `sync_tcg_translations.ts` — sincroniza `card_translations` desde TCGdex (11 idiomas × 625 sets)
 - `generate-embeddings.ts` — genera `embeddings.json` con CLIP para búsqueda visual

@@ -6,11 +6,8 @@ import {
   add,
   update,
   remove,
-  scrapeCartas,
-  buscarRarezas,
   getPrecioCoolStuff,
   getPreciosPokemon,
-  resolveCartaByCode,
 } from "./carta.controler.js";
 import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
 
@@ -19,10 +16,7 @@ export const cartaRouter = Router();
 // Público – cualquiera puede consultar las cartas
 cartaRouter.get("/", findAll);
 
-// Búsqueda de cartas por juego — requiere estar logueado (cualquier rol)
-cartaRouter.get("/scrape/:juego/rarezas", authenticate, buscarRarezas);
-cartaRouter.get("/scrape/:juego/:nombre", authenticate, scrapeCartas);
-cartaRouter.get("/resolve/:juego", authenticate, resolveCartaByCode);
+// Precios via scraping — solo se usan en /publicar
 cartaRouter.get("/precio-coolstuff", authenticate, getPrecioCoolStuff);
 cartaRouter.get("/precios-pokemon", authenticate, getPreciosPokemon);
 
