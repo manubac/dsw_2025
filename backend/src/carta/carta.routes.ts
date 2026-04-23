@@ -16,9 +16,9 @@ export const cartaRouter = Router();
 // Público – cualquiera puede consultar las cartas
 cartaRouter.get("/", findAll);
 
-// Precios via scraping — solo se usan en /publicar
-cartaRouter.get("/precio-coolstuff", authenticate, getPrecioCoolStuff);
-cartaRouter.get("/precios-pokemon", authenticate, getPreciosPokemon);
+// Precios via scraping — solo se usan en /publicar (sin auth: son scrapers de sitios públicos)
+cartaRouter.get("/precio-coolstuff", getPrecioCoolStuff);
+cartaRouter.get("/precios-pokemon", getPreciosPokemon);
 
 cartaRouter.get("/:id", findOne);
 

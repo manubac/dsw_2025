@@ -6,6 +6,7 @@ import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import axios from "axios";
+import puppeteer, { type Browser } from "puppeteer";
 import { notifyWishlistSubscribers } from "../wishlist/wishlistNotifier.js";
 
 
@@ -248,132 +249,274 @@ async function remove(req: Request, res: Response) {
 // Precios via scraping (solo para /publicar)
 // ============================
 
-// Intenta obtener el precio de CoolStuffInc para una carta específica vía axios (sin browser)
-async function fetchPrecioCoolStuff(nombre: string, setName?: string): Promise<string | null> {
-  try {
-    const query = setName ? `${nombre} ${setName}` : nombre;
-    const url = `https://www.coolstuffinc.com/main_search.php?pa=searchOnName&page=1&resultsPerPage=10&q=${encodeURIComponent(query)}`;
-    const r = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      timeout: 10000,
+// --- Puppeteer singleton ---
+// Se inicia una sola vez y se reutiliza para no pagar el costo de lanzar Chrome en cada request.
+let _browser: Browser | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  if (!_browser || !_browser.connected) {
+    _browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
     });
-    const html: string = r.data;
-    // Buscar el primer precio en el HTML (patrón $X.XX)
-    const match = html.match(/\$\s*(\d+\.\d{2})/);
-    return match ? `$${match[1]}` : null;
-  } catch {
+  }
+  return _browser;
+}
+
+/** Obtiene el HTML final de una URL usando Chromium real (pasa anti-bot). */
+async function fetchWithBrowser(url: string, waitMs = 1200): Promise<string> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    );
+    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+    // Espera breve para que el JS termine de renderizar precios
+    await new Promise(res => setTimeout(res, waitMs));
+    return await page.content();
+  } finally {
+    await page.close();
+  }
+}
+
+const SCRAPER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+};
+
+/**
+ * Fuente principal: Pokémon TCG API oficial (api.pokemontcg.io)
+ * Devuelve precios TCGPlayer + Cardmarket en una sola llamada.
+ * Incluye precios de cartas agotadas porque la API refleja el mercado secundario.
+ */
+async function fetchPrecios_PokemonTCGApi(nombre: string, setName?: string, cardNumber?: string): Promise<{ tcgplayer: string | null; cardmarket: string | null }> {
+  try {
+    const parts: string[] = [`name:"${nombre}"`];
+    if (setName) parts.push(`set.name:"${setName}"`);
+    if (cardNumber) {
+      const numOnly = cardNumber.split('/')[0].trim();
+      if (numOnly) parts.push(`number:${numOnly}`);
+    }
+    const q = parts.join(' ');
+    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5&select=id,name,tcgplayer,cardmarket`;
+
+    const headers: Record<string, string> = { "User-Agent": "DSW-Marketplace/1.0" };
+    if (process.env.POKEMONTCG_API_KEY) headers['X-Api-Key'] = process.env.POKEMONTCG_API_KEY;
+
+    const r = await axios.get(url, { headers, timeout: 10000 });
+    const cards = r.data?.data as Record<string, unknown>[] | undefined;
+    if (!cards || cards.length === 0) {
+      console.log(`[PokemonTCGApi] sin resultados para: ${q}`);
+      return { tcgplayer: null, cardmarket: null };
+    }
+
+    const card = cards[0] as {
+      id?: string; name?: string;
+      tcgplayer?: { prices?: Record<string, { market?: number; mid?: number; low?: number }> };
+      cardmarket?: { prices?: { averageSellPrice?: number; trendPrice?: number; lowPrice?: number } };
+    };
+    console.log(`[PokemonTCGApi] carta: ${card.id} "${card.name}"`);
+
+    // TCGPlayer: priorizar holofoil > normal > cualquier tipo disponible
+    let tcgplayer: string | null = null;
+    if (card.tcgplayer?.prices) {
+      const prices = card.tcgplayer.prices;
+      const priority = ['holofoil', 'normal', '1stEditionHolofoil', 'reverseHolofoil', 'unlimitedHolofoil'];
+      const allTypes = [...priority, ...Object.keys(prices).filter(k => !priority.includes(k))];
+      for (const type of allTypes) {
+        const p = prices[type];
+        const val = p?.market ?? p?.mid ?? p?.low;
+        if (val && val > 0) { tcgplayer = `$${val.toFixed(2)}`; break; }
+      }
+    }
+
+    // Cardmarket: averageSellPrice > trendPrice > lowPrice
+    let cardmarket: string | null = null;
+    if (card.cardmarket?.prices) {
+      const p = card.cardmarket.prices;
+      const val = p.averageSellPrice ?? p.trendPrice ?? p.lowPrice;
+      if (val && val > 0) cardmarket = `€${val.toFixed(2)}`;
+    }
+
+    console.log(`[PokemonTCGApi] tcgplayer=${tcgplayer} cardmarket=${cardmarket}`);
+    return { tcgplayer, cardmarket };
+  } catch (err: unknown) {
+    console.error(`[PokemonTCGApi] error: ${err instanceof Error ? err.message : String(err)}`);
+    return { tcgplayer: null, cardmarket: null };
+  }
+}
+
+async function fetchPrecioCoolStuff(nombre: string, setName?: string, cardNumber?: string): Promise<string | null> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    );
+    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
+
+    const query = [nombre, setName, cardNumber].filter(Boolean).join(' ');
+    console.log(`[CoolStuff] buscando: "${query}"`);
+
+    await page.goto('https://www.coolstuffinc.com/', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await new Promise(r => setTimeout(r, 800));
+
+    // Rellenar el input via evaluate (evita problemas de overlays y clickabilidad)
+    const foundSelector = await page.evaluate((q) => {
+      const candidates = ['input[name="search_text"]', 'input[type="search"]', 'input[name="q"]'];
+      for (const sel of candidates) {
+        const el = document.querySelector<HTMLInputElement>(sel);
+        if (el) {
+          el.value = q;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          return sel;
+        }
+      }
+      return null;
+    }, query);
+
+    if (!foundSelector) { console.log('[CoolStuff] input no encontrado'); return null; }
+
+    // Enfocar con el selector concreto y presionar Enter
+    await page.focus(foundSelector);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null),
+      page.keyboard.press('Enter'),
+    ]);
+
+    await new Promise(r => setTimeout(r, 1500));
+    const html = await page.content();
+    console.log(`[CoolStuff] resultados len=${html.length}`);
+
+    const m = html.match(/data-(?:regular-)?price="(\d+\.?\d{0,2})"/) ||
+              html.match(/class="[^"]*(?:item-price|our-price|price)[^"]*"[^>]*>\s*\$\s*(\d+\.?\d{0,2})/i) ||
+              html.match(/\$\s*(\d+\.\d{2})/);
+    if (!m) { console.log(`[CoolStuff] sin precio`); return null; }
+    const val = parseFloat(m[1]);
+    return (!isNaN(val) && val > 0) ? `$${val.toFixed(2)}` : null;
+  } catch (err: unknown) {
+    console.error(`[CoolStuff] error: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  } finally {
+    await page.close();
+  }
+}
+
+async function fetchPrecioEbay(nombre: string, setName?: string, cardNumber?: string): Promise<string | null> {
+  try {
+    const query = [nombre, setName, cardNumber, 'pokemon card'].filter(Boolean).join(' ');
+    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_BIN=1&_sop=15&_ipg=10`;
+    console.log(`[eBay] browser fetch: ${url}`);
+    const html = await fetchWithBrowser(url, 1500);
+    console.log(`[eBay] len=${html.length}`);
+
+    // JSON-LD con Offer/AggregateOffer
+    const jsonLdBlocks = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
+    for (const [, block] of jsonLdBlocks) {
+      try {
+        const data: unknown = JSON.parse(block);
+        const findPrice = (o: unknown): string | null => {
+          if (!o || typeof o !== 'object') return null;
+          const obj = o as Record<string, unknown>;
+          if ((obj['@type'] === 'Offer' || obj['@type'] === 'AggregateOffer') && obj.price) {
+            const val = parseFloat(String(obj.price));
+            if (!isNaN(val) && val > 0) return `$${val.toFixed(2)}`;
+          }
+          if (obj.lowPrice) {
+            const val = parseFloat(String(obj.lowPrice));
+            if (!isNaN(val) && val > 0) return `$${val.toFixed(2)}`;
+          }
+          for (const v of Object.values(obj)) {
+            const found = Array.isArray(v)
+              ? v.reduce((acc: string | null, item) => acc ?? findPrice(item), null)
+              : findPrice(v);
+            if (found) return found;
+          }
+          return null;
+        };
+        const price = findPrice(data);
+        if (price) return price;
+      } catch { /* bloque JSON-LD inválido */ }
+    }
+    // Fallback: clase del precio en la página renderizada
+    const m = html.match(/class="s-item__price"[^>]*>\s*\$\s*(\d+\.\d{2})/i) ||
+              html.match(/"price":\s*"(\d+\.?\d{0,2})"/) ||
+              html.match(/\$\s*(\d+\.\d{2})/);
+    if (!m) { console.log(`[eBay] sin precio`); return null; }
+    return `$${parseFloat(m[1]).toFixed(2)}`;
+  } catch (err: unknown) {
+    console.error(`[eBay] error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
 
-async function fetchPrecioTCGPlayer(nombre: string, setName?: string): Promise<string | null> {
+async function fetchPrecioPriceCharting(nombre: string, setName?: string, cardNumber?: string): Promise<string | null> {
   try {
-    const query = setName ? `${nombre} ${setName}` : nombre;
-    const url = `https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&q=${encodeURIComponent(query)}&view=list`;
-    const r = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      timeout: 10000,
-    });
-    const html: string = r.data;
-    const match = html.match(/"marketPrice":\s*"?(\d+\.?\d{2})"?/) ||
-                  html.match(/["']price["']:\s*"?(\d+\.\d{2})"?/) ||
-                  html.match(/\$\s*(\d+\.\d{2})/);
-    return match ? `$${match[1]}` : null;
-  } catch {
+    const query = [nombre, setName, cardNumber].filter(Boolean).join(' ');
+    const searchUrl = `https://www.pricecharting.com/search-products?q=${encodeURIComponent(query)}&type=card`;
+
+    const r = await axios.get(searchUrl, { headers: SCRAPER_HEADERS, timeout: 14000, maxRedirects: 10 });
+    let html: string = r.data ?? '';
+    const finalUrl: string = String((r.request as { res?: { responseUrl?: string } } | undefined)?.res?.responseUrl ?? searchUrl);
+    console.log(`[PriceCharting] status=${r.status} len=${html.length} finalUrl=${finalUrl}`);
+
+    // Si la búsqueda no redirigió al producto, seguir el primer enlace de resultado
+    if (!finalUrl.includes('/game/') && html.includes('href="/game/')) {
+      const linkMatch = html.match(/href="(\/game\/[^"#?]+)"/);
+      if (linkMatch) {
+        const productUrl = `https://www.pricecharting.com${linkMatch[1]}`;
+        console.log(`[PriceCharting] siguiendo primer resultado: ${productUrl}`);
+        try {
+          const r2 = await axios.get(productUrl, { headers: SCRAPER_HEADERS, timeout: 10000 });
+          html = r2.data ?? html;
+          console.log(`[PriceCharting] producto len=${html.length}`);
+        } catch { /* usar html de búsqueda como fallback */ }
+      }
+    }
+
+    // La página de producto tiene id="used_price" / "complete_price" / "new_price"
+    const patterns = [
+      /id="used_price"[^>]*>[\s\S]{0,300}?\$\s*(\d+\.\d{2})/i,
+      /id="complete_price"[^>]*>[\s\S]{0,300}?\$\s*(\d+\.\d{2})/i,
+      /id="new_price"[^>]*>[\s\S]{0,300}?\$\s*(\d+\.\d{2})/i,
+      /class="[^"]*(?:js-price|price)[^"]*"[^>]*>\$\s*(\d+\.\d{2})/i,
+      /\$\s*(\d+\.\d{2})/,
+    ];
+    for (const pat of patterns) {
+      const m = html.match(pat);
+      if (m) {
+        const val = parseFloat(m[1]);
+        if (!isNaN(val) && val > 0 && val < 50000) return `$${val.toFixed(2)}`;
+      }
+    }
+    console.log(`[PriceCharting] sin precio en producto.`);
+    return null;
+  } catch (err: unknown) {
+    console.error(`[PriceCharting] error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
 
-async function fetchPrecioCardmarket(nombre: string, setName?: string): Promise<string | null> {
+async function fetchPrecioTrollandToad(nombre: string, setName?: string, cardNumber?: string): Promise<string | null> {
   try {
-    const query = setName ? `${nombre} ${setName}` : nombre;
-    const url = `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(query)}&sortBy=price_asc&perSite=4`;
-    const r = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      timeout: 10000,
-    });
+    const query = [nombre, setName].filter(Boolean).join(' ');
+    const url = `https://www.trollandtoad.com/search?search_words=${encodeURIComponent(query)}&search=true&category_id=94&in-stock-only=false`;
+    const r = await axios.get(url, { headers: SCRAPER_HEADERS, timeout: 14000, maxRedirects: 5 });
     const html: string = r.data;
-    const match = html.match(/(\d+[,.]\d{2})\s*€/) ||
-                  html.match(/€\s*(\d+[,.]?\d{2})/);
-    if (!match) return null;
-    const val = match[1].replace(',', '.');
-    return `€${val}`;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchPrecioEbay(nombre: string, setName?: string): Promise<string | null> {
-  try {
-    const query = setName ? `${nombre} ${setName} pokemon card` : `${nombre} pokemon card`;
-    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_BIN=1&_sop=15`;
-    const r = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      timeout: 10000,
-    });
-    const html: string = r.data;
-    const jsonLdMatch = html.match(/"price":\s*"(\d+\.?\d{0,2})"/);
-    const plainMatch = html.match(/\$\s*(\d+\.\d{2})/);
-    const match = jsonLdMatch || plainMatch;
-    return match ? `$${match[1]}` : null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchPrecioPriceCharting(nombre: string, setName?: string): Promise<string | null> {
-  try {
-    const query = setName ? `${nombre} ${setName}` : nombre;
-    const url = `https://www.pricecharting.com/search-products?q=${encodeURIComponent(query)}&type=card`;
-    const r = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      timeout: 10000,
-    });
-    const html: string = r.data;
-    const match = html.match(/class="price[^"]*"[^>]*>\$\s*(\d+\.\d{2})/) ||
-                  html.match(/\$\s*(\d+\.\d{2})/);
-    return match ? `$${match[1]}` : null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchPrecioTrollandToad(nombre: string, setName?: string): Promise<string | null> {
-  try {
-    const query = setName ? `${nombre} ${setName}` : nombre;
-    const url = `https://www.trollandtoad.com/search?search_words=${encodeURIComponent(query)}&search=true&category_id=94`;
-    const r = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      timeout: 10000,
-    });
-    const html: string = r.data;
-    const match = html.match(/\$\s*(\d+\.\d{2})/);
-    return match ? `$${match[1]}` : null;
-  } catch {
+    console.log(`[TrollAndToad] status=${r.status} len=${html.length} q="${query}"`);
+    const m = html.match(/class="[^"]*(?:item-price|our-price|prod-qty-price)[^"]*"[^>]*>\s*\$\s*(\d+\.?\d{0,2})/i) ||
+              html.match(/data-price="(\d+\.?\d{0,2})"/) ||
+              html.match(/\$\s*(\d+\.\d{2})/);
+    if (!m) { console.log(`[TrollAndToad] sin precio. muestra: ${html.substring(0, 200).replace(/\s+/g, ' ')}`); return null; }
+    const val = parseFloat(m[1]);
+    return (!isNaN(val) && val > 0) ? `$${val.toFixed(2)}` : null;
+  } catch (err: unknown) {
+    console.error(`[TrollAndToad] error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
@@ -382,32 +525,59 @@ async function fetchPrecioTrollandToad(nombre: string, setName?: string): Promis
 export async function getPrecioCoolStuff(req: Request, res: Response) {
   const nombre = req.query.nombre as string;
   const setName = req.query.set as string | undefined;
+  const cardNumber = req.query.numero as string | undefined;
   if (!nombre) return res.status(400).json({ message: "Falta el nombre de la carta." });
 
-  const precio = await fetchPrecioCoolStuff(nombre, setName);
+  const precio = await fetchPrecioCoolStuff(nombre, setName, cardNumber);
   return res.status(200).json({ precio });
 }
 
-// Devuelve precios de múltiples tiendas en paralelo — solo para Pokemon
+// Devuelve precios de tiendas — solo para Pokemon.
+// Si se pasa ?tienda=<key>, solo se llama a esa fuente (ahorra recursos).
 export async function getPreciosPokemon(req: Request, res: Response) {
   const nombre = req.query.nombre as string;
   const setName = req.query.set as string | undefined;
+  const cardNumber = req.query.numero as string | undefined;
+  const tienda = req.query.tienda as string | undefined;
   if (!nombre) return res.status(400).json({ message: "Falta el nombre de la carta." });
 
-  const [coolstuff, tcgplayer, cardmarket, ebay, pricecharting, trollandtoad] =
+  // Modo single-tienda: solo llamar al scraper seleccionado
+  if (tienda) {
+    try {
+      if (tienda === 'tcgplayer' || tienda === 'cardmarket') {
+        const api = await fetchPrecios_PokemonTCGApi(nombre, setName, cardNumber);
+        return res.status(200).json({ tcgplayer: api.tcgplayer, cardmarket: api.cardmarket });
+      }
+      if (tienda === 'coolstuff')
+        return res.status(200).json({ coolstuff: await fetchPrecioCoolStuff(nombre, setName, cardNumber) });
+      if (tienda === 'ebay')
+        return res.status(200).json({ ebay: await fetchPrecioEbay(nombre, setName, cardNumber) });
+      if (tienda === 'pricecharting')
+        return res.status(200).json({ pricecharting: await fetchPrecioPriceCharting(nombre, setName, cardNumber) });
+      if (tienda === 'trollandtoad')
+        return res.status(200).json({ trollandtoad: await fetchPrecioTrollandToad(nombre, setName, cardNumber) });
+    } catch (err: unknown) {
+      console.error(`[getPreciosPokemon tienda=${tienda}] ${err instanceof Error ? err.message : String(err)}`);
+      return res.status(200).json({ [tienda]: null });
+    }
+  }
+
+  // Sin tienda: todas en paralelo (legacy / modal de rareza)
+  const [apiResult, coolstuff, ebay, pricecharting, trollandtoad] =
     await Promise.allSettled([
-      fetchPrecioCoolStuff(nombre, setName),
-      fetchPrecioTCGPlayer(nombre, setName),
-      fetchPrecioCardmarket(nombre, setName),
-      fetchPrecioEbay(nombre, setName),
-      fetchPrecioPriceCharting(nombre, setName),
-      fetchPrecioTrollandToad(nombre, setName),
+      fetchPrecios_PokemonTCGApi(nombre, setName, cardNumber),
+      fetchPrecioCoolStuff(nombre, setName, cardNumber),
+      fetchPrecioEbay(nombre, setName, cardNumber),
+      fetchPrecioPriceCharting(nombre, setName, cardNumber),
+      fetchPrecioTrollandToad(nombre, setName, cardNumber),
     ]);
+
+  const api = apiResult.status === "fulfilled" ? apiResult.value : { tcgplayer: null, cardmarket: null };
 
   return res.status(200).json({
     coolstuff:     coolstuff.status     === "fulfilled" ? coolstuff.value     : null,
-    tcgplayer:     tcgplayer.status     === "fulfilled" ? tcgplayer.value     : null,
-    cardmarket:    cardmarket.status    === "fulfilled" ? cardmarket.value    : null,
+    tcgplayer:     api.tcgplayer,
+    cardmarket:    api.cardmarket,
     ebay:          ebay.status          === "fulfilled" ? ebay.value          : null,
     pricecharting: pricecharting.status === "fulfilled" ? pricecharting.value : null,
     trollandtoad:  trollandtoad.status  === "fulfilled" ? trollandtoad.value  : null,

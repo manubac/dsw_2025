@@ -5,7 +5,7 @@ import { useUser } from "../context/user";
 import { api, fetchApi } from "../services/api";
 import { searchCards, getCardRarities, resolveCard, type GameSlug } from "../services/tcg";
 import { CardScanner, type ScannedCard } from "../components/CardScanner/CardScanner";
-import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink } from "lucide-react";
+import { ScanLine, ListPlus, X, ChevronRight, ChevronLeft, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink } from "lucide-react";
 import { type ParsedCard, type DetectedFormat } from "../utils/deckParsers";
 
 type Juego = "pokemon" | "magic" | "yugioh" | "digimon" | "riftbound";
@@ -122,6 +122,7 @@ export default function PublicarCartaPage() {
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
 
   const [selectedPriceSite, setSelectedPriceSite] = useState<PriceSiteKey>("coolstuff");
+  const [minPrice, setMinPrice] = useState<string>("");
 
   // Estado del popup de rareza (hold-to-open)
   interface RarityPopupState { uid: string; anchorRect: DOMRect; hoveredIdx: number | null; rarezas: Rareza[]; }
@@ -691,22 +692,29 @@ export default function PublicarCartaPage() {
         if (item.carta!.setName) params.set("set", item.carta!.setName);
         const rarity = item.rarezaElegida?.rarity ?? item.carta!.rarity;
         if (rarity) params.set("rareza", rarity);
+        const cardNumber = item.rarezaElegida?.number ?? item.carta!.number;
+        if (cardNumber) params.set("numero", cardNumber);
+        params.set("tienda", site); // solo scrapear la tienda seleccionada
 
         const res = await fetchApi(`/api/cartas/precios-pokemon?${params}`);
         if (res.ok) {
           const data = await res.json();
           precio = (data[site] as string | null) ?? "";
         }
-
-        // Fallback a precio-coolstuff si el sitio es coolstuff y precios-pokemon no devolvió nada
-        if (!precio && site === "coolstuff") {
-          const res2 = await fetchApi(`/api/cartas/precio-coolstuff?${params}`);
-          if (res2.ok) {
-            const d2 = await res2.json();
-            precio = (d2.precio as string | null) ?? "";
-          }
-        }
       } catch { /* precio queda "" */ }
+
+      // Normalizar precio a formato $X.XX
+      if (precio) {
+        const numVal = parseFloat(precio.replace(/[^0-9.]/g, ""));
+        if (!isNaN(numVal) && numVal > 0) {
+          // Aplicar precio mínimo si está configurado
+          const minVal = minPrice ? parseFloat(minPrice.replace(/[^0-9.]/g, "")) : NaN;
+          const finalVal = (!isNaN(minVal) && minVal > 0 && numVal < minVal) ? minVal : numVal;
+          precio = `$${finalVal.toFixed(2)}`;
+        } else {
+          precio = "";
+        }
+      }
 
       setQueue((prev) =>
         prev.map((it) => (it.uid === item.uid ? { ...it, price: precio } : it))
@@ -799,9 +807,6 @@ export default function PublicarCartaPage() {
     if (!first.name && !first.set && !first.number) return;
 
     const hasDirect = juego === "pokemon" && !!first.set && !!first.number;
-    const queryDirect = hasDirect
-      ? [first.name, first.set, first.number].filter(Boolean).join(' ')
-      : '';
     const nombreBusqueda = first.name || [first.set, first.number].filter(Boolean).join(' ');
 
     // Si tenemos set+número, agregar directo a la cola, limpiar barra y sugerencias
@@ -1148,17 +1153,40 @@ export default function PublicarCartaPage() {
         )}
       </div>
 
-      {/* Botón flotante de cola — pequeño tab en el borde derecho */}
+      {/* Botón flotante de cola */}
       {queue.length > 0 && !panelOpen && (
         <button
           onClick={() => setPanelOpen(true)}
           title="Abrir cola de publicación"
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-1 bg-green-500 hover:bg-green-600 text-white py-2 px-1 rounded-l-lg shadow-lg transition-colors"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-50 group focus:outline-none"
         >
-          <ChevronRight size={13} />
-          <span className="text-[10px] font-bold leading-none bg-white text-green-600 rounded-full w-4 h-4 flex items-center justify-center">
-            {queue.filter(i => !i.published).length}
-          </span>
+          <div className="relative flex flex-col items-center justify-center gap-2.5 px-2.5 py-5 rounded-l-2xl transition-all duration-200
+            bg-[linear-gradient(160deg,#1e293b_0%,#0f172a_100%)]
+            border border-r-0 border-slate-700
+            shadow-[0_8px_32px_rgba(0,0,0,0.5)]
+            group-hover:shadow-[0_8px_40px_rgba(16,185,129,0.35)]
+            group-hover:-translate-x-0.5"
+          >
+            {/* Franja lateral esmeralda */}
+            <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-gradient-to-b from-emerald-400 to-emerald-600 opacity-90" />
+
+            {/* Badge con cantidad */}
+            <div className="relative w-8 h-8 rounded-full flex items-center justify-center
+              bg-[radial-gradient(circle_at_35%_35%,#34d399,#059669)]
+              shadow-[0_2px_10px_rgba(16,185,129,0.5)]
+              text-slate-900 font-black text-sm
+              transition-transform duration-200 group-hover:scale-110"
+            >
+              {queue.filter(i => !i.published).length}
+            </div>
+
+            {/* Etiqueta vertical */}
+            <span className="[writing-mode:vertical-rl] rotate-180 text-[9px] font-bold tracking-[0.18em] uppercase text-slate-400 group-hover:text-emerald-300 transition-colors duration-200 select-none">
+              Cola
+            </span>
+
+            <ChevronLeft size={11} className="text-slate-600 group-hover:text-emerald-400 transition-colors duration-200" />
+          </div>
         </button>
       )}
 
@@ -1185,24 +1213,37 @@ export default function PublicarCartaPage() {
 
             {/* Acciones */}
             <div className="px-5 py-3 border-b flex flex-wrap gap-2">
-              <div className="flex flex-1 gap-1.5 min-w-0">
-                <select
-                  value={selectedPriceSite}
-                  onChange={e => setSelectedPriceSite(e.target.value as PriceSiteKey)}
-                  disabled={applyingPrices}
-                  className="text-xs border border-amber-300 rounded-lg px-2 py-1.5 bg-amber-50 text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
-                >
-                  {PRICE_SITES.map(s => (
-                    <option key={s.key} value={s.key}>{s.label}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={applyAllPrices}
-                  disabled={applyingPrices || queue.every((i) => i.status !== "found" || !!i.published)}
-                  className="flex-1 text-sm font-semibold bg-amber-50 border border-amber-300 text-amber-700 px-3 py-1.5 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition"
-                >
-                  {applyingPrices ? "Aplicando…" : "Aplicar precios"}
-                </button>
+              <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                <div className="flex gap-1.5">
+                  <select
+                    value={selectedPriceSite}
+                    onChange={e => setSelectedPriceSite(e.target.value as PriceSiteKey)}
+                    disabled={applyingPrices}
+                    className="text-xs border border-amber-300 rounded-lg px-2 py-1.5 bg-amber-50 text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
+                  >
+                    {PRICE_SITES.map(s => (
+                      <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={applyAllPrices}
+                    disabled={applyingPrices || queue.every((i) => i.status !== "found" || !!i.published)}
+                    className="flex-1 text-sm font-semibold bg-amber-50 border border-amber-300 text-amber-700 px-3 py-1.5 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition"
+                  >
+                    {applyingPrices ? "Aplicando…" : "Aplicar precios"}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-gray-500 whitespace-nowrap font-medium">Precio mín.:</span>
+                  <input
+                    type="text"
+                    value={minPrice}
+                    onChange={e => setMinPrice(e.target.value)}
+                    placeholder="Sin mínimo"
+                    disabled={applyingPrices}
+                    className="flex-1 text-xs border border-amber-200 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-amber-400 bg-amber-50/60 text-amber-800 placeholder-amber-300 disabled:opacity-50 transition"
+                  />
+                </div>
               </div>
               <div className="flex flex-col gap-1.5 flex-1">
                 <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none px-1">
@@ -1360,12 +1401,29 @@ export default function PublicarCartaPage() {
                               <div className="flex items-center border rounded-lg overflow-hidden text-xs">
                                 <button
                                   onClick={() => setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it))}
-                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold"
+                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold select-none"
                                 >−</button>
-                                <span className="px-2 py-1 min-w-[24px] text-center font-semibold">{item.quantity}</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val) && val >= 1) {
+                                      setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, quantity: val } : it));
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val < 1) {
+                                      setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, quantity: 1 } : it));
+                                    }
+                                  }}
+                                  className="w-10 py-1 text-center text-xs font-semibold outline-none bg-white border-x border-gray-200 focus:bg-green-50 focus:border-green-300 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
                                 <button
                                   onClick={() => setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, quantity: it.quantity + 1 } : it))}
-                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold"
+                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold select-none"
                                 >+</button>
                               </div>
                               <input
