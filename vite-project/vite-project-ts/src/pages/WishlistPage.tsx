@@ -16,9 +16,9 @@ interface CartaVendedor {
 interface FavoritoEntry {
   id: number
   disponible: boolean
-  cartaClass: { id: number; name: string; description: string } | null
   cartaId: number | null
   cartaNombre?: string
+  cartaRarity?: string | null
   cartaImage?: string | null
   cartas: CartaVendedor[]
   notificar: boolean
@@ -50,14 +50,9 @@ export default function WishlistPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleRemove = async (cartaClassId: number) => {
-    await fetchApi(`/api/wishlist/${cartaClassId}`, { method: 'DELETE' })
-    setFavoritos(prev => prev.filter(f => f.cartaClass?.id !== cartaClassId))
-  }
-
-  const handleRemoveByCarta = async (cartaId: number) => {
-    await fetchApi(`/api/wishlist/carta/${cartaId}`, { method: 'DELETE' })
-    setFavoritos(prev => prev.filter(f => f.cartaId !== cartaId))
+  const handleRemove = async (entryId: number) => {
+    await fetchApi(`/api/wishlist/${entryId}`, { method: 'DELETE' })
+    setFavoritos(prev => prev.filter(f => f.id !== entryId))
   }
 
   const handleToggleNotificar = async (entry: FavoritoEntry) => {
@@ -72,7 +67,6 @@ export default function WishlistPage() {
         body: JSON.stringify({ notificar: nuevo }),
       })
     } catch {
-      // Revert on error
       setFavoritos(prev =>
         prev.map(f => f.id === entry.id ? { ...f, notificar: !nuevo } : f)
       )
@@ -80,7 +74,7 @@ export default function WishlistPage() {
   }
 
   const getBadge = (entry: FavoritoEntry) => {
-    if (!entry.disponible || !entry.cartaClass) {
+    if (!entry.disponible) {
       return <span className="px-2 py-0.5 rounded-full text-xs bg-gray-200 text-gray-500">No disponible</span>
     }
     if (entry.cartas.length === 0) {
@@ -155,7 +149,7 @@ export default function WishlistPage() {
                     {/* Imagen */}
                     <div className="w-16 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                       {coverImage ? (
-                        <img src={coverImage} alt={entry.cartaClass?.name} className="w-full h-full object-cover" />
+                        <img src={coverImage} alt={entry.cartaNombre} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">?</div>
                       )}
@@ -166,10 +160,10 @@ export default function WishlistPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <h3 className="font-bold text-gray-800 text-lg leading-tight">
-                            {entry.cartaClass?.name ?? entry.cartaNombre ?? entry.cartas[0]?.name ?? 'Carta eliminada'}
+                            {entry.cartaNombre ?? entry.cartas[0]?.name ?? 'Carta eliminada'}
                           </h3>
-                          {entry.cartaClass?.description && (
-                            <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{entry.cartaClass.description}</p>
+                          {entry.cartaRarity && (
+                            <p className="text-xs text-gray-400 mt-0.5">{entry.cartaRarity}</p>
                           )}
                         </div>
 
@@ -189,10 +183,7 @@ export default function WishlistPage() {
 
                           {/* Eliminar */}
                           <button
-                            onClick={() => {
-                              if (entry.cartaClass) handleRemove(entry.cartaClass.id)
-                              else if (entry.cartaId) handleRemoveByCarta(entry.cartaId)
-                            }}
+                            onClick={() => handleRemove(entry.id)}
                             className="text-red-400 hover:text-red-600 text-2xl transition"
                             title="Quitar de favoritos"
                           >
@@ -202,8 +193,7 @@ export default function WishlistPage() {
                       </div>
 
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {/* Badge disponibilidad solo para entradas con cartaClass */}
-                        {entry.cartaClass && getBadge(entry)}
+                        {getBadge(entry)}
 
                         {/* Precio mínimo */}
                         {minPrecio !== null && (
@@ -232,22 +222,11 @@ export default function WishlistPage() {
                             Máx. ${Number(entry.precioMax).toLocaleString('es-AR')}
                           </span>
                         )}
-
-                        {/* Botón Ver inline para entradas por cartaId */}
-                        {!entry.cartaClass && entry.cartaId && (
-                          <button
-                            onClick={() => setExpandido(isExpanded ? null : entry.id)}
-                            className="px-3 py-1 rounded-full text-xs font-semibold transition bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
-                          >
-                            {isExpanded ? 'Ocultar' : 'Ver'}
-                            <span className={`transition-transform inline-block ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
-                          </button>
-                        )}
                       </div>
                     </div>
 
-                    {/* Botón expandir (solo para entradas con cartaClass) */}
-                    {entry.cartaClass && entry.disponible && entry.cartas.length > 0 && (
+                    {/* Botón expandir */}
+                    {entry.cartas.length > 0 && (
                       <button
                         onClick={() => setExpandido(isExpanded ? null : entry.id)}
                         className="flex-shrink-0 px-4 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 font-semibold text-sm transition flex items-center gap-1"
@@ -258,11 +237,11 @@ export default function WishlistPage() {
                     )}
                   </div>
 
-                  {/* Tabla comparación / publicaciones */}
+                  {/* Tabla comparación */}
                   {isExpanded && (
                     <div className="border-t border-orange-100 px-4 pb-4 pt-3">
                       <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wide">
-                        {entry.cartaClass ? 'Comparativa de vendedores' : 'Publicaciones disponibles'}
+                        Comparativa de vendedores
                       </p>
                       {entry.cartas.length === 0 && (
                         <p className="text-sm text-gray-400 text-center py-4">No hay publicaciones disponibles para esta carta.</p>

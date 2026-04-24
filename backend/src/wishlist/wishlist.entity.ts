@@ -1,17 +1,14 @@
-import { Entity, Property, ManyToOne } from "@mikro-orm/core";
+import { Entity, Property, ManyToOne, Rel } from "@mikro-orm/core";
 import { BaseEntity } from "../shared/db/baseEntity.js";
-import { CartaClass } from "../carta/cartaClass.entity.js";
+import { Carta } from "../carta/carta.entity.js";
 
 @Entity()
 export class Wishlist extends BaseEntity {
   @Property({ type: 'number' })
   userId!: number;
 
-  @ManyToOne(() => CartaClass, { nullable: true })
-  cartaClass?: CartaClass;
-
-  @Property({ type: 'number', nullable: true })
-  cartaId?: number;
+  @ManyToOne(() => Carta, { nullable: true })
+  carta?: Rel<Carta>;
 
   @Property({ type: 'string', nullable: true })
   idioma?: string; // 'es' | 'en' | 'jp' | 'fr' | null = cualquiera

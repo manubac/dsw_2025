@@ -363,8 +363,7 @@ export function CardDetail() {
 
     {showWishlistModal && (
       <WishlistModal
-        cartaClassId={card?.cartaClass?.id}
-        cartaId={!card?.cartaClass?.id ? card?.id : undefined}
+        cartaId={card!.id}
         onSaved={() => {
           setEnFavoritos(true)
           setShowWishlistModal(false)

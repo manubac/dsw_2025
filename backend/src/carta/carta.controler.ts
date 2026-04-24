@@ -15,7 +15,7 @@ const em = orm.em;
 // Middleware para sanitizar la entrada
 function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitisedInput = {
-    name: req.body.name,
+    name: req.body.name?.trim().replace(/\s+/g, ' '),
     price: req.body.price,
     image: req.body.image,
     link: req.body.link,
