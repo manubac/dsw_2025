@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(pnpm start:dev)",
+      "Bash(echo \"PID: $!\")",
+      "Read(//c/Users/volen/AppData/Local/Temp/claude/c--Users-volen-dsw-2025/4b6d1d0c-9c0f-4f48-a2b7-99e08260c1a8/tasks/**)",
+      "Bash(netstat -ano)",
+      "Bash(psql \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"SELECT ic.id, ic.created_at, c.name as carta_name, cc.name as carta_class FROM item_carta ic JOIN carta c ON ic.carta_id = c.id LEFT JOIN carta_class cc ON ic.carta_class_id = cc.id ORDER BY ic.created_at DESC LIMIT 5;\")"
+    ]
+  }
+}

@@ -2,7 +2,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { api, fetchApi } from "../services/api";
 import { useUser } from "../context/user";
+import { ChevronLeft } from "lucide-react";
 
+
+interface CartaClassOption {
+  id: number;
+  name: string;
+}
 
 interface Carta {
   id?: number;
@@ -12,6 +18,7 @@ interface Carta {
   link?: string;
   rarity?: string;
   setName?: string;
+  cartaClass?: number;
   uploader?: { id: number };
 }
 
@@ -41,17 +48,28 @@ export default function EditarCartaPage() {
   const cartaInicial = location.state?.carta as Carta;
   const { user } = useUser();
 
+  const itemUid = location.state?.uid as string | undefined;
+
   const [carta, setCarta] = useState<Carta>(cartaInicial || { name: "" });
   const [mensaje, setMensaje] = useState("");
   const [nuevaImagen, setNuevaImagen] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
   const [description, setDescription] = useState("");
   const [intermediarios, setIntermediarios] = useState<Intermediario[]>([]);
   const [selectedIntermediarios, setSelectedIntermediarios] = useState<number[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [itemCartaId, setItemCartaId] = useState<number | null>(null);
+  const [cartaClasses, setCartaClasses] = useState<CartaClassOption[]>([]);
+  const [selectedCartaClass, setSelectedCartaClass] = useState<number | null>(cartaInicial?.cartaClass ?? null);
   
-  // Allow manual creation even with minimal cartaInicial
+  // Fetch carta classes (juegos)
+  useEffect(() => {
+    fetchApi('/api/cartas/classes')
+      .then(r => r.json())
+      .then(d => setCartaClasses(d.data ?? []))
+      .catch(() => {});
+  }, []);
 
   // Fetch intermediarios
   useEffect(() => {
@@ -168,6 +186,7 @@ export default function EditarCartaPage() {
           link: carta.link,
           rarity: carta.rarity,
           setName: carta.setName,
+          cartaClass: selectedCartaClass ?? undefined,
           userId: user?.id,
         });
         cartaId = cartaResponse.data?.data?.id;
@@ -184,6 +203,7 @@ export default function EditarCartaPage() {
           link: carta.link,
           rarity: carta.rarity,
           setName: carta.setName,
+          cartaClass: selectedCartaClass ?? undefined,
           userId: user?.id,
         });
       }
@@ -196,7 +216,7 @@ export default function EditarCartaPage() {
           description,
           cartasIds: cartaId ? [cartaId] : [],
           intermediariosIds: selectedIntermediarios,
-          userId: user?.id, // required for permission check
+          userId: user?.id,
         });
         setMensaje("Item actualizado con éxito.");
       } else {
@@ -210,11 +230,57 @@ export default function EditarCartaPage() {
         });
         setMensaje("Item publicado con éxito.");
       }
-      
-      setTimeout(() => navigate("/cards"), 1500);
+      setPublished(true);
     } catch (error) {
       console.error("Error al publicar item:", error);
       setMensaje("Error al publicar el item.");
+    }
+  };
+
+  const buildReturnState = (wasPublished: boolean) => ({
+    returnedFrom: 'editarCarta' as const,
+    uid: itemUid,
+    updatedCarta: {
+      name: carta.name,
+      price: carta.price,
+      image: nuevaImagen || carta.image,
+      rarity: carta.rarity,
+      setName: carta.setName,
+      cartaClass: selectedCartaClass,
+    },
+    published: wasPublished,
+  });
+
+  const handleVolver = () => {
+    if (itemUid) {
+      navigate("/publicar", { state: buildReturnState(published) });
+    } else {
+      navigate(-1);
+    }
+  };
+
+  const handleGuardarCambios = async () => {
+    if (carta.id) {
+      try {
+        await api.put(`/api/cartas/${carta.id}`, {
+          name: carta.name,
+          price: carta.price,
+          image: nuevaImagen || carta.image,
+          link: carta.link,
+          rarity: carta.rarity,
+          setName: carta.setName,
+          cartaClass: selectedCartaClass ?? undefined,
+          userId: user?.id,
+        });
+      } catch {
+        setMensaje("Error al guardar cambios.");
+        return;
+      }
+    }
+    if (itemUid) {
+      navigate("/publicar", { state: buildReturnState(false) });
+    } else {
+      navigate(-1);
     }
   };
 
@@ -248,6 +314,13 @@ export default function EditarCartaPage() {
 
       {/* ================= LEFT - IMAGE ================= */}
       <div className="flex flex-col items-center gap-4">
+        <button
+          onClick={handleVolver}
+          className="self-start flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition font-medium"
+        >
+          <ChevronLeft size={18} />
+          Volver
+        </button>
         <img
           src={nuevaImagen || carta.image}
           alt={carta.name}
@@ -337,6 +410,21 @@ export default function EditarCartaPage() {
             onChange={handleChange}
             className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none"
           />
+        </div>
+
+        {/* Juego */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Juego</label>
+          <select
+            value={selectedCartaClass ?? ""}
+            onChange={(e) => setSelectedCartaClass(e.target.value ? Number(e.target.value) : null)}
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none"
+          >
+            <option value="">-- Seleccionar juego --</option>
+            {cartaClasses.map(cc => (
+              <option key={cc.id} value={cc.id}>{cc.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* Descripción */}
@@ -447,36 +535,27 @@ export default function EditarCartaPage() {
         </div>
 
         {/* ================= ACTIONS ================= */}
-        <div className="flex gap-3 pt-2">
-
+        <div className="flex gap-3 pt-2 flex-wrap">
           <button
-            onClick={publicarCarta}
-            className="
-              flex-1
-              bg-green-500
-              text-white
-              py-3
-              rounded-xl
-              font-semibold
-              hover:bg-green-600
-              transition
-              shadow-md
-            "
+            onClick={handleGuardarCambios}
+            className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition shadow-md"
           >
-            Confirmar publicación
+            Guardar cambios
           </button>
+
+          {!published && (
+            <button
+              onClick={publicarCarta}
+              className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold hover:bg-green-600 transition shadow-md"
+            >
+              Publicar
+            </button>
+          )}
 
           {carta.id && (
             <button
               onClick={handleDelete}
-              className="
-                bg-red-500
-                text-white
-                px-4
-                rounded-xl
-                hover:bg-red-600
-                transition
-              "
+              className="bg-red-500 text-white px-4 rounded-xl hover:bg-red-600 transition"
             >
               Eliminar carta
             </button>
@@ -484,9 +563,14 @@ export default function EditarCartaPage() {
         </div>
 
         {mensaje && (
-          <p className="text-center text-sm text-gray-600">
+          <div className={`text-center text-sm font-medium px-4 py-2 rounded-xl ${
+            published ? "bg-green-100 text-green-700" : "text-gray-600"
+          }`}>
             {mensaje}
-          </p>
+            {published && (
+              <p className="text-xs text-gray-500 mt-0.5">Presioná "Volver" para regresar a la cola.</p>
+            )}
+          </div>
         )}
 
       </div>

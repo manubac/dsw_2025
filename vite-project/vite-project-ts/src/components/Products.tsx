@@ -57,7 +57,7 @@ export function Products({ products }: { products: any[] }) {
                 cursor-pointer
                 bg-gradient-to-b from-gray-50 to-gray-100
               "
-              onClick={() => navigate(`/card/${product.id}`)}
+              onClick={() => navigate(product.type === 'bundle' ? `/bundle/${product.id}` : `/card/${product.id}`)}
             >
               <img
                 src={product.thumbnail}
@@ -70,6 +70,12 @@ export function Products({ products }: { products: any[] }) {
                 "
               />
 
+              {product.type === 'bundle' && (
+                <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                  Paquete · {product.cartas?.length ?? 0} cartas
+                </div>
+              )}
+
               {/* brillo tipo carta pokemon */}
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-t from-black/10 to-transparent"></div>
             </div>
@@ -77,7 +83,7 @@ export function Products({ products }: { products: any[] }) {
             {/* Info */}
             <div className="p-4 space-y-3">
               <h3
-                onClick={() => navigate(`/card/${product.id}`)}
+                onClick={() => navigate(product.type === 'bundle' ? `/bundle/${product.id}` : `/card/${product.id}`)}
                 className="
                   font-semibold text-lg
                   cursor-pointer

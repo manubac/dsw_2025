@@ -1,11 +1,11 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useUser } from "../context/user";
 import { api, fetchApi } from "../services/api";
 import { searchCards, getCardRarities, resolveCard, type GameSlug } from "../services/tcg";
 import { CardScanner, type ScannedCard } from "../components/CardScanner/CardScanner";
-import { ScanLine, ListPlus, X, ChevronRight, ChevronLeft, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink } from "lucide-react";
+import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink, Pencil } from "lucide-react";
 import { type ParsedCard, type DetectedFormat } from "../utils/deckParsers";
 
 type Juego = "pokemon" | "magic" | "yugioh" | "digimon" | "riftbound";
@@ -52,6 +52,7 @@ interface QueueItem {
   rarezas?: Rareza[];
   rarezasLoading?: boolean;
   rarezaElegida?: Rareza | null;
+  cartaClassId?: number;
 }
 
 type PriceSiteKey = "coolstuff" | "tcgplayer" | "cardmarket" | "ebay" | "pricecharting" | "trollandtoad";
@@ -98,10 +99,6 @@ export default function PublicarCartaPage() {
   const [rarezas, setRarezas] = useState<Rareza[]>([]);
   const [cargandoRarezas, setCargandoRarezas] = useState(false);
   const [rarezaElegida, setRarezaElegida] = useState<Rareza | null>(null);
-  const [precioCoolStuff, setPrecioCoolStuff] = useState<string | null | "cargando">(null);
-
-  type PreciosPokemon = { coolstuff: string | null; tcgplayer: string | null; cardmarket: string | null; ebay: string | null; pricecharting: string | null; trollandtoad: string | null; };
-  const [preciosPokemon, setPreciosPokemon] = useState<PreciosPokemon | "cargando" | null>(null);
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [identifying, setIdentifying] = useState(false);
@@ -109,9 +106,17 @@ export default function PublicarCartaPage() {
   const [identifyCardId, setIdentifyCardId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Cola de importación masiva ---
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [panelOpen, setPanelOpen] = useState(false);
+  // --- Cola de importación masiva (persiste en sessionStorage para sobrevivir navegación) ---
+  const [queue, setQueue] = useState<QueueItem[]>(() => {
+    try {
+      if (!localStorage.getItem('user')) return [];
+      const saved = sessionStorage.getItem('publicar_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [panelOpen, setPanelOpen] = useState(() => {
+    return sessionStorage.getItem('publicar_panelOpen') === 'true';
+  });
   const [applyingPrices, setApplyingPrices] = useState(false);
   const [bulkPublishing, setBulkPublishing] = useState(false);
   const [bundleAll, setBundleAll] = useState(false);
@@ -136,6 +141,7 @@ export default function PublicarCartaPage() {
   const sugerenciasRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useUser();
 
   useEffect(() => {
@@ -144,6 +150,43 @@ export default function PublicarCartaPage() {
       .then(d => setCartaClasses(d.data ?? []))
       .catch(() => {});
   }, []);
+
+  // Persiste la cola y el estado del panel entre navegaciones
+  useEffect(() => {
+    try { sessionStorage.setItem('publicar_queue', JSON.stringify(queue)); } catch {}
+  }, [queue]);
+
+  useEffect(() => {
+    sessionStorage.setItem('publicar_panelOpen', String(panelOpen));
+  }, [panelOpen]);
+
+  // Procesa el estado de retorno desde EditarCartaPage
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.returnedFrom !== 'editarCarta' || !state.uid) return;
+
+    const { uid, updatedCarta, published } = state;
+    setQueue(prev => prev.map(it => {
+      if (it.uid !== uid) return it;
+      if (published) return { ...it, published: true };
+      return {
+        ...it,
+        price: updatedCarta?.price ?? it.price,
+        cartaClassId: updatedCarta?.cartaClass ?? it.cartaClassId,
+        carta: it.carta ? {
+          ...it.carta,
+          name: updatedCarta?.name ?? it.carta.name,
+          image: updatedCarta?.image ?? it.carta.image,
+          rarity: updatedCarta?.rarity ?? it.carta.rarity,
+          setName: updatedCarta?.setName ?? it.carta.setName,
+        } : it.carta,
+      };
+    }));
+    setPanelOpen(true);
+    // Limpiar el state para que no se re-aplique en renders siguientes
+    navigate(location.pathname, { replace: true, state: null });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const cargarPagina = useCallback(async (
     nombreBusqueda: string,
@@ -262,9 +305,10 @@ export default function PublicarCartaPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rarityPopup?.uid]);
 
-  const buscarCartas = async (nombreOverride?: string) => {
+  const buscarCartas = async (nombreOverride?: string, juegoOverride?: Juego) => {
     const n = (nombreOverride ?? nombre).trim();
     if (!n) return;
+    const juegoActual = juegoOverride ?? juego;
     setMostrarSugerencias(false);
     setResultados([]);
     setNombresVistos(new Set());
@@ -277,7 +321,7 @@ export default function PublicarCartaPage() {
     let expansionFallback = expansion;
     let intentoDirecto = false;
 
-    if (juego === "pokemon") {
+    if (juegoActual === "pokemon") {
       // Acepta "Charmander MEW 4"  o  "MEW 4"  (nombre opcional)
       const m = n.match(/^(?:(.+?)\s+)?([A-Z][A-Z0-9]{1,7})\s+(\d+)$/);
       if (m) {
@@ -285,19 +329,19 @@ export default function PublicarCartaPage() {
         nombreFallback    = m[1] ?? '';  // puede estar vacío
         expansionFallback = m[2];
       }
-    } else if (juego === "magic") {
+    } else if (juegoActual === "magic") {
       const m = n.match(/^(.+?)\s+\(([A-Z0-9]{2,5})\)\s+(\d+[a-z]?)$/);
       if (m) { intentoDirecto = true; nombreFallback = m[1]; }
-    } else if (juego === "yugioh") {
+    } else if (juegoActual === "yugioh") {
       if (/^\d{6,10}$/.test(n)) intentoDirecto = true;
-    } else if (juego === "digimon") {
+    } else if (juegoActual === "digimon") {
       if (/^[A-Z]{1,4}\d{0,3}-\d{3,4}$/.test(n)) intentoDirecto = true;
     }
 
     if (intentoDirecto) {
-      busquedaRef.current = { nombre: n, juego, expansion };
+      busquedaRef.current = { nombre: n, juego: juegoActual, expansion };
       setCargando(true);
-      const directa = await tryResolveDirectly(n, juego);
+      const directa = await tryResolveDirectly(n, juegoActual);
       setCargando(false);
       if (directa) {
         setResultados([directa]);
@@ -307,10 +351,10 @@ export default function PublicarCartaPage() {
       // Resolve falló → buscar con el nombre extraído + set como filtro
     }
 
-    busquedaRef.current = { nombre: nombreFallback, juego, expansion: expansionFallback };
+    busquedaRef.current = { nombre: nombreFallback, juego: juegoActual, expansion: expansionFallback };
     const vistos = new Set<string>();
     setNombresVistos(vistos);
-    await cargarPagina(nombreFallback, juego, expansionFallback, 1, true, vistos);
+    await cargarPagina(nombreFallback, juegoActual, expansionFallback, 1, true, vistos);
   };
 
   const seleccionarSugerencia = (sugerencia: string) => {
@@ -343,8 +387,6 @@ export default function PublicarCartaPage() {
     setModalCarta(carta);
     setRarezas([]);
     setRarezaElegida(null);
-    setPrecioCoolStuff(null);
-    setPreciosPokemon(null);
 
     setCargandoRarezas(true);
     try {
@@ -372,25 +414,6 @@ export default function PublicarCartaPage() {
     }
   };
 
-  // Solo para Pokemon: al elegir rareza busca precios en todas las tiendas
-  const elegirRareza = async (r: Rareza) => {
-    setRarezaElegida(r);
-    setPreciosPokemon("cargando");
-    try {
-      const params = new URLSearchParams({ nombre: modalCarta!.name });
-      if (modalCarta!.setName) params.set("set", modalCarta!.setName);
-      if (r.rarity) params.set("rareza", r.rarity);
-      const resp = await fetchApi(`/api/cartas/precios-pokemon?${params}`);
-      const data = await resp.json();
-      setPreciosPokemon(data);
-      setPrecioCoolStuff(data.coolstuff ?? null);
-    } catch {
-      setPreciosPokemon(null);
-      setPrecioCoolStuff(null);
-    }
-  };
-
-  // Para juegos no-Pokémon: selecciona una variante/reimpresión sin buscar precios
   const seleccionarVariante = (r: Rareza) => {
     setRarezaElegida(r);
   };
@@ -400,18 +423,7 @@ export default function PublicarCartaPage() {
     if (!user || !modalCarta) return;
     if (juego === "pokemon" && !rarezaElegida) return;
 
-    const juegoLabel = JUEGOS.find(j => j.value === juego)?.label ?? juego;
-    const cartaClassMatch = cartaClasses.find(cc =>
-      cc.name.toLowerCase().includes(juego) ||
-      cc.name.toLowerCase().includes(juegoLabel.toLowerCase().split(":")[0].trim())
-    );
-    void cartaClassMatch; // usado en publishQueueItem por format
-
-    const precioFinal = (() => {
-      if (typeof preciosPokemon !== "string" && preciosPokemon?.coolstuff) return preciosPokemon.coolstuff;
-      if (typeof precioCoolStuff === "string" && precioCoolStuff !== "cargando") return precioCoolStuff;
-      return "";
-    })();
+    const cartaClassMatch = cartaClasses.find(cc => cc.name === juego);
 
     const carta: CartaResultado = {
       name: modalCarta.name,
@@ -430,17 +442,16 @@ export default function PublicarCartaPage() {
       carta,
       rarezaElegida: rarezaElegida,
       rarezas: rarezas.length > 0 ? rarezas : undefined,
-      price: precioFinal,
+      price: "",
       quantity: 1,
       checked: true,
+      cartaClassId: cartaClassMatch?.id,
     };
 
     setQueue(prev => [...prev, newItem]);
     setModalCarta(null);
     setRarezaElegida(null);
     setRarezas([]);
-    setPrecioCoolStuff(null);
-    setPreciosPokemon(null);
     setPanelOpen(true);
   };
 
@@ -725,22 +736,18 @@ export default function PublicarCartaPage() {
 
   const publishQueueItem = async (item: QueueItem) => {
     if (!user || !item.carta) return;
-    const juegoLabel = JUEGOS.find((j) => j.value === item.format)?.label ?? item.format;
-    const cartaClassMatch = cartaClasses.find(
-      (cc) =>
-        cc.name.toLowerCase().includes(item.format) ||
-        cc.name.toLowerCase().includes(juegoLabel.toLowerCase().split(":")[0].trim())
-    );
+    const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name === item.format)?.id ?? null;
     try {
       await api.post("/api/cartas", {
         name: item.carta.name,
         price: item.price || null,
+        image: item.rarezaElegida?.image ?? item.carta.image ?? null,
         link: null,
         rarity: item.rarezaElegida?.rarity ?? item.carta.rarity ?? null,
         setName: item.rarezaElegida?.setName ?? item.carta.setName ?? null,
         setCode: item.carta.setId ?? null,
         cardNumber: item.rarezaElegida?.number ?? item.carta.number ?? null,
-        cartaClass: cartaClassMatch?.id ?? null,
+        cartaClass: cartaClassId,
         userId: user.id,
       });
       setQueue((prev) =>
@@ -758,30 +765,66 @@ export default function PublicarCartaPage() {
     const pending = queue.filter((it) => it.checked && it.status === "found" && !it.published && it.carta);
 
     if (bundleAll && pending.length > 0) {
-      // Publicación única: sumatoria de (precio × cantidad)
+      // Validación: todos deben ser del mismo cartaClass
+      const firstClassId = pending[0].cartaClassId ?? cartaClasses.find(cc => cc.name === pending[0].format)?.id;
+      const mixed = pending.some(it => {
+        const id = it.cartaClassId ?? cartaClasses.find(cc => cc.name === it.format)?.id;
+        return id !== firstClassId;
+      });
+      if (mixed) { setBulkPublishing(false); return; }
+
+      // Paso 1: crear cada Carta individualmente y recolectar sus IDs
+      const cartaIds: number[] = [];
+      for (const item of pending) {
+        const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name === item.format)?.id ?? null;
+        try {
+          const res = await api.post("/api/cartas", {
+            name: item.carta!.name,
+            price: item.price || null,
+            image: item.rarezaElegida?.image ?? item.carta!.image ?? null,
+            link: null,
+            rarity: item.rarezaElegida?.rarity ?? item.carta!.rarity ?? null,
+            setName: item.rarezaElegida?.setName ?? item.carta!.setName ?? null,
+            setCode: item.carta!.setId ?? null,
+            cardNumber: item.rarezaElegida?.number ?? item.carta!.number ?? null,
+            cartaClass: cartaClassId,
+            userId: user!.id,
+          });
+          cartaIds.push(res.data.data.id);
+        } catch {
+          // carta individual fallida — seguimos con las demás
+        }
+      }
+
+      if (cartaIds.length === 0) {
+        setQueue(prev => prev.map(it =>
+          pending.find(p => p.uid === it.uid) ? { ...it, publishError: "Error al publicar" } : it
+        ));
+        setBulkPublishing(false);
+        return;
+      }
+
+      // Paso 2: crear el ItemCarta que enlaza todas las Cartas
+      const bundleName = pending.map(it => it.carta!.name).join(" + ");
       const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
-      const total = pending.reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
-      const juegoLabel = JUEGOS.find(j => j.value === pending[0].format)?.label ?? pending[0].format;
-      const cartaClassMatch = cartaClasses.find(cc =>
-        cc.name.toLowerCase().includes(pending[0].format) ||
-        cc.name.toLowerCase().includes(juegoLabel.toLowerCase().split(":")[0].trim())
-      );
+      const description = pending
+        .map(it => `${it.carta!.name}${it.price ? ` ($${parsePrice(it.price).toFixed(2)})` : ""}`)
+        .join(", ");
+
       try {
-        await api.post("/api/cartas", {
-          name: pending.map(it => it.carta!.name).join(" + "),
-          price: total > 0 ? `$${total.toFixed(2)}` : null,
-          link: null,
-          rarity: null,
-          setName: null,
-          cartaClass: cartaClassMatch?.id ?? null,
-          userId: user!.id,
+        await api.post("/api/itemsCarta", {
+          name: bundleName,
+          description,
+          stock: 1,
+          uploaderId: user!.id,
+          cartasIds: cartaIds,
         });
         setQueue(prev => prev.map(it =>
           pending.find(p => p.uid === it.uid) ? { ...it, published: true, publishError: undefined } : it
         ));
       } catch {
         setQueue(prev => prev.map(it =>
-          pending.find(p => p.uid === it.uid) ? { ...it, publishError: "Error al publicar" } : it
+          pending.find(p => p.uid === it.uid) ? { ...it, publishError: "Error al crear bundle" } : it
         ));
       }
     } else {
@@ -982,15 +1025,13 @@ export default function PublicarCartaPage() {
             <ListPlus size={18} />
             Importar
           </button>
-          {queue.length > 0 && (
-            <button
-              onClick={() => setPanelOpen(true)}
-              className="flex items-center gap-2 border-2 border-green-500 text-green-600 font-semibold px-5 py-2 rounded-xl hover:bg-green-50 transition"
-            >
-              <ChevronRight size={18} />
-              Cola ({queue.filter((i) => !i.published).length} pendientes)
-            </button>
-          )}
+          <button
+            onClick={() => setPanelOpen(prev => !prev)}
+            className="flex items-center gap-2 border-2 border-green-500 text-green-600 font-semibold px-5 py-2 rounded-xl hover:bg-green-50 transition"
+          >
+            <ChevronRight size={18} className={`transition-transform ${panelOpen ? "rotate-180" : ""}`} />
+            Cola ({queue.filter((i) => !i.published).length} pendientes)
+          </button>
         </div>
 
         {scannerOpen && (
@@ -1154,42 +1195,6 @@ export default function PublicarCartaPage() {
       </div>
 
       {/* Botón flotante de cola */}
-      {queue.length > 0 && !panelOpen && (
-        <button
-          onClick={() => setPanelOpen(true)}
-          title="Abrir cola de publicación"
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-50 group focus:outline-none"
-        >
-          <div className="relative flex flex-col items-center justify-center gap-2.5 px-2.5 py-5 rounded-l-2xl transition-all duration-200
-            bg-[linear-gradient(160deg,#1e293b_0%,#0f172a_100%)]
-            border border-r-0 border-slate-700
-            shadow-[0_8px_32px_rgba(0,0,0,0.5)]
-            group-hover:shadow-[0_8px_40px_rgba(16,185,129,0.35)]
-            group-hover:-translate-x-0.5"
-          >
-            {/* Franja lateral esmeralda */}
-            <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-gradient-to-b from-emerald-400 to-emerald-600 opacity-90" />
-
-            {/* Badge con cantidad */}
-            <div className="relative w-8 h-8 rounded-full flex items-center justify-center
-              bg-[radial-gradient(circle_at_35%_35%,#34d399,#059669)]
-              shadow-[0_2px_10px_rgba(16,185,129,0.5)]
-              text-slate-900 font-black text-sm
-              transition-transform duration-200 group-hover:scale-110"
-            >
-              {queue.filter(i => !i.published).length}
-            </div>
-
-            {/* Etiqueta vertical */}
-            <span className="[writing-mode:vertical-rl] rotate-180 text-[9px] font-bold tracking-[0.18em] uppercase text-slate-400 group-hover:text-emerald-300 transition-colors duration-200 select-none">
-              Cola
-            </span>
-
-            <ChevronLeft size={11} className="text-slate-600 group-hover:text-emerald-400 transition-colors duration-200" />
-          </div>
-        </button>
-      )}
-
       {/* Panel lateral de cola */}
       {panelOpen && (
         <>
@@ -1246,31 +1251,46 @@ export default function PublicarCartaPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-1.5 flex-1">
-                <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none px-1">
-                  <input
-                    type="checkbox"
-                    checked={bundleAll}
-                    onChange={e => setBundleAll(e.target.checked)}
-                    className="accent-green-500"
-                  />
-                  Todo en una publicación
-                  {bundleAll && (() => {
-                    const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
-                    const total = queue
-                      .filter(it => it.checked && it.status === "found" && !it.published)
-                      .reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
-                    return total > 0
-                      ? <span className="ml-auto font-semibold text-green-600">${total.toFixed(2)}</span>
-                      : null;
-                  })()}
-                </label>
-                <button
-                  onClick={publishAllChecked}
-                  disabled={bulkPublishing || queue.every((i) => !i.checked || i.status !== "found" || !!i.published)}
-                  className="text-sm font-semibold bg-green-500 text-white px-3 py-2 rounded-xl hover:bg-green-600 disabled:opacity-50 transition"
-                >
-                  {bulkPublishing ? "Publicando…" : `Publicar seleccionadas (${queue.filter((i) => i.checked && i.status === "found" && !i.published).length})`}
-                </button>
+                {(() => {
+                  const checkedPending = queue.filter(it => it.checked && it.status === "found" && !it.published);
+                  const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
+                  const total = checkedPending.reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
+                  const bundleClassMixed = bundleAll && checkedPending.length > 1 && (() => {
+                    const firstId = checkedPending[0].cartaClassId ?? cartaClasses.find(cc => cc.name === checkedPending[0].format)?.id;
+                    return checkedPending.some(it => {
+                      const id = it.cartaClassId ?? cartaClasses.find(cc => cc.name === it.format)?.id;
+                      return id !== firstId;
+                    });
+                  })();
+                  return (
+                    <>
+                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none px-1">
+                        <input
+                          type="checkbox"
+                          checked={bundleAll}
+                          onChange={e => setBundleAll(e.target.checked)}
+                          className="accent-green-500"
+                        />
+                        Todo en una publicación
+                        {bundleAll && !bundleClassMixed && total > 0 && (
+                          <span className="ml-auto font-semibold text-green-600">${total.toFixed(2)}</span>
+                        )}
+                      </label>
+                      {bundleClassMixed && (
+                        <p className="text-[11px] text-red-500 px-1 leading-tight">
+                          Solo se pueden agrupar cartas del mismo juego.
+                        </p>
+                      )}
+                      <button
+                        onClick={publishAllChecked}
+                        disabled={bulkPublishing || bundleClassMixed || queue.every((i) => !i.checked || i.status !== "found" || !!i.published)}
+                        className="text-sm font-semibold bg-green-500 text-white px-3 py-2 rounded-xl hover:bg-green-600 disabled:opacity-50 transition"
+                      >
+                        {bulkPublishing ? "Publicando…" : `Publicar seleccionadas (${checkedPending.length})`}
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1444,6 +1464,26 @@ export default function PublicarCartaPage() {
                                 Pub.
                               </button>
                               <button
+                                onClick={() => navigate("/editar-carta", {
+                                  state: {
+                                    uid: item.uid,
+                                    carta: {
+                                      name: item.carta?.name ?? "",
+                                      price: item.price || undefined,
+                                      image: item.rarezaElegida?.image ?? item.carta?.image,
+                                      rarity: item.rarezaElegida?.rarity ?? item.carta?.rarity,
+                                      setName: item.rarezaElegida?.setName ?? item.carta?.setName,
+                                      cartaClass: item.cartaClassId,
+                                      uploader: { id: user?.id },
+                                    }
+                                  }
+                                })}
+                                className="text-xs text-blue-500 hover:text-blue-700 transition"
+                                title="Editar antes de publicar"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
                                 onClick={() => setQueue((prev) => prev.filter((it) => it.uid !== item.uid))}
                                 className="text-xs text-gray-400 hover:text-red-400 transition"
                               >
@@ -1566,7 +1606,7 @@ export default function PublicarCartaPage() {
                   {rarezas.map(r => (
                     <button
                       key={r.cardId}
-                      onClick={() => juego === "pokemon" ? elegirRareza(r) : seleccionarVariante(r)}
+                      onClick={() => seleccionarVariante(r)}
                       className={`rounded-xl border-2 p-3 flex flex-col items-center gap-2 transition ${
                         rarezaElegida?.cardId === r.cardId
                           ? "border-green-500 bg-green-50"
@@ -1592,39 +1632,11 @@ export default function PublicarCartaPage() {
               )}
             </div>
 
-            {/* Footer del modal — precios de referencia (Pokémon) + Añadir a cola */}
+            {/* Footer del modal — Añadir a cola */}
             {(rarezaElegida || (juego !== "pokemon" && !cargandoRarezas && rarezas.length === 0)) && (
               <div className="border-t p-6 space-y-4">
-                {/* Precios de referencia — solo Pokémon */}
-                {juego === "pokemon" && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">Precios sugeridos de referencia:</p>
-                    {preciosPokemon === "cargando" ? (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-                        Consultando tiendas…
-                      </div>
-                    ) : preciosPokemon ? (
-                      [
-                        { label: "CoolStuffInc", value: preciosPokemon.coolstuff },
-                        { label: "TCGPlayer",    value: preciosPokemon.tcgplayer },
-                        { label: "Cardmarket",   value: preciosPokemon.cardmarket },
-                        { label: "eBay",         value: preciosPokemon.ebay },
-                        { label: "PriceCharting",value: preciosPokemon.pricecharting },
-                        { label: "Troll & Toad", value: preciosPokemon.trollandtoad },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600 w-36">{label}:</span>
-                          {value
-                            ? <span className="text-green-600 font-bold">{value}</span>
-                            : <span className="text-gray-400">No disponible</span>}
-                        </div>
-                      ))
-                    ) : null}
-                  </div>
-                )}
-                {/* Variante seleccionada — para juegos no-Pokémon */}
-                {juego !== "pokemon" && rarezaElegida && (
+                {/* Variante seleccionada */}
+                {rarezaElegida && (
                   <div className="text-sm text-gray-600 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
                     <span className="font-semibold text-green-700">{rarezaElegida.setName ?? "Sin colección"}</span>
                     {rarezaElegida.rarity && <span className="ml-2 text-gray-500">· {rarezaElegida.rarity}</span>}
@@ -1634,8 +1646,7 @@ export default function PublicarCartaPage() {
                 )}
                 <button
                   onClick={agregarACola}
-                  disabled={juego === "pokemon" && preciosPokemon === "cargando"}
-                  className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition shadow-md"
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-xl transition shadow-md"
                 >
                   Añadir a cola
                 </button>
