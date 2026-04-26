@@ -6,7 +6,26 @@
       "Bash(echo \"PID: $!\")",
       "Read(//c/Users/volen/AppData/Local/Temp/claude/c--Users-volen-dsw-2025/4b6d1d0c-9c0f-4f48-a2b7-99e08260c1a8/tasks/**)",
       "Bash(netstat -ano)",
-      "Bash(psql \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"SELECT ic.id, ic.created_at, c.name as carta_name, cc.name as carta_class FROM item_carta ic JOIN carta c ON ic.carta_id = c.id LEFT JOIN carta_class cc ON ic.carta_class_id = cc.id ORDER BY ic.created_at DESC LIMIT 5;\")"
+      "Bash(psql \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"SELECT ic.id, ic.created_at, c.name as carta_name, cc.name as carta_class FROM item_carta ic JOIN carta c ON ic.carta_id = c.id LEFT JOIN carta_class cc ON ic.carta_class_id = cc.id ORDER BY ic.created_at DESC LIMIT 5;\")",
+      "Bash(npx mikro-orm *)",
+      "Bash(npx tsx *)",
+      "PowerShell(cd \"c:\\\\Users\\\\volen\\\\dsw_2025\\\\backend\"; $env:PGPASSWORD=\"post1234\"; & psql -U postgres -h localhost -d heroclash_dsw -c \"\\\\d item_carta\" 2>&1)",
+      "Bash(timeout 8 node -e ' *)",
+      "Bash(timeout 5 node -e ' *)",
+      "Bash(xargs cat *)",
+      "Bash(grep -v \"^--$\")",
+      "Bash(xargs grep *)",
+      "Bash(timeout 10 node -e ' *)",
+      "Bash(timeout 5 curl -s http://localhost:3000/api/cartas)",
+      "Bash(timeout 5 curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/cartas)",
+      "Bash(node dist/server.js)",
+      "Bash(curl -s http://localhost:3000/api/cartas)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('OK, cartas count:', len\\(d.get\\('data',[]\\)\\), '- first:', d.get\\('data',[{}]\\)[0].get\\('id'\\)\\)\")",
+      "Bash(timeout 10 curl -s -X POST http://localhost:3000/api/vendedores/login -H \"Content-Type: application/json\" -d '{\"email\":\"UserTcg@test.com\",\"password\":\"test\"}')",
+      "Bash(timeout 10 curl -s -X PUT http://localhost:3000/api/itemsCarta/9 -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Miwicm9sZSI6InZlbmRlZG9yIiwiaWF0IjoxNzc3MTYxMzkyLCJleHAiOjE3NzcxNjQ5OTJ9.f3VuuENy4zNtLoYKAu3XiYBSW3KeMWuu6y8RiyITBqs' -d '{\"name\":\"TestItem\",\"description\":\"Test\",\"stock\":5,\"cartasIds\":[10],\"intermediariosIds\":[],\"userId\":2}')",
+      "Bash(timeout 15 curl -v -X PUT http://localhost:3000/api/itemsCarta/9 -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJ2ZW5kZWRvciIsImlhdCI6MTc3NzE2MTQyNSwiZXhwIjoxNzc3MTY1MDI1fQ.va7AI8_wwmkV_R4-D-teNhRtatsG--sjUj6JR4qK7-I' -d '{\"name\":\"TestItem\",\"description\":\"Test\",\"stock\":5,\"cartasIds\":[10],\"intermediariosIds\":[],\"userId\":2}')",
+      "Bash(timeout 15 curl -v -X PUT http://localhost:3000/api/cartas/10 -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJ2ZW5kZWRvciIsImlhdCI6MTc3NzE2MTQyNSwiZXhwIjoxNzc3MTY1MDI1fQ.va7AI8_wwmkV_R4-D-teNhRtatsG--sjUj6JR4qK7-I' -d '{\"name\":\"TestCarta\",\"price\":\"$5.00\",\"rarity\":\"Rare\",\"setName\":\"Base Set\",\"userId\":2}')",
+      "Bash(timeout 15 curl -v -X PUT http://localhost:3000/api/cartas/10 -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJ2ZW5kZWRvciIsImlhdCI6MTc3NzE2MTQyNSwiZXhwIjoxNzc3MTY1MDI1fQ.va7AI8_wwmkV_R4-D-teNhRtatsG--sjUj6JR4qK7-I' -d '{\"name\":\"TestCarta\",\"price\":\"$5.00\",\"rarity\":\"Rare\",\"setName\":\"Base Set\",\"cartaClass\":{\"id\":1,\"name\":\"Pokemon\",\"description\":\"TCG Pokemon\"},\"userId\":2}')"
     ]
   }
 }

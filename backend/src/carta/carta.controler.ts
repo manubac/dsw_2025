@@ -104,9 +104,19 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
+    // Usamos el em global (no fork) para reutilizar entidades ya cacheadas en el identity map
+    // (vendedor, cartaClass) y evitar SQL fresco que podría fallar si el schema está desactualizado.
     const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items", "uploader"] });
-    
-    // Mapear campos de la carta para coincidir con las expectativas del frontend
+
+    // Mapear items a objetos planos para evitar referencias circulares en JSON.stringify
+    // (ItemCarta.cartas apunta de vuelta a Carta cuando está inicializado por findAll)
+    const items = carta.items.getItems().map(item => ({
+      id: item.id,
+      description: item.description,
+      stock: item.stock,
+      estado: item.estado,
+    }));
+
     const cartaFormateada = {
       id: carta.id,
       title: carta.name,
@@ -119,10 +129,10 @@ async function findOne(req: Request, res: Response) {
       link: carta.link,
       brand: "Pokémon TCG",
       category: "trading-cards",
-      rating: null, // Rating de la carta eliminado, usar uploader.rating
-      stock: carta.items.getItems().reduce((sum, item) => sum + item.stock, 0),
+      rating: null,
+      stock: items.reduce((sum, item) => sum + item.stock, 0),
       cartaClass: carta.cartaClass,
-      items: carta.items,
+      items,
       uploader: undefined as any
     } as any;
 
@@ -130,18 +140,18 @@ async function findOne(req: Request, res: Response) {
     if ((carta as any).uploader) {
        const uploaderId = (carta as any).uploader.id;
        const valoraciones = await em.find(Valoracion, { tipoObjeto: 'vendedor', objetoId: uploaderId });
-       const avg = valoraciones.length > 0 
-          ? valoraciones.reduce((acc, v) => acc + v.puntuacion, 0) / valoraciones.length 
+       const avg = valoraciones.length > 0
+          ? valoraciones.reduce((acc, v) => acc + v.puntuacion, 0) / valoraciones.length
           : 0;
 
-      cartaFormateada.uploader = { 
+      cartaFormateada.uploader = {
         id: uploaderId,
         nombre: (carta as any).uploader.nombre,
         rating: avg,
         reviewsCount: valoraciones.length
       };
     }
-    
+
     res.status(200).json({ message: "Found one carta", data: cartaFormateada });
   } catch (error: any) {
     console.error("Error fetching carta:", error);
@@ -158,7 +168,14 @@ async function add(req: Request, res: Response) {
     const cartaData = { ...req.body.sanitisedInput };
 
     if (cartaData.cartaClass) {
-      cartaData.cartaClass = emReq.getReference(CartaClass, Number(cartaData.cartaClass));
+      const classId = typeof cartaData.cartaClass === 'object'
+        ? Number((cartaData.cartaClass as any).id)
+        : Number(cartaData.cartaClass);
+      if (!isNaN(classId)) {
+        cartaData.cartaClass = emReq.getReference(CartaClass, classId);
+      } else {
+        delete cartaData.cartaClass;
+      }
     }
 
     // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
@@ -190,7 +207,14 @@ async function update(req: Request, res: Response) {
 
     const cartaData = { ...req.body.sanitisedInput };
     if (cartaData.cartaClass) {
-      cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
+      const classId = typeof cartaData.cartaClass === 'object'
+        ? Number((cartaData.cartaClass as any).id)
+        : Number(cartaData.cartaClass);
+      if (!isNaN(classId)) {
+        cartaData.cartaClass = em.getReference(CartaClass, classId);
+      } else {
+        delete cartaData.cartaClass;
+      }
     }
 
     em.assign(carta, cartaData);
