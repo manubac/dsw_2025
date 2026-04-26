@@ -14,6 +14,24 @@ const RAREZAS_CON_REVERSE = new Set([
 const setNameCache = new Map<string, string>();
 let setsLoaded = false;
 
+// Mapeo sigla TCG Live (ej: "TWM") → ID interno TCGdex (ej: "sv6")
+const setAbbrCache = new Map<string, string>();
+let setAbbrLoaded = false;
+
+async function loadSetAbbrMapping(): Promise<void> {
+  if (setAbbrLoaded) return;
+  try {
+    const r = await fetch('/api/tcg/pokemon/sets');
+    if (r.ok) {
+      const rows: Array<{ id: string; abbr: string }> = await r.json();
+      for (const row of rows) {
+        if (row.abbr) setAbbrCache.set(row.abbr.toUpperCase(), row.id);
+      }
+      setAbbrLoaded = true;
+    }
+  } catch { /* silently fail */ }
+}
+
 async function apiFetch(url: string): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
@@ -191,18 +209,83 @@ export async function resolvePokemon(
   nameHint?: string
 ): Promise<ExternalCard | ExternalCard[] | null> {
   await loadSets();
+  await loadSetAbbrMapping();
 
-  const detail = await fetchCardDetail('en', `${setCode}-${number}`);
-  if (detail) return toCardFromDetail(detail, 'en');
+  // Traduce sigla TCG Live (ej: TWM) → ID TCGdex (ej: sv6)
+  const tcgdexId = setAbbrCache.get(setCode.toUpperCase()) ?? setCode;
 
+  // Algunos sets usan zero-padding en el número (ej: 35 → 035)
+  const numInt = parseInt(number, 10);
+  const numberFmts: string[] = [number];
+  if (!isNaN(numInt) && numInt < 100) {
+    const padded = String(numInt).padStart(3, '0');
+    if (padded !== number) numberFmts.push(padded);
+  }
+
+  // 1. Fetch directo con el ID de TCGdex mapeado + variantes de número
+  for (const num of numberFmts) {
+    const detail = await fetchCardDetail('en', `${tcgdexId}-${num}`);
+    if (detail) return toCardFromDetail(detail, 'en');
+  }
+
+  // 2. Fetch directo con el código original (para sets no mapeados o ya correctos)
+  if (tcgdexId !== setCode) {
+    for (const num of numberFmts) {
+      const detail = await fetchCardDetail('en', `${setCode}-${num}`);
+      if (detail) return toCardFromDetail(detail, 'en');
+    }
+  }
+
+  // 3. Fetch con el código en minúsculas (TCGdex usa IDs en minúsculas; útil para sets nuevos no mapeados)
+  const setCodeLower = setCode.toLowerCase();
+  if (!setAbbrCache.has(setCode.toUpperCase()) && setCodeLower !== setCode) {
+    for (const num of numberFmts) {
+      const detail = await fetchCardDetail('en', `${setCodeLower}-${num}`);
+      if (detail) return toCardFromDetail(detail, 'en');
+    }
+  }
+
+  // 4. Búsqueda por nombre + número con filtro por set y normalización de formato
   if (nameHint) {
     try {
-      const r = await apiFetch(
-        `${BASE}/en/cards?name=${encodeURIComponent(nameHint)}`
-      );
-      if (r.ok) {
-        const summaries: any[] = await r.json();
-        const matched = summaries.filter(c => c.localId === number);
+      // Comparación por número tolerando distinto zero-padding
+      const matchesNumber = (localId: string): boolean => {
+        if (numberFmts.includes(localId)) return true;
+        if (!isNaN(numInt)) {
+          const n = parseInt(localId, 10);
+          return !isNaN(n) && n === numInt;
+        }
+        return false;
+      };
+
+      // Si tenemos un mapeo de DB, buscar filtrado por set en TCGdex para mayor precisión
+      const hasMappedId = setAbbrCache.has(setCode.toUpperCase());
+      const baseUrl = `${BASE}/en/cards?name=${encodeURIComponent(nameHint)}`;
+
+      let summaries: any[] = [];
+      let usedSetFilter = false;
+      if (hasMappedId) {
+        const r = await apiFetch(`${baseUrl}&set.id=${tcgdexId}`);
+        if (r.ok) summaries = await r.json();
+        if (summaries.length > 0) usedSetFilter = true;
+      }
+      // Si no hay mapeo, o el mapeo era incorrecto (0 resultados), buscar sin filtro de set
+      if (summaries.length === 0) {
+        const r = await apiFetch(baseUrl);
+        if (r.ok) summaries = await r.json();
+      }
+
+      if (summaries.length > 0) {
+        let matched = summaries.filter(c => matchesNumber(c.localId));
+
+        // Si no se filtró por set, intentar acotar por set ID cuando hay varios resultados
+        if (!usedSetFilter && matched.length > 1) {
+          const fromSet = matched.filter(c =>
+            setIdFromCardId(c.id).toLowerCase() === setCode.toLowerCase()
+          );
+          if (fromSet.length > 0) matched = fromSet;
+        }
+
         if (matched.length === 1) {
           const d = await fetchCardDetail('en', matched[0].id);
           if (d) return toCardFromDetail(d, 'en');

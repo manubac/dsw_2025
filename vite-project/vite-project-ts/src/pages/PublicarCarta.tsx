@@ -5,7 +5,7 @@ import { useUser } from "../context/user";
 import { api, fetchApi } from "../services/api";
 import { searchCards, getCardRarities, resolveCard, type GameSlug } from "../services/tcg";
 import { CardScanner, type ScannedCard } from "../components/CardScanner/CardScanner";
-import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink, Pencil } from "lucide-react";
+import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { type ParsedCard, type DetectedFormat } from "../utils/deckParsers";
 
 type Juego = "pokemon" | "magic" | "yugioh" | "digimon" | "riftbound";
@@ -666,18 +666,16 @@ export default function PublicarCartaPage() {
     }
 
     const fmt = juego as DetectedFormat;
-    const newItems: QueueItem[] = parsed.flatMap((p, pi) =>
-      Array.from({ length: p.quantity }, (_, i) => ({
-        uid: `${Date.now()}-${pi}-${i}`,
-        parsed: p,
-        format: fmt,
-        status: "loading" as const,
-        price: "",
-        quantity: 1,
-        stock: 1,
-        checked: true,
-      }))
-    );
+    const newItems: QueueItem[] = parsed.map((p, pi) => ({
+      uid: `${Date.now()}-${pi}`,
+      parsed: p,
+      format: fmt,
+      status: "loading" as const,
+      price: "",
+      quantity: 1,
+      stock: p.quantity,
+      checked: true,
+    }));
 
     setQueue((prev) => [...prev, ...newItems]);
 
@@ -1231,9 +1229,21 @@ export default function PublicarCartaPage() {
                     : `${queue.filter((i) => !i.published).length} pendientes · ${queue.filter((i) => i.published).length} publicadas`}
                 </p>
               </div>
-              <button onClick={() => setPanelOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={22} />
-              </button>
+              <div className="flex items-center gap-2">
+                {queue.length > 0 && (
+                  <button
+                    onClick={() => { if (confirm("¿Eliminar toda la cola?")) setQueue([]); }}
+                    className="flex items-center gap-1 text-xs font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition"
+                    title="Eliminar cola completa"
+                  >
+                    <Trash2 size={13} />
+                    Eliminar cola
+                  </button>
+                )}
+                <button onClick={() => setPanelOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={22} />
+                </button>
+              </div>
             </div>
 
             {/* Acciones */}
