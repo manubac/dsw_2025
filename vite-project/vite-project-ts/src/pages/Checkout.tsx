@@ -325,6 +325,7 @@ const handleManual = async (e: React.FormEvent) => {
     clearCart()
     setOrderPlaced(true)
 
+
   } catch (error: any) {
     console.error('Error en pago manual:', error)
     alert('Error en pago manual: ' + (error.message || 'Error desconocido'))
