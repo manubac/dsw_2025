@@ -21,6 +21,7 @@ async function findAll(req: Request, res: Response) {
            thumbnail: cartaItems[0]?.image || undefined,
            price: totalPrice > 0 ? totalPrice : undefined,
            description: item.description,
+           stock: item.stock,
            intermediarios: item.intermediarios,
            cartas: cartaItems.map(c => ({
              id: c.id,
@@ -54,6 +55,7 @@ async function findOne(req: Request, res: Response) {
           thumbnail: cartaItems[0]?.image || null,
           price: totalPrice,
           description: item.description,
+          stock: item.stock,
           cartas: cartaItems.map(c => ({
             id: c.id,
             name: c.name,

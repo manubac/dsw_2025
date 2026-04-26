@@ -55,13 +55,18 @@ export default function EditarCartaPage() {
   const [nuevaImagen, setNuevaImagen] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
   const [description, setDescription] = useState("");
+  const [stock, setStock] = useState<number>(location.state?.stock ?? 1);
   const [intermediarios, setIntermediarios] = useState<Intermediario[]>([]);
   const [selectedIntermediarios, setSelectedIntermediarios] = useState<number[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [itemCartaId, setItemCartaId] = useState<number | null>(null);
   const [cartaClasses, setCartaClasses] = useState<CartaClassOption[]>([]);
-  const [selectedCartaClass, setSelectedCartaClass] = useState<number | null>(cartaInicial?.cartaClass ?? null);
+  const [selectedCartaClass, setSelectedCartaClass] = useState<number | null>(
+    typeof cartaInicial?.cartaClass === 'object' && cartaInicial?.cartaClass !== null
+      ? ((cartaInicial.cartaClass as any)?.id ?? null)
+      : (cartaInicial?.cartaClass as number ?? null)
+  );
   
   // Fetch carta classes (juegos)
   useEffect(() => {
@@ -126,16 +131,21 @@ export default function EditarCartaPage() {
             const existingItem = data.items[0];
             setItemCartaId(existingItem.id);
             setDescription(existingItem.description || "");
-            
-            // To get intermediarios, we need to fetch the specific item details because 
+
+            // To get intermediarios, we need to fetch the specific item details because
             // the carta endpoint might not deeply populate them
             try {
               const itemRes = await fetchApi(`/api/itemsCarta/${existingItem.id}`);
               const itemJson = await itemRes.json();
               const itemData = itemJson?.data;
-              if (itemData && itemData.intermediarios) {
-                 const ids = itemData.intermediarios.map((i: Intermediario) => i.id);
-                 setSelectedIntermediarios(ids);
+              if (itemData) {
+                if (itemData.intermediarios) {
+                  const ids = itemData.intermediarios.map((i: Intermediario) => i.id);
+                  setSelectedIntermediarios(ids);
+                }
+                if (typeof itemData.stock === 'number') {
+                  setStock(itemData.stock);
+                }
               }
             } catch (e) {
               console.error("Error fetching ItemCarta details", e);
@@ -214,6 +224,7 @@ export default function EditarCartaPage() {
         await api.put(`/api/itemsCarta/${itemCartaId}`, {
           name: carta.name,
           description,
+          stock,
           cartasIds: cartaId ? [cartaId] : [],
           intermediariosIds: selectedIntermediarios,
           userId: user?.id,
@@ -224,6 +235,7 @@ export default function EditarCartaPage() {
         await api.post("/api/itemsCarta", {
             name: carta.name,
             description,
+            stock,
             cartasIds: cartaId ? [cartaId] : [],
             intermediariosIds: selectedIntermediarios,
             uploaderId: user?.id,
@@ -247,6 +259,7 @@ export default function EditarCartaPage() {
       rarity: carta.rarity,
       setName: carta.setName,
       cartaClass: selectedCartaClass,
+      stock,
     },
     published: wasPublished,
   });
@@ -437,6 +450,38 @@ export default function EditarCartaPage() {
             placeholder="Describe tu item..."
             className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 outline-none resize-none"
           />
+        </div>
+
+        {/* Stock */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Stock disponible</label>
+          <div className="flex items-center border rounded-lg overflow-hidden w-fit">
+            <button
+              type="button"
+              onClick={() => setStock(s => Math.max(1, s - 1))}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition select-none"
+            >−</button>
+            <input
+              type="number"
+              min={1}
+              value={stock}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                if (!isNaN(val) && val >= 1) setStock(val);
+              }}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value);
+                if (isNaN(val) || val < 1) setStock(1);
+              }}
+              className="w-16 py-2 text-center font-semibold outline-none bg-white border-x border-gray-200 focus:bg-green-50 focus:border-green-300 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <button
+              type="button"
+              onClick={() => setStock(s => s + 1)}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition select-none"
+            >+</button>
+          </div>
+          <p className="text-xs text-gray-400">El stock disminuye automáticamente cuando un comprador reserva la carta.</p>
         </div>
 
         {/* ================= INTERMEDIARIOS ================= */}

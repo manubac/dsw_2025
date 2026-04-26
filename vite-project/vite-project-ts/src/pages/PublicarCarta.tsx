@@ -46,6 +46,7 @@ interface QueueItem {
   candidates?: CartaResultado[];
   price: string;
   quantity: number;
+  stock: number;
   checked: boolean;
   published?: boolean;
   publishError?: string;
@@ -172,6 +173,7 @@ export default function PublicarCartaPage() {
       return {
         ...it,
         price: updatedCarta?.price ?? it.price,
+        stock: updatedCarta?.stock ?? it.stock,
         cartaClassId: updatedCarta?.cartaClass ?? it.cartaClassId,
         carta: it.carta ? {
           ...it.carta,
@@ -444,6 +446,7 @@ export default function PublicarCartaPage() {
       rarezas: rarezas.length > 0 ? rarezas : undefined,
       price: "",
       quantity: 1,
+      stock: 1,
       checked: true,
       cartaClassId: cartaClassMatch?.id,
     };
@@ -671,6 +674,7 @@ export default function PublicarCartaPage() {
         status: "loading" as const,
         price: "",
         quantity: 1,
+        stock: 1,
         checked: true,
       }))
     );
@@ -742,7 +746,7 @@ export default function PublicarCartaPage() {
     if (!user || !item.carta) return;
     const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name === item.format)?.id ?? null;
     try {
-      await api.post("/api/cartas", {
+      const cartaRes = await api.post("/api/cartas", {
         name: item.carta.name,
         price: item.price || null,
         image: item.rarezaElegida?.image ?? item.carta.image ?? null,
@@ -754,6 +758,16 @@ export default function PublicarCartaPage() {
         cartaClass: cartaClassId,
         userId: user.id,
       });
+      const cartaId = cartaRes.data?.data?.id;
+      if (cartaId) {
+        await api.post("/api/itemsCarta", {
+          name: item.carta.name,
+          description: "",
+          stock: item.stock ?? 1,
+          cartasIds: [cartaId],
+          uploaderId: user.id,
+        });
+      }
       setQueue((prev) =>
         prev.map((it) => (it.uid === item.uid ? { ...it, published: true, publishError: undefined } : it))
       );
@@ -868,6 +882,7 @@ export default function PublicarCartaPage() {
         status: "loading",
         price: "",
         quantity: 1,
+        stock: 1,
         checked: true,
       };
       setQueue(prev => [...prev, newItem]);
@@ -942,6 +957,7 @@ export default function PublicarCartaPage() {
           status: "loading",
           price: "",
           quantity: 1,
+          stock: 1,
           checked: true,
         };
         setQueue(prev => [...prev, newItem]);
@@ -1479,7 +1495,8 @@ export default function PublicarCartaPage() {
                                       setName: item.rarezaElegida?.setName ?? item.carta?.setName,
                                       cartaClass: item.cartaClassId,
                                       uploader: { id: user?.id },
-                                    }
+                                    },
+                                    stock: item.stock,
                                   }
                                 })}
                                 className="text-xs text-blue-500 hover:text-blue-700 transition"
@@ -1493,6 +1510,38 @@ export default function PublicarCartaPage() {
                               >
                                 <X size={14} />
                               </button>
+                            </div>
+                            {/* Stock */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-gray-500 font-medium">Stock:</span>
+                              <div className="flex items-center border rounded-lg overflow-hidden text-xs">
+                                <button
+                                  onClick={() => setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, stock: Math.max(1, it.stock - 1) } : it))}
+                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold select-none"
+                                >−</button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={item.stock}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val) && val >= 1) {
+                                      setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, stock: val } : it));
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val < 1) {
+                                      setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, stock: 1 } : it));
+                                    }
+                                  }}
+                                  className="w-10 py-1 text-center text-xs font-semibold outline-none bg-white border-x border-gray-200 focus:bg-green-50 focus:border-green-300 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                                <button
+                                  onClick={() => setQueue(prev => prev.map(it => it.uid === item.uid ? { ...it, stock: it.stock + 1 } : it))}
+                                  className="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 transition font-bold select-none"
+                                >+</button>
+                              </div>
                             </div>
                           </div>
                         )}
