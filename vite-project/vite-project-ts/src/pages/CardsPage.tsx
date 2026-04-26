@@ -9,7 +9,7 @@ import { fetchApi } from "../services/api";
 const POKEMON_CODE_RE = /^(.+?)\s+([A-Z][A-Z0-9]{1,7})\s+(\d+)$/;
 
 export function CardsPage() {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const { filters, setFilters, filterProducts } = useFilters();
 
   const [searchText, setSearchText] = useState("");
@@ -20,9 +20,14 @@ export function CardsPage() {
   useEffect(() => {
     async function fetchCartas() {
       try {
-        const res = await fetchApi('/api/cartas');
-        const json = await res.json();
-        const transformedData = json.data.map((carta: any) => ({
+        const [resCartas, resBundles] = await Promise.all([
+          fetchApi('/api/cartas'),
+          fetchApi('/api/itemsCarta'),
+        ]);
+        const jsonCartas = await resCartas.json();
+        const jsonBundles = await resBundles.json();
+
+        const cartas = (jsonCartas.data ?? []).map((carta: any) => ({
           id: carta.id,
           title: carta.title,
           thumbnail: carta.thumbnail,
@@ -31,8 +36,25 @@ export function CardsPage() {
           intermediarios: carta.intermediarios,
           uploader: carta.uploader,
           stock: carta.stock,
+          type: 'carta',
         }));
-        setProducts(transformedData);
+
+        const bundles = (jsonBundles.data ?? [])
+          .filter((item: any) => Array.isArray(item.cartas) && item.cartas.length >= 2)
+          .map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            thumbnail: item.thumbnail,
+            price: item.price ?? 0,
+            description: item.description,
+            intermediarios: item.intermediarios,
+            uploader: item.uploader,
+            stock: 1,
+            type: 'bundle',
+            cartas: item.cartas,
+          }));
+
+        setProducts([...cartas, ...bundles]);
       } catch (err) {
         console.error("Error al traer cartas:", err);
       }

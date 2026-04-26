@@ -12,6 +12,7 @@ import { Checkout } from "./pages/Checkout";
 import { Reservar } from "./pages/Reservar";
 import Purchases from "./pages/Purchases";
 import { CardDetail } from "./pages/CardDetail";
+import { BundleDetail } from "./pages/BundleDetail";
 import PublicarCartaPage from "./pages/PublicarCarta";
 import { ContactPage } from "./pages/ContactPage";
 import EditarCartaPage from "./pages/EditarCartaPage";
@@ -100,6 +101,7 @@ function App() {
                 {/* Sección de cartas */}
                 <Route path="cards" element={<CardsPage />} />
                 <Route path="card/:id" element={<CardDetail />} />
+                <Route path="bundle/:id" element={<BundleDetail />} />
 
                 {/* Perfil Público de Vendedor */}
                 <Route path="vendedor/:id" element={<VendedorProfile />} />

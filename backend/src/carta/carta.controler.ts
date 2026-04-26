@@ -15,7 +15,7 @@ const em = orm.em;
 // Middleware para sanitizar la entrada
 function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitisedInput = {
-    name: req.body.name,
+    name: req.body.name?.trim().replace(/\s+/g, ' '),
     price: req.body.price,
     image: req.body.image,
     link: req.body.link,
@@ -46,10 +46,11 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todas las cartas
 async function findAll(req: Request, res: Response) {
   try {
-    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.intermediarios.direccion", "uploader"] });
-    
+    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.cartas", "items.intermediarios.direccion", "uploader"] });
+
     // Mapear campos de la carta para coincidir con las expectativas del frontend (title, thumbnail, etc.)
     const cartasFormateadas = cartas
+        .filter(carta => carta.items.getItems().every(item => item.cartas.getItems().length < 2))
         .map(carta => {
         // Recolectar todos los intermediarios de todos los items vinculados a esta carta (deduplicados)
         const interMap = new Map<number, any>();
@@ -150,28 +151,29 @@ async function findOne(req: Request, res: Response) {
 
 // Agregar una carta
 async function add(req: Request, res: Response) {
+  const emReq = orm.em.fork();
   try {
     console.log("Sanitised input:", req.body.sanitisedInput);
 
     const cartaData = { ...req.body.sanitisedInput };
 
-      if (cartaData.cartaClass) {
-        cartaData.cartaClass = em.getReference(CartaClass, Number(cartaData.cartaClass));
-      }
+    if (cartaData.cartaClass) {
+      cartaData.cartaClass = emReq.getReference(CartaClass, Number(cartaData.cartaClass));
+    }
 
-      // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
-      const vendedorId = req.body.userId ?? req.body.vendedorId;
-      if (vendedorId) {
-        cartaData.uploader = em.getReference(Vendedor, Number(vendedorId));
-      }
+    // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
+    const vendedorId = req.body.userId ?? req.body.vendedorId;
+    if (vendedorId) {
+      cartaData.uploader = emReq.getReference(Vendedor, Number(vendedorId));
+    }
 
-      const carta = em.create(Carta, cartaData);
-    await em.flush();
+    const carta = emReq.create(Carta, cartaData);
+    await emReq.flush();
 
     // Fire-and-forget: el notifier carga la carta completa con su propio EM
     if (carta.id) notifyWishlistSubscribers(orm.em.fork(), carta.id).catch(console.error);
 
-    res.status(201).json({ message: "Carta created", data: carta });
+    res.status(201).json({ message: "Carta created", data: { id: carta.id, name: carta.name } });
   } catch (error: any) {
     console.error("Error creating carta:", error);
     res.status(500).json({ message: "Error creating carta", error: error.message, details: error });

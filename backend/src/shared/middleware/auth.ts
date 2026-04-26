@@ -5,8 +5,6 @@ import { User } from '../../user/user.entity.js';
 import { Vendedor } from '../../vendedor/vendedores.entity.js';
 import { Intermediario } from '../../intermediario/intermediario.entity.js';
 
-const em = orm.em;
-
 export type Role = 'user' | 'vendedor' | 'intermediario';
 export type ActorEntity = User | Vendedor | Intermediario;
 
@@ -21,6 +19,9 @@ export interface AuthRequest extends Request {
  * El token DEBE contener un campo `role` establecido durante el login.
  */
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  // Fork por request para evitar que el identity map global quede corrupto
+  // entre requests fallidos y afecte la autenticación siguiente.
+  const em = orm.em.fork();
   try {
     const token = req.headers.authorization?.split(' ')[1]; // Bearer <token>
 

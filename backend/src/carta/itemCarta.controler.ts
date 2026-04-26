@@ -11,16 +11,30 @@ async function findAll(req: Request, res: Response) {
    try {
        const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor'] });
        // Formatear para cumplir con las expectativas del frontend
-       const itemsFormateadas = items.map(item => ({
-         id: item.id,
-         title: item.name,
-         thumbnail: item.cartas[0]?.image || undefined,
-         price: item.cartas[0]?.price ? parseFloat(item.cartas[0].price.replace('$', '')) : undefined,
-         description: item.description,
-         intermediarios: item.intermediarios,
-         cartas: item.cartas,
-         uploader: item.uploaderVendedor,
-       }));
+       const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
+       const itemsFormateadas = items.map(item => {
+         const cartaItems = item.cartas.getItems();
+         const totalPrice = cartaItems.reduce((sum, c) => sum + parseCartaPrice(c.price), 0);
+         return {
+           id: item.id,
+           title: item.name,
+           thumbnail: cartaItems[0]?.image || undefined,
+           price: totalPrice > 0 ? totalPrice : undefined,
+           description: item.description,
+           intermediarios: item.intermediarios,
+           cartas: cartaItems.map(c => ({
+             id: c.id,
+             name: c.name,
+             image: c.image,
+             price: parseCartaPrice(c.price),
+             rarity: c.rarity,
+             setName: c.setName,
+             cardNumber: c.cardNumber,
+           })),
+           uploader: item.uploaderVendedor,
+           type: 'bundle',
+         };
+       });
        res.status(200).json({message: 'foundAll OK', data: itemsFormateadas});
    } catch (error: any) {
        res.status(500).json({message: error.message || 'Internal server error'});
@@ -31,15 +45,28 @@ async function findOne(req: Request, res: Response) {
     try {
         const id=Number(req.params.id)
         const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor'] });
+        const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
+        const cartaItems = item.cartas.getItems();
+        const totalPrice = cartaItems.reduce((sum, c) => sum + parseCartaPrice(c.price), 0);
         const itemFormateado = {
           id: item.id,
           title: item.name,
-          thumbnail: item.cartas[0]?.image || undefined,
-          price: item.cartas[0]?.price ? parseFloat(item.cartas[0].price.replace('$', '')) : undefined,
+          thumbnail: cartaItems[0]?.image || null,
+          price: totalPrice,
           description: item.description,
-          intermediarios: item.intermediarios,
-          cartas: item.cartas,
-          uploader: item.uploaderVendedor,
+          cartas: cartaItems.map(c => ({
+            id: c.id,
+            name: c.name,
+            image: c.image ?? null,
+            price: parseCartaPrice(c.price),
+            rarity: c.rarity ?? null,
+            setName: c.setName ?? null,
+            cardNumber: c.cardNumber ?? null,
+          })),
+          uploader: item.uploaderVendedor
+            ? { id: item.uploaderVendedor.id, nombre: (item.uploaderVendedor as any).nombre ?? null }
+            : null,
+          type: 'bundle',
         };
         res.status(200).json({message: 'found item', data: itemFormateado});
     } catch (error: any) {

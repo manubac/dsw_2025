@@ -9,8 +9,7 @@ interface WishlistPrefs {
 }
 
 interface Props {
-  cartaClassId?: number
-  cartaId?: number
+  cartaId: number
   onSaved: () => void
   onCancel: () => void
 }
@@ -31,7 +30,7 @@ const CIUDADES = [
   { value: 'buenos_aires', label: 'Buenos Aires' },
 ]
 
-export default function WishlistModal({ cartaClassId, cartaId, onSaved, onCancel }: Props) {
+export default function WishlistModal({ cartaId, onSaved, onCancel }: Props) {
   const [prefs, setPrefs] = useState<WishlistPrefs>({
     idioma: '',
     ciudad: '',
@@ -44,13 +43,12 @@ export default function WishlistModal({ cartaClassId, cartaId, onSaved, onCancel
     setLoading(true)
     try {
       const body: Record<string, any> = {
+        cartaId,
         idioma: prefs.idioma || null,
         ciudad: prefs.ciudad || null,
         notificar: prefs.notificar,
         precioMax: prefs.precioMax !== '' ? Number(prefs.precioMax) : null,
       }
-      if (cartaClassId) body.cartaClassId = cartaClassId
-      else if (cartaId) body.cartaId = cartaId
 
       await fetchApi('/api/wishlist', {
         method: 'POST',

@@ -49,6 +49,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem('user')
+    sessionStorage.removeItem('publicar_queue')
+    sessionStorage.removeItem('publicar_panelOpen')
   }
 
   const updateUser = (updated: Partial<User>) => {

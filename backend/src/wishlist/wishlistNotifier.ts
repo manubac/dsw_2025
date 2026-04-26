@@ -11,7 +11,7 @@ export async function notifyWishlistSubscribers(em: EntityManager, cartaId: numb
     const carta = await em.findOne(
       Carta,
       { id: cartaId },
-      { populate: ['cartaClass', 'uploader'] }
+      { populate: ['uploader'] }
     );
     if (!carta) return;
 
@@ -19,21 +19,15 @@ export async function notifyWishlistSubscribers(em: EntityManager, cartaId: numb
       ? parseFloat(carta.price.replace(/[^0-9.]/g, ''))
       : null;
 
-    // Buscar todas las cartas con el mismo nombre para encontrar suscriptores por cartaId
-    const cartasDelMismoNombre = await em.find(Carta, { name: carta.name }, { fields: ['id'] });
-    const cartaIdsDelMismoNombre = cartasDelMismoNombre.map(c => c.id).filter((id): id is number => id !== undefined);
-
-    // Buscar entradas de wishlist: por cartaClass (si aplica) o por cartaId (mismo nombre)
+    // Buscar entradas de wishlist cuya carta tenga el mismo nombre (case-insensitive, sin espacios extra)
+    const nombreNorm = carta.name.trim().replace(/\s+/g, ' ');
     const entries = await em.find(
       Wishlist,
       {
         notificar: true,
-        $or: [
-          ...(carta.cartaClass ? [{ cartaClass: carta.cartaClass }] : []),
-          { cartaId: { $in: cartaIdsDelMismoNombre } },
-        ],
+        carta: { name: { $ilike: nombreNorm } },
       },
-      { populate: ['cartaClass'] }
+      { populate: ['carta'] }
     );
 
     const now = new Date();
@@ -46,10 +40,10 @@ export async function notifyWishlistSubscribers(em: EntityManager, cartaId: numb
         if (elapsed < COOLDOWN_MS) continue;
       }
 
-      // Filtro de idioma (solo filtra si ambos están definidos)
+      // Filtro de idioma
       if (entry.idioma && carta.lang && entry.idioma !== carta.lang) continue;
 
-      // Filtro de ciudad: si el usuario eligió una ciudad, el vendedor debe operar en ella
+      // Filtro de ciudad
       if (entry.ciudad && carta.uploader) {
         const vendedorCiudad = (carta.uploader as any).ciudad as string | undefined;
         if (vendedorCiudad && vendedorCiudad.toLowerCase() !== entry.ciudad.toLowerCase()) continue;
@@ -71,7 +65,7 @@ export async function notifyWishlistSubscribers(em: EntityManager, cartaId: numb
       const user = await em.findOne(User, { id: entry.userId });
       if (!user?.email) continue;
 
-      const cartaName = carta.cartaClass?.name ?? carta.name;
+      const cartaName = carta.name;
       const precioStr =
         cartaPrice !== null ? `$${cartaPrice.toLocaleString('es-AR')}` : 'Sin precio';
       const cityLabel =

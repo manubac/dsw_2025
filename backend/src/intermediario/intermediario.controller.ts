@@ -150,7 +150,7 @@ async function login(req: Request, res: Response) {
     const token = jwt.sign(
       { userId: intermediario.id, role: 'intermediario' },
       process.env.JWT_SECRET || 'default_secret',
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
     // Se usa wrap().toJSON() para que los campos ocultos (password, tokens) no se incluyan en la respuesta
