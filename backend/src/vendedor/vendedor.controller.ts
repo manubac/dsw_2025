@@ -4,6 +4,7 @@ import { wrap } from '@mikro-orm/core';
 import { Vendedor } from './vendedores.entity.js'
 import { Compra } from '../compra/compra.entity.js';
 import { EstadoEnvio } from '../envio/envio.entity.js';
+import { sendEmail } from '../shared/mailer.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -142,16 +143,15 @@ async function getVentas(req: Request, res: Response) {
                 cartas: { uploader: { id } },
             }
         }, {
-             populate: ['itemCartas', 'itemCartas.cartas', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion']
+             populate: ['itemCartas', 'itemCartas.cartas', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion', 'tiendaRetiro']
         });
 
         const result = compras.map(c => {
-             // Filter items for this vendor
-             const myItems = c.itemCartas.getItems().filter(item => 
+             const myItems = c.itemCartas.getItems().filter(item =>
                  item.cartas.getItems().some(card => card.uploader?.id === id)
              );
              if (myItems.length === 0) return null;
-             
+
              return {
                  id: c.id,
                  fecha: c.createdAt,
@@ -167,13 +167,21 @@ async function getVentas(req: Request, res: Response) {
                      image: i.cartas[0]?.image,
                      price: i.cartas[0]?.price
                  })),
+                 tiendaRetiro: c.tiendaRetiro
+                     ? {
+                         id: c.tiendaRetiro.id,
+                         nombre: c.tiendaRetiro.nombre,
+                         direccion: c.tiendaRetiro.direccion,
+                         horario: c.tiendaRetiro.horario,
+                       }
+                     : null,
                  envio: c.envio ? {
                      id: c.envio.id,
                      estado: c.envio.estado,
                      intermediario: c.envio.intermediario ? {
                         nombre: c.envio.intermediario.nombre,
-                        direccion: c.envio.intermediario.direccion ? 
-                            `${c.envio.intermediario.direccion.calle} ${c.envio.intermediario.direccion.altura}, ${c.envio.intermediario.direccion.ciudad}` 
+                        direccion: c.envio.intermediario.direccion ?
+                            `${c.envio.intermediario.direccion.calle} ${c.envio.intermediario.direccion.altura}, ${c.envio.intermediario.direccion.ciudad}`
                             : "Dirección pendiente"
                      } : null
                  } : null
@@ -211,5 +219,57 @@ async function markSent(req: Request, res: Response) {
    }
 }
 
-export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent };
+async function entregarTienda(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const vendedorId = Number(req.params.id);
+
+    const compra = await em.findOne(
+      Compra,
+      { id: compraId },
+      { populate: ['itemCartas', 'itemCartas.cartas', 'comprador', 'tiendaRetiro'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada' });
+
+    const isVendor = compra.itemCartas.getItems().some(item =>
+      item.cartas.getItems().some(card => card.uploader?.id === vendedorId)
+    );
+    if (!isVendor) return res.status(403).json({ message: 'No eres vendedor en esta compra' });
+
+    if (compra.estado !== 'pendiente') {
+      return res.status(400).json({ message: 'La compra no está en estado pendiente' });
+    }
+
+    compra.estado = 'entregado_a_tienda';
+    await em.flush();
+
+    const destinatario = compra.comprador?.email || compra.email;
+    const nombreComprador = compra.comprador?.username || compra.nombre || 'comprador';
+    const tienda = compra.tiendaRetiro;
+
+    if (destinatario && tienda) {
+      const html = `
+        <h2>¡Buenas noticias, ${nombreComprador}!</h2>
+        <p>Tu pedido <strong>#${compra.id}</strong> ya está disponible para retirar en:</p>
+        <p><strong>${tienda.nombre}</strong><br/>
+        ${tienda.direccion}<br/>
+        ${tienda.horario ? `🕐 ${tienda.horario}` : ''}</p>
+        <p>Cuando vayas a retirarlo, marcalo como completado desde <strong>"Mis Compras"</strong> en la web.</p>
+      `;
+      sendEmail(
+        destinatario,
+        `Tu pedido #${compra.id} está listo para retirar`,
+        `Tu pedido #${compra.id} está listo para retirar en ${tienda.nombre}`,
+        html
+      );
+    }
+
+    res.json({ message: 'Pedido marcado como entregado a tienda', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, entregarTienda };
 
