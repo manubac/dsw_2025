@@ -7,6 +7,7 @@ import {
   update,
   remove,
   createPreference,
+  retirar,
 } from "./compra.controler.js";
 import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
 
@@ -18,5 +19,6 @@ compraRouter.get("/:id", authenticate, authorizeRoles('user'), findOne);
 compraRouter.post("/", authenticate, authorizeRoles('user'), sanitizeCompraInput, add);
 compraRouter.post("/preference", authenticate, authorizeRoles('user'), sanitizeCompraInput, createPreference);
 compraRouter.put("/:id", authenticate, authorizeRoles('user'), sanitizeCompraInput, update);
+compraRouter.patch("/:id/retirar", authenticate, authorizeRoles('user'), retirar);
 compraRouter.patch("/:id", authenticate, authorizeRoles('user'), sanitizeCompraInput, update);
 compraRouter.delete("/:id", authenticate, authorizeRoles('user'), remove);

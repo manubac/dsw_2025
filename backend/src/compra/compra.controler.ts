@@ -7,6 +7,7 @@ import { ItemCarta } from "../carta/itemCarta.entity.js";
 import { Carta } from "../carta/carta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio } from "../envio/envio.entity.js";
+import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 import { sendEmail } from "../shared/mailer.js";
 import { Preference } from "mercadopago";
 import mpClient from '../shared/mercadopago.js'
@@ -25,10 +26,10 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     direccionEntregaId,
     metodoPago,
     envioId,
+    tiendaRetiroId,
     items,
   } = req.body;
 
-  // Extraer cartasIds desde el array de items
   const cartasIds = items && Array.isArray(items) ? items.map((item: any) => item.cartaId) : [];
 
   req.body.sanitizedInput = {
@@ -42,6 +43,7 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     direccionEntregaId,
     metodoPago,
     envioId,
+    tiendaRetiroId,
     items,
   };
 
@@ -54,15 +56,16 @@ async function findAll(req: AuthRequest, res: Response) {
     // Siempre filtrar por las compras del usuario autenticado
     const whereClause = { comprador: { id: req.actor!.id } };
 
-    const compras = await em.find(Compra, whereClause, { 
+    const compras = await em.find(Compra, whereClause, {
         populate: [
-            "comprador", 
-            "itemCartas", 
-            "itemCartas.cartas", 
-            "itemCartas.uploaderVendedor", 
-            "direccionEntrega", 
-            "envio"
-        ] 
+            "comprador",
+            "itemCartas",
+            "itemCartas.cartas",
+            "itemCartas.uploaderVendedor",
+            "direccionEntrega",
+            "envio",
+            "tiendaRetiro",
+        ]
     });
     res.status(200).json({ message: "Found all compras", data: compras });
   } catch (error) {
@@ -78,15 +81,16 @@ async function findOne(req: AuthRequest, res: Response) {
     // Verificar propiedad: el usuario solo puede acceder a sus propias compras
     const whereClause = { id, comprador: { id: req.actor!.id } };
 
-    const compra = await em.findOne(Compra, whereClause, { 
+    const compra = await em.findOne(Compra, whereClause, {
         populate: [
-            "comprador", 
-            "itemCartas", 
-            "itemCartas.cartas", 
+            "comprador",
+            "itemCartas",
+            "itemCartas.cartas",
             "itemCartas.uploaderVendedor",
-            "direccionEntrega", 
-            "envio"
-        ] 
+            "direccionEntrega",
+            "envio",
+            "tiendaRetiro",
+        ]
     });
 
     if (!compra) return res.status(404).json({ message: "Compra not found or access denied" });
@@ -97,98 +101,133 @@ async function findOne(req: AuthRequest, res: Response) {
   }
 }
 
-// Crear nueva compra
+// Crear nueva compra — genera una Compra por cada vendedor distinto en el carrito
 async function add(req: AuthRequest, res: Response) {
   try {
     const input = req.body.sanitizedInput;
 
-    // Usar el usuario autenticado como comprador – nunca confiar en el compradorId del cuerpo
     const comprador = req.actor as User;
-    const direccionEntrega = input.direccionEntregaId ? await em.findOne(Direccion, { id: input.direccionEntregaId }) : undefined;
-    const envio = input.envioId && input.envioId !== 'direct' ? await em.findOne(Envio, { id: input.envioId }) : undefined;
+    const direccionEntrega = input.direccionEntregaId
+      ? await em.findOne(Direccion, { id: input.direccionEntregaId })
+      : undefined;
+    const envio =
+      input.envioId && input.envioId !== 'direct'
+        ? await em.findOne(Envio, { id: input.envioId })
+        : undefined;
+    const tiendaRetiro = input.tiendaRetiroId
+      ? await em.findOne(TiendaRetiro, { id: Number(input.tiendaRetiroId) })
+      : undefined;
 
-    const finalItemCartas: ItemCarta[] = [];
-
-    // Validar y procesar stock para cada item solicitado
-    if (input.items && Array.isArray(input.items) && input.items.length > 0) {
-        for (const reqItem of input.items) {
-           const requestedQty = reqItem.quantity || 1;
-           const cartaId = reqItem.cartaId;
-           
-           // Buscar la Carta con sus items asociados
-           const carta = await em.findOne(Carta, { id: cartaId }, { populate: ['items'] });
-           
-           if (!carta) {
-               return res.status(400).json({ message: `Carta con ID ${cartaId} no encontrada` });
-           }
-           
-           // Buscar un ItemCarta específico con suficiente stock
-           const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty);
-           
-           if (!availableItem) {
-               return res.status(400).json({ message: `No hay suficiente stock para la carta: ${carta.name} (Solicitado: ${requestedQty})` });
-           }
-           
-           // Descontar stock
-           availableItem.stock -= requestedQty;
-           if (availableItem.stock <= 0) {
-               availableItem.stock = 0;
-           }
-           
-           finalItemCartas.push(availableItem);
-        }
-    } else {
-        return res.status(400).json({ message: "No se proporcionaron items válidos para la compra" });
+    if (!input.items || !Array.isArray(input.items) || input.items.length === 0) {
+      return res.status(400).json({ message: "No se proporcionaron items válidos para la compra" });
     }
 
-    const total = input.total ?? finalItemCartas.reduce((sum, ic) => sum + Number(ic.cartas[0]?.price || 0), 0); // Note: This total calc might need adjustment if Qty > 1 but frontend sends total usually.
+    // Agrupar items por vendedor
+    const vendorMap = new Map<number, { itemCartas: ItemCarta[]; items: any[] }>();
 
-    const compra = em.create(Compra, {
-      comprador,
-      itemCartas: finalItemCartas,
-      total,
-      estado: input.estado || "pendiente",
-      nombre: input.nombre,
-      email: input.email,
-      telefono: input.telefono,
-      direccionEntrega,
-      envio,
-      metodoPago: input.metodoPago,
-      items: input.items ?? undefined,
-    });
+    for (const reqItem of input.items) {
+      const requestedQty = reqItem.quantity || 1;
+
+      const carta = await em.findOne(
+        Carta,
+        { id: reqItem.cartaId },
+        { populate: ['items', 'items.uploaderVendedor', 'uploader'] }
+      );
+
+      if (!carta) {
+        return res.status(400).json({ message: `Carta con ID ${reqItem.cartaId} no encontrada` });
+      }
+
+      const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty);
+
+      if (!availableItem) {
+        return res.status(400).json({
+          message: `No hay suficiente stock para la carta: ${carta.name} (Solicitado: ${requestedQty})`,
+        });
+      }
+
+      availableItem.stock -= requestedQty;
+      if (availableItem.stock < 0) availableItem.stock = 0;
+
+      const vendorId = availableItem.uploaderVendedor?.id ?? carta.uploader?.id ?? 0;
+
+      if (!vendorMap.has(vendorId)) {
+        vendorMap.set(vendorId, { itemCartas: [], items: [] });
+      }
+      const group = vendorMap.get(vendorId)!;
+      group.itemCartas.push(availableItem);
+      group.items.push({
+        cartaId: reqItem.cartaId,
+        quantity: reqItem.quantity,
+        price: reqItem.price,
+        title: reqItem.title,
+      });
+    }
+
+    // Crear una Compra por cada vendedor
+    const compras: Compra[] = [];
+
+    for (const [, group] of vendorMap) {
+      const vendorTotal = group.items.reduce(
+        (sum, i) => sum + (Number(i.price) || 0) * (i.quantity || 1),
+        0
+      );
+
+      const compra = em.create(Compra, {
+        comprador,
+        itemCartas: group.itemCartas,
+        total: vendorTotal,
+        estado: input.estado || 'pendiente',
+        nombre: input.nombre,
+        email: input.email,
+        telefono: input.telefono,
+        direccionEntrega,
+        envio,
+        tiendaRetiro: tiendaRetiro ?? undefined,
+        metodoPago: input.metodoPago,
+        items: group.items,
+      });
+
+      compras.push(compra);
+    }
 
     await em.flush();
 
-    // Enviar email de confirmación
+    // Email de confirmación con todas las órdenes generadas
     try {
-        const emailSubject = `Confirmación de Compra #${compra.id}`;
-        const itemsListHtml = (input.items || []).map((item: any) => 
-            `<li>${item.quantity}x ${item.title || 'Carta'} - $${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</li>`
-        ).join('');
+      const ordersHtml = compras
+        .map((c) => {
+          const itemsHtml = (c.items || [])
+            .map(
+              (i: any) =>
+                `<li>${i.quantity}x ${i.title || 'Carta'} - $${((i.price || 0) * (i.quantity || 1)).toFixed(2)}</li>`
+            )
+            .join('');
+          return `<h4>Orden #${c.id} — Total: $${c.total}</h4><ul>${itemsHtml}</ul>`;
+        })
+        .join('<hr/>');
 
-        const emailHtml = `
-            <h1>¡Gracias por tu compra, ${input.nombre || comprador.username}!</h1>
-            <p>Hemos recibido tu pedido correctamente.</p>
-            
-            <h3>Detalle del pedido:</h3>
-            <ul>${itemsListHtml}</ul>
-            
-            <p><strong>Total: $${total}</strong></p>
-            <p><strong>Método de pago:</strong> ${input.metodoPago}</p>
-            ${envio ? `<p><strong>Envío:</strong> ${envio.intermediario?.nombre || 'Directo'} (${envio.fechaEntrega ? new Date(envio.fechaEntrega).toLocaleDateString() : 'Pronto'})</p>` : ''}
-            
-            <p>Te notificaremos cuando tu pedido sea enviado.</p>
-        `;
+      const emailHtml = `
+        <h1>¡Gracias por tu reserva, ${input.nombre || comprador.username}!</h1>
+        <p>Se generaron ${compras.length} orden${compras.length > 1 ? 'es' : ''} según los vendedores.</p>
+        ${ordersHtml}
+        <p><strong>Método de pago:</strong> ${input.metodoPago || 'efectivo'}</p>
+        <p>Te notificaremos cuando tu carta esté lista para retirar.</p>
+      `;
 
-        // Send asynchronously without blocking the response
-        sendEmail(input.email || comprador.email, emailSubject, "Gracias por tu compra", emailHtml);
+      sendEmail(
+        input.email || comprador.email,
+        `Confirmación de reserva${compras.length > 1 ? `s (${compras.length} órdenes)` : ` #${compras[0].id}`}`,
+        'Gracias por tu reserva',
+        emailHtml
+      );
     } catch (emailErr) {
-        console.error("Error sending confirmation email:", emailErr);
+      console.error("Error sending confirmation email:", emailErr);
     }
 
-    res.status(201).json({ message: "Compra creada con éxito", data: compra });
+    res.status(201).json({ message: "Compras creadas con éxito", data: compras });
   } catch (error: any) {
-  console.error("Error creando compra:", error);
+    console.error("Error creando compra:", error);
     res.status(500).json({ message: "Error creando compra", error: error.message });
   }
 }
@@ -324,4 +363,29 @@ async function remove(req: AuthRequest, res: Response) {
   }
 }
 
-export { sanitizeCompraInput, findAll, findOne, add, update, remove, createPreference };
+async function retirar(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.id);
+
+    const compra = await em.findOne(
+      Compra,
+      { id, comprador: { id: req.actor!.id } },
+      { populate: ['comprador'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada o acceso denegado' });
+
+    if (compra.estado !== 'entregado_a_tienda') {
+      return res.status(400).json({ message: 'El pedido aún no fue entregado a la tienda' });
+    }
+
+    compra.estado = 'retirado';
+    await em.flush();
+
+    res.json({ message: 'Pedido marcado como retirado', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export { sanitizeCompraInput, findAll, findOne, add, update, remove, createPreference, retirar };
