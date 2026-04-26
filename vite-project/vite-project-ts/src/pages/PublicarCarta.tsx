@@ -240,7 +240,7 @@ export default function PublicarCartaPage() {
     );
     toLoad.forEach(it => {
       rarezasLoadingSet.current.add(it.uid);
-      loadRarezas(it.uid, it.carta!).finally(() => rarezasLoadingSet.current.delete(it.uid));
+      loadRarezas(it.uid, it.carta!, it.parsed.number).finally(() => rarezasLoadingSet.current.delete(it.uid));
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue]);
@@ -516,8 +516,12 @@ export default function PublicarCartaPage() {
 
   // ─── Rareza helpers ────────────────────────────────────────────────────────
 
-  function preselectRareza(rarezas: Rareza[]): Rareza | null {
+  function preselectRareza(rarezas: Rareza[], targetNumber?: string): Rareza | null {
     if (rarezas.length === 0) return null;
+    if (targetNumber) {
+      const byNumber = rarezas.find(r => r.number === targetNumber && !r.cardId.endsWith('-reverse'));
+      if (byNumber) return byNumber;
+    }
     const common = rarezas.find(r => r.rarity?.toLowerCase() === "common");
     if (common) return common;
     const reverse = rarezas.find(r => r.rarity?.toLowerCase().includes("reverse"));
@@ -525,7 +529,7 @@ export default function PublicarCartaPage() {
     return rarezas[0];
   }
 
-  const loadRarezas = async (uid: string, carta: CartaResultado) => {
+  const loadRarezas = async (uid: string, carta: CartaResultado, targetNumber?: string) => {
     setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezasLoading: true } : it));
     try {
       const variants = await getCardRarities('pokemon', carta.name, carta.setName);
@@ -537,7 +541,7 @@ export default function PublicarCartaPage() {
         finish: v.finish,
         setName: v.setName,
       }));
-      const rarezaElegida = preselectRareza(rarezas);
+      const rarezaElegida = preselectRareza(rarezas, targetNumber);
       setQueue(prev => prev.map(it =>
         it.uid === uid ? { ...it, rarezas, rarezaElegida, rarezasLoading: false } : it
       ));
@@ -577,7 +581,7 @@ export default function PublicarCartaPage() {
     if (holdFiredRef.current) return; // el popup cierra y selecciona vía mouseup global
     // Click corto: cargar rarezas si no hay, o ciclar
     if (!item.rarezas && !item.rarezasLoading && item.carta) {
-      loadRarezas(uid, item.carta);
+      loadRarezas(uid, item.carta, item.parsed.number);
     } else if (item.rarezas) {
       cycleRareza(uid, item.rarezas, item.rarezaElegida ?? null);
     }

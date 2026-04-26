@@ -362,43 +362,42 @@ async function fetchPrecioCoolStuff(nombre: string, setName?: string, cardNumber
     const query = [nombre, setName, cardNumber].filter(Boolean).join(' ');
     console.log(`[CoolStuff] buscando: "${query}"`);
 
-    await page.goto('https://www.coolstuffinc.com/', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    // Paso 1: homepage para obtener cookies de sesión
+    await page.goto('https://www.coolstuffinc.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await new Promise(r => setTimeout(r, 400));
+
+    // Paso 2: navegar directamente a la URL de búsqueda (ya con cookies válidas)
+    const searchUrl = `https://www.coolstuffinc.com/main_search.php?pa=searchOnName&q=${encodeURIComponent(query)}`;
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 25000 });
     await new Promise(r => setTimeout(r, 800));
 
-    // Rellenar el input via evaluate (evita problemas de overlays y clickabilidad)
-    const foundSelector = await page.evaluate((q) => {
-      const candidates = ['input[name="search_text"]', 'input[type="search"]', 'input[name="q"]'];
-      for (const sel of candidates) {
-        const el = document.querySelector<HTMLInputElement>(sel);
-        if (el) {
-          el.value = q;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          return sel;
-        }
+    const finalUrl = page.url();
+    const pageLen = (await page.content()).length;
+    console.log(`[CoolStuff] URL=${finalUrl} len=${pageLen}`);
+
+    // Extraer precio desde el DOM completamente renderizado
+    const price = await page.evaluate((): number | null => {
+      const priceSelectors = ['.our-price', '.regular-price', '.product-price', '[data-price]', '[data-regular-price]', '.price'];
+      for (const sel of priceSelectors) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const attr = el.getAttribute('data-price') ?? el.getAttribute('data-regular-price');
+        if (attr) { const v = parseFloat(attr); if (v > 0) return v; }
+        const m = (el.textContent ?? '').match(/\$\s*([\d,]+\.?\d{0,2})/);
+        if (m) { const v = parseFloat(m[1].replace(/,/g, '')); if (v > 0) return v; }
+      }
+      // Fallback: primer nodo de texto que tenga $X.XX
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        const m = (node.textContent ?? '').match(/\$\s*([\d,]+\.\d{2})/);
+        if (m) { const v = parseFloat(m[1].replace(/,/g, '')); if (v > 0 && v < 100000) return v; }
       }
       return null;
-    }, query);
+    });
 
-    if (!foundSelector) { console.log('[CoolStuff] input no encontrado'); return null; }
-
-    // Enfocar con el selector concreto y presionar Enter
-    await page.focus(foundSelector);
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null),
-      page.keyboard.press('Enter'),
-    ]);
-
-    await new Promise(r => setTimeout(r, 1500));
-    const html = await page.content();
-    console.log(`[CoolStuff] resultados len=${html.length}`);
-
-    const m = html.match(/data-(?:regular-)?price="(\d+\.?\d{0,2})"/) ||
-              html.match(/class="[^"]*(?:item-price|our-price|price)[^"]*"[^>]*>\s*\$\s*(\d+\.?\d{0,2})/i) ||
-              html.match(/\$\s*(\d+\.\d{2})/);
-    if (!m) { console.log(`[CoolStuff] sin precio`); return null; }
-    const val = parseFloat(m[1]);
-    return (!isNaN(val) && val > 0) ? `$${val.toFixed(2)}` : null;
+    if (price === null) { console.log(`[CoolStuff] sin precio`); return null; }
+    return `$${price.toFixed(2)}`;
   } catch (err: unknown) {
     console.error(`[CoolStuff] error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
@@ -408,50 +407,49 @@ async function fetchPrecioCoolStuff(nombre: string, setName?: string, cardNumber
 }
 
 async function fetchPrecioEbay(nombre: string, setName?: string, cardNumber?: string): Promise<string | null> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
   try {
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    );
+    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
+
     const query = [nombre, setName, cardNumber, 'pokemon card'].filter(Boolean).join(' ');
     const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_BIN=1&_sop=15&_ipg=10`;
-    console.log(`[eBay] browser fetch: ${url}`);
-    const html = await fetchWithBrowser(url, 1500);
-    console.log(`[eBay] len=${html.length}`);
+    console.log(`[eBay] fetch: ${url}`);
 
-    // JSON-LD con Offer/AggregateOffer
-    const jsonLdBlocks = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
-    for (const [, block] of jsonLdBlocks) {
-      try {
-        const data: unknown = JSON.parse(block);
-        const findPrice = (o: unknown): string | null => {
-          if (!o || typeof o !== 'object') return null;
-          const obj = o as Record<string, unknown>;
-          if ((obj['@type'] === 'Offer' || obj['@type'] === 'AggregateOffer') && obj.price) {
-            const val = parseFloat(String(obj.price));
-            if (!isNaN(val) && val > 0) return `$${val.toFixed(2)}`;
-          }
-          if (obj.lowPrice) {
-            const val = parseFloat(String(obj.lowPrice));
-            if (!isNaN(val) && val > 0) return `$${val.toFixed(2)}`;
-          }
-          for (const v of Object.values(obj)) {
-            const found = Array.isArray(v)
-              ? v.reduce((acc: string | null, item) => acc ?? findPrice(item), null)
-              : findPrice(v);
-            if (found) return found;
-          }
-          return null;
-        };
-        const price = findPrice(data);
-        if (price) return price;
-      } catch { /* bloque JSON-LD inválido */ }
-    }
-    // Fallback: clase del precio en la página renderizada
-    const m = html.match(/class="s-item__price"[^>]*>\s*\$\s*(\d+\.\d{2})/i) ||
-              html.match(/"price":\s*"(\d+\.?\d{0,2})"/) ||
-              html.match(/\$\s*(\d+\.\d{2})/);
-    if (!m) { console.log(`[eBay] sin precio`); return null; }
-    return `$${parseFloat(m[1]).toFixed(2)}`;
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    await new Promise(r => setTimeout(r, 800));
+
+    console.log(`[eBay] URL=${page.url()}`);
+
+    // Extraer primer precio de la lista de resultados desde el DOM renderizado
+    const price = await page.evaluate((): number | null => {
+      const items = Array.from(document.querySelectorAll('.s-item'));
+      // El primer .s-item suele ser un elemento fantasma/promocional — saltarlo
+      for (const item of items.slice(1)) {
+        const priceEl = item.querySelector('.s-item__price');
+        if (!priceEl) continue;
+        const text = (priceEl.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (text.includes(' to ')) continue; // saltar rangos de precio
+        const m = text.match(/\$\s*([\d,]+\.?\d{0,2})/);
+        if (m) {
+          const v = parseFloat(m[1].replace(/,/g, ''));
+          if (v > 0 && v < 100000) return v;
+        }
+      }
+      return null;
+    });
+
+    console.log(`[eBay] price=${price}`);
+    if (price === null) { console.log(`[eBay] sin precio`); return null; }
+    return `$${price.toFixed(2)}`;
   } catch (err: unknown) {
     console.error(`[eBay] error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
+  } finally {
+    await page.close();
   }
 }
 
