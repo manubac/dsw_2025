@@ -49,14 +49,15 @@ export async function findOne(req: Request, res: Response) {
 export async function add(req: Request, res: Response) {
   try {
     const input = req.body.sanitizedInput;
-    if (!input.nombre || !input.email || !input.password || !input.direccion) {
+    const password = req.body.password; // leído directo, no pasa por sanitizedInput
+    if (!input.nombre || !input.email || !password || !input.direccion) {
       return res.status(400).json({ message: "nombre, email, password y direccion son obligatorios" });
     }
     const existing = await em.findOne(TiendaRetiro, { email: input.email });
     if (existing) return res.status(400).json({ message: "El email ya está registrado" });
 
-    input.password = await bcrypt.hash(input.password, 10);
-    const tienda = em.create(TiendaRetiro, input);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const tienda = em.create(TiendaRetiro, { ...input, password: hashedPassword });
     await em.flush();
     res.status(201).json({ message: "TiendaRetiro creada", data: tienda });
   } catch (e: any) {
