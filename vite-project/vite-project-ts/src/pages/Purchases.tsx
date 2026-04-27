@@ -23,13 +23,16 @@ export function Purchases() {
       setReviewModalOpen(true);
   }
 
-  const handleRetirar = async (compraId: number) => {
+  const handleRetirar = async (compraId: number, vendedorId?: number, vendedorNombre?: string) => {
     try {
       if (!confirm('¿Confirmás que retiraste el pedido de la tienda?')) return;
       await fetchApi(`/api/compras/${compraId}/retirar`, { method: 'PATCH' });
       const res = await fetchApi(`/api/compras?compradorId=${user!.id}`);
       const json = await res.json();
       setCompras(json.data || []);
+      if (vendedorId && vendedorNombre) {
+        handleOpenReview(vendedorId, vendedorNombre);
+      }
     } catch (err: any) {
       alert('Error: ' + err.message);
     }
@@ -176,9 +179,33 @@ export function Purchases() {
                       🕐 {comp.tiendaRetiro.horario}
                     </p>
                   )}
+                  {(() => {
+                    const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor?.alias || ic.uploaderVendedor?.cbu)?.uploaderVendedor;
+                    if (!vendedor?.alias && !vendedor?.cbu) return null;
+                    return (
+                      <div style={{ marginTop: '0.6rem', background: '#fef3c7', borderRadius: '0.35rem', padding: '0.5rem 0.75rem', border: '1px solid #fcd34d' }}>
+                        <p style={{ fontWeight: 600, margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
+                          💸 Transferí antes de retirar y mostrá el comprobante en la tienda
+                        </p>
+                        {vendedor.alias && (
+                          <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
+                            <strong>Alias:</strong> {vendedor.alias}
+                          </p>
+                        )}
+                        {vendedor.cbu && (
+                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
+                            <strong>CBU:</strong> {vendedor.cbu}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {comp.estado === 'entregado_a_tienda' && (
                     <button
-                      onClick={() => handleRetirar(comp.id)}
+                      onClick={() => {
+                        const v = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
+                        handleRetirar(comp.id, v?.id, v?.nombre);
+                      }}
                       style={{
                         marginTop: '0.75rem',
                         width: '100%',
@@ -218,6 +245,24 @@ export function Purchases() {
                           )
                       )
                       const vendedor = associatedItemCarta?.uploaderVendedor
+
+                      if (it.itemCartaId !== undefined) {
+                        return (
+                          <li key={idx} className="mb-1">
+                            <a
+                              href={`/bundle/${it.itemCartaId}`}
+                              className="text-blue-500 hover:underline"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                navigate(`/bundle/${it.itemCartaId}`)
+                              }}
+                            >
+                              {it.title || `Bundle ${it.itemCartaId}`}
+                            </a>
+                            <span> — x{it.quantity} — ${Number(it.price || 0).toFixed(2)}</span>
+                          </li>
+                        )
+                      }
 
                       if (it.cartaId !== undefined) {
                         return (

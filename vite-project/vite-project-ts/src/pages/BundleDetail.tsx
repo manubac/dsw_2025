@@ -65,10 +65,13 @@ export function BundleDetail() {
   const handleAddToCart = () => {
     addToCart({
       id: `bundle-${bundle.id}`,
+      bundleId: bundle.id,
+      type: 'bundle',
       title: bundle.title,
       thumbnail: bundle.thumbnail,
       price: bundle.price,
       stock: bundle.stock,
+      uploader: bundle.uploader,
     })
   }
 

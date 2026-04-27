@@ -12,13 +12,18 @@ export default function MisVentasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chatAbierto, setChatAbierto] = useState<number | null>(null);
+  const [miAlias, setMiAlias] = useState<string | null>(null);
 
   const fetchVentas = async () => {
     if (!user) return;
     try {
       setLoading(true);
-      const res = await api.get(`/api/vendedores/${user.id}/ventas`);
-      setVentas(res.data.data || []);
+      const [ventasRes, perfilRes] = await Promise.all([
+        api.get(`/api/vendedores/${user.id}/ventas`),
+        api.get(`/api/vendedores/${user.id}`),
+      ]);
+      setVentas(ventasRes.data.data || []);
+      setMiAlias(perfilRes.data.data?.alias ?? null);
     } catch (err: any) {
       console.error('Error fetching ventas:', err);
       setError('No se pudieron cargar las ventas');
@@ -119,6 +124,11 @@ export default function MisVentasPage() {
                     <p className="text-sm text-orange-700">{venta.tiendaRetiro.direccion}</p>
                     {venta.tiendaRetiro.horario && (
                       <p className="text-xs text-orange-600 mt-1">🕐 {venta.tiendaRetiro.horario}</p>
+                    )}
+                    {miAlias && (
+                      <p className="text-sm text-orange-800 mt-2 font-medium">
+                        💸 Tu alias: <span className="font-mono font-bold">{miAlias}</span>
+                      </p>
                     )}
                   </div>
                 ) : (

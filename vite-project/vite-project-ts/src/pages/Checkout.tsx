@@ -246,7 +246,7 @@ const handleMercadoPago = async (e: React.FormEvent) => {
     // 2) PREPARAR ITEMS
     // ==========================
     const items = cart.map((item: any) => ({
-      cartaId: item.id,
+      ...(item.type === 'bundle' ? { itemCartaId: item.bundleId ?? item.id } : { cartaId: item.id }),
       quantity: item.quantity,
       price: item.price,
       title: item.title,
@@ -292,7 +292,7 @@ const handleManual = async (e: React.FormEvent) => {
 
   try {
     const items = cart.map((item: any) => ({
-      cartaId: item.id,
+      ...(item.type === 'bundle' ? { itemCartaId: item.bundleId ?? item.id } : { cartaId: item.id }),
       quantity: item.quantity,
       price: item.price,
       title: item.title,

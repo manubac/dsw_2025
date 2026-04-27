@@ -59,7 +59,9 @@ export function Reservar() {
 
     try {
       const items = cart.map((item: any) => ({
-        cartaId: item.id,
+        ...(item.type === 'bundle'
+          ? { itemCartaId: item.bundleId ?? item.id }
+          : { cartaId: item.id }),
         quantity: item.quantity,
         price: item.price,
         title: item.title,
