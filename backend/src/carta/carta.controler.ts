@@ -5,6 +5,7 @@ import { CartaClass } from "./cartaClass.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
+import { resolveNamesAcrossLanguages } from "../identify/services/translationService.js";
 import axios from "axios";
 import puppeteer, { type Browser } from "puppeteer";
 import { notifyWishlistSubscribers } from "../wishlist/wishlistNotifier.js";
@@ -839,6 +840,14 @@ export async function getPreciosPokemon(req: Request, res: Response) {
   });
 }
 
+// Devuelve todos los nombres equivalentes en cualquier idioma para un término de búsqueda.
+// Permite encontrar "Scream Tail" buscando "colagrito" y viceversa.
+async function resolveNames(req: Request, res: Response) {
+  const q = (req.query.q as string ?? '').trim();
+  const names = await resolveNamesAcrossLanguages(q);
+  res.json({ names });
+}
+
 export {
   sanitizeCartaInput,
   findAll,
@@ -846,4 +855,5 @@ export {
   add,
   update,
   remove,
+  resolveNames,
 };

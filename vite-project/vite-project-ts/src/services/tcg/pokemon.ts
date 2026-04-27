@@ -124,7 +124,7 @@ export async function searchPokemon(
   options: SearchOptions = {}
 ): Promise<SearchResult> {
   const lang = options.lang ?? 'en';
-  await loadSets(lang);
+  await loadSets(); // always EN so setNameCache stays consistent
 
   const r = await apiFetch(
     `${BASE}/${lang}/cards?name=${encodeURIComponent(query.trim())}`

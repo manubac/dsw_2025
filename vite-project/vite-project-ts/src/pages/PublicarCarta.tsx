@@ -137,9 +137,10 @@ export default function PublicarCartaPage() {
   const [bundleName, setBundleName] = useState("");
   const rarezasLoadingSet = useRef(new Set<string>());
 
-  const [sugerencias, setSugerencias] = useState<string[]>([]);
+  const [sugerencias, setSugerencias] = useState<{ name: string; lang: string }[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
+  const [searchLang, setSearchLang] = useState('en');
 
   const [selectedPriceSite, setSelectedPriceSite] = useState<PriceSiteKey>("coolstuff");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -158,7 +159,7 @@ export default function PublicarCartaPage() {
   const langHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const langHoldFiredRef = useRef(false);
 
-  const busquedaRef = useRef({ nombre: "", juego: "pokemon" as Juego, expansion: "" });
+  const busquedaRef = useRef({ nombre: "", juego: "pokemon" as Juego, expansion: "", lang: "en" });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const sugerenciasRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,7 +218,8 @@ export default function PublicarCartaPage() {
     expansionBusqueda: string,
     pagina: number,
     reemplazar: boolean,
-    vistos: Set<string>
+    vistos: Set<string>,
+    lang = 'en'
   ) => {
     if (reemplazar) setCargando(true);
     else setCargandoMas(true);
@@ -226,6 +228,7 @@ export default function PublicarCartaPage() {
       const result = await searchCards(toSlug(juegoBusqueda), nombreBusqueda, {
         set: expansionBusqueda.trim() || undefined,
         page: pagina,
+        lang,
       });
 
       // Digimon/Riftbound agrupan por set+número base; el resto por nombre+set
@@ -270,10 +273,40 @@ export default function PublicarCartaPage() {
     debounceRef.current = setTimeout(async () => {
       setCargandoSugerencias(true);
       try {
-        const result = await searchCards(toSlug(juego), trimmed, { page: 1 });
-        const nombres = [...new Set<string>(result.cards.map(c => c.name))].slice(0, 8);
-        setSugerencias(nombres);
-        setMostrarSugerencias(nombres.length > 0);
+        if (juego === 'pokemon') {
+          const [enResult, esResult] = await Promise.all([
+            searchCards('pokemon', trimmed, { page: 1, lang: 'en' }),
+            searchCards('pokemon', trimmed, { page: 1, lang: 'es' }),
+          ]);
+          // Map EN names by card ID to detect which ES names differ
+          const enNameById = new Map(enResult.cards.map(c => [c.id, c.name]));
+          const sug: { name: string; lang: string }[] = [];
+          const seenEn = new Set<string>();
+          const seenEs = new Set<string>();
+          for (const c of enResult.cards) {
+            if (!seenEn.has(c.name.toLowerCase())) {
+              seenEn.add(c.name.toLowerCase());
+              sug.push({ name: c.name, lang: 'en' });
+            }
+            if (sug.filter(s => s.lang === 'en').length >= 6) break;
+          }
+          for (const c of esResult.cards) {
+            const enName = enNameById.get(c.id);
+            // Skip if the ES name is identical to EN (card doesn't change name)
+            if (enName && c.name.toLowerCase() === enName.toLowerCase()) continue;
+            if (seenEs.has(c.name.toLowerCase())) continue;
+            seenEs.add(c.name.toLowerCase());
+            sug.push({ name: c.name, lang: 'es' });
+            if (seenEs.size >= 4) break;
+          }
+          setSugerencias(sug.slice(0, 10));
+          setMostrarSugerencias(sug.length > 0);
+        } else {
+          const result = await searchCards(toSlug(juego), trimmed, { page: 1 });
+          const nombres = [...new Set<string>(result.cards.map(c => c.name))].slice(0, 8);
+          setSugerencias(nombres.map(n => ({ name: n, lang: 'en' })));
+          setMostrarSugerencias(nombres.length > 0);
+        }
       } catch {
         setSugerencias([]);
       } finally {
@@ -306,7 +339,7 @@ export default function PublicarCartaPage() {
     );
     toLoad.forEach(it => {
       rarezasLoadingSet.current.add(it.uid);
-      loadRarezas(it.uid, it.carta!, it.parsed.number).finally(() => rarezasLoadingSet.current.delete(it.uid));
+      loadRarezas(it.uid, it.carta!, it.parsed.number, it.lang).finally(() => rarezasLoadingSet.current.delete(it.uid));
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue]);
@@ -345,10 +378,12 @@ export default function PublicarCartaPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langPopup?.uid]);
 
-  const buscarCartas = async (nombreOverride?: string, juegoOverride?: Juego) => {
+  const buscarCartas = async (nombreOverride?: string, juegoOverride?: Juego, langOverride = 'en') => {
     const n = (nombreOverride ?? nombre).trim();
     if (!n) return;
     const juegoActual = juegoOverride ?? juego;
+    const lang = langOverride;
+    setSearchLang(lang);
     setMostrarSugerencias(false);
     setResultados([]);
     setNombresVistos(new Set());
@@ -379,7 +414,7 @@ export default function PublicarCartaPage() {
     }
 
     if (intentoDirecto) {
-      busquedaRef.current = { nombre: n, juego: juegoActual, expansion };
+      busquedaRef.current = { nombre: n, juego: juegoActual, expansion, lang };
       setCargando(true);
       const directa = await tryResolveDirectly(n, juegoActual);
       setCargando(false);
@@ -391,17 +426,17 @@ export default function PublicarCartaPage() {
       // Resolve falló → buscar con el nombre extraído + set como filtro
     }
 
-    busquedaRef.current = { nombre: nombreFallback, juego: juegoActual, expansion: expansionFallback };
+    busquedaRef.current = { nombre: nombreFallback, juego: juegoActual, expansion: expansionFallback, lang };
     const vistos = new Set<string>();
     setNombresVistos(vistos);
-    await cargarPagina(nombreFallback, juegoActual, expansionFallback, 1, true, vistos);
+    await cargarPagina(nombreFallback, juegoActual, expansionFallback, 1, true, vistos, lang);
   };
 
-  const seleccionarSugerencia = (sugerencia: string) => {
-    setNombre(sugerencia);
+  const seleccionarSugerencia = (s: { name: string; lang: string }) => {
+    setNombre(s.name);
     setMostrarSugerencias(false);
     setSugerencias([]);
-    buscarCartas(sugerencia);
+    buscarCartas(s.name, undefined, s.lang);
   };
 
   // IntersectionObserver para infinite scroll
@@ -410,8 +445,8 @@ export default function PublicarCartaPage() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !cargandoMas) {
-          const { nombre: n, juego: j, expansion: e } = busquedaRef.current;
-          cargarPagina(n, j, e, page + 1, false, nombresVistos);
+          const { nombre: n, juego: j, expansion: e, lang: l } = busquedaRef.current;
+          cargarPagina(n, j, e, page + 1, false, nombresVistos, l);
         }
       },
       { threshold: 0.1 }
@@ -432,9 +467,15 @@ export default function PublicarCartaPage() {
     try {
       // Para Pokémon filtramos por set (cada entrada del grid es set-específica).
       // Para el resto queremos TODAS las variantes/ediciones — no pasamos setName.
+      let nameForRarities = carta.name;
+      // Si se buscó en un idioma no-EN, getPokemonRarities necesita el nombre EN
+      if (juego === 'pokemon' && searchLang !== 'en' && carta.setId && carta.number) {
+        const enCard = await resolveCard('pokemon', { set: carta.setId, number: carta.number });
+        if (enCard && !Array.isArray(enCard)) nameForRarities = enCard.name;
+      }
       const variants = await getCardRarities(
         toSlug(juego),
-        carta.name,
+        nameForRarities,
         juego === "pokemon" ? carta.setName : undefined,
         (juego === "digimon" || juego === "riftbound") ? carta.setId : undefined,
         (juego === "digimon" || juego === "riftbound") ? carta.number : undefined
@@ -487,7 +528,7 @@ export default function PublicarCartaPage() {
       stock: 1,
       checked: true,
       cartaClassId: cartaClassMatch?.id,
-      lang: 'en',
+      lang: juego === 'pokemon' ? searchLang : 'en',
     };
 
     setQueue(prev => [...prev, newItem]);
@@ -582,10 +623,15 @@ export default function PublicarCartaPage() {
     return rarezas[0];
   }
 
-  const loadRarezas = async (uid: string, carta: CartaResultado, targetNumber?: string) => {
+  const loadRarezas = async (uid: string, carta: CartaResultado, targetNumber?: string, lang = 'en') => {
     setQueue(prev => prev.map(it => it.uid === uid ? { ...it, rarezasLoading: true } : it));
     try {
-      const variants = await getCardRarities('pokemon', carta.name, carta.setName);
+      let nameForRarities = carta.name;
+      if (lang !== 'en' && carta.setId && carta.number) {
+        const enCard = await resolveCard('pokemon', { set: carta.setId, number: carta.number });
+        if (enCard && !Array.isArray(enCard)) nameForRarities = enCard.name;
+      }
+      const variants = await getCardRarities('pokemon', nameForRarities, carta.setName);
       const rarezas: Rareza[] = variants.map(v => ({
         cardId: v.cardId,
         rarity: v.rarity,
@@ -1203,9 +1249,12 @@ export default function PublicarCartaPage() {
                     <button
                       key={i}
                       onMouseDown={e => { e.preventDefault(); seleccionarSugerencia(s); }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm font-medium border-b border-gray-100 last:border-0 transition-colors"
+                      className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm font-medium border-b border-gray-100 last:border-0 transition-colors flex items-center justify-between gap-2"
                     >
-                      {s}
+                      <span>{s.name}</span>
+                      {s.lang !== 'en' && (
+                        <span className="text-xs text-gray-400 uppercase font-normal shrink-0">{s.lang}</span>
+                      )}
                     </button>
                   ))}
                 </div>

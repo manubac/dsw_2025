@@ -63,12 +63,28 @@ export function CardsPage() {
     fetchCartas();
   }, []);
 
+  const applyQueryWithAliases = (query: string) => {
+    setFilters((prev: any) => ({ ...prev, query, queryAliases: [] }));
+    // Resolve translation aliases in background (no spinner needed)
+    fetchApi(`/api/cartas/resolve-names?q=${encodeURIComponent(query)}`)
+      .then(r => r.json())
+      .then(data => {
+        const aliases: string[] = (data.names as string[] || []).filter(
+          n => n.toLowerCase() !== query.toLowerCase()
+        );
+        if (aliases.length > 0) {
+          setFilters((prev: any) => ({ ...prev, queryAliases: aliases }));
+        }
+      })
+      .catch(() => {});
+  };
+
   const handleSearch = async (raw: string) => {
     const text = raw.trim();
     setResolveError(null);
 
     if (!text) {
-      setFilters((prev: any) => ({ ...prev, query: "" }));
+      setFilters((prev: any) => ({ ...prev, query: "", queryAliases: [] }));
       return;
     }
 
@@ -81,7 +97,7 @@ export function CardsPage() {
         const res = await fetchApi(`/api/cartas/resolve/pokemon?${params}`);
         const data = await res.json();
         if (res.ok && data.data?.name) {
-          setFilters((prev: any) => ({ ...prev, query: data.data.name }));
+          applyQueryWithAliases(data.data.name);
           setResolving(false);
           return;
         }
@@ -92,7 +108,7 @@ export function CardsPage() {
       setResolving(false);
     }
 
-    setFilters((prev: any) => ({ ...prev, query: text }));
+    applyQueryWithAliases(text);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -102,7 +118,7 @@ export function CardsPage() {
   const handleClear = () => {
     setSearchText("");
     setResolveError(null);
-    setFilters((prev: any) => ({ ...prev, query: "" }));
+    setFilters((prev: any) => ({ ...prev, query: "", queryAliases: [] }));
     inputRef.current?.focus();
   };
 

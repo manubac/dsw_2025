@@ -18,10 +18,15 @@ export function useFilters() {
         (product.intermediarios || []).some(
           (i: any) => i.direccion?.ciudad === filters.city
         )
+      const titleLower = product.title.toLowerCase();
+      const queryLower = filters.query.toLowerCase();
       const matchesQuery =
         !filters.query ||
-        product.title.toLowerCase().includes(filters.query.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(filters.query.toLowerCase())
+        titleLower.includes(queryLower) ||
+        (product.description || '').toLowerCase().includes(queryLower) ||
+        ((filters.queryAliases as string[]) || []).some(alias =>
+          titleLower.includes(alias.toLowerCase())
+        )
 
       return matchesPrice && matchesCity && matchesQuery
     })

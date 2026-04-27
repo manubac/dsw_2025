@@ -94,6 +94,40 @@ export async function findByLocalName(
 }
 
 /**
+ * Dado un término de búsqueda, devuelve todos los nombres de carta equivalentes
+ * en cualquier idioma. Permite buscar "colagrito" y encontrar "Scream Tail",
+ * o buscar "Scream Tail" y encontrar "Colagrito", etc.
+ *
+ * Usa v_cards_unified (set_abbr, card_number, lang_code, card_name) para
+ * cruzar el nombre buscado con todos los idiomas de la misma carta.
+ */
+export async function resolveNamesAcrossLanguages(query: string): Promise<string[]> {
+  if (!query || query.trim().length < 2) return [];
+  try {
+    const result = await pool.query<{ card_name: string }>(
+      `WITH matched AS (
+         SELECT DISTINCT set_abbr, card_number
+         FROM   v_cards_unified
+         WHERE  card_name ILIKE $1
+       )
+       SELECT DISTINCT vcu.card_name
+       FROM   matched m
+       JOIN   v_cards_unified vcu
+              ON  vcu.set_abbr    = m.set_abbr
+              AND vcu.card_number = m.card_number
+       WHERE  vcu.card_name IS NOT NULL
+         AND  vcu.card_name <> ''
+       LIMIT  100`,
+      [`%${query.trim()}%`],
+    );
+    return result.rows.map(r => r.card_name).filter(Boolean);
+  } catch (err) {
+    console.error('[translationService] resolveNamesAcrossLanguages error:', err);
+    return [];
+  }
+}
+
+/**
  * Fallback cuando el OCR no pudo leer la abreviatura del set con confianza.
  *
  * Busca en card_translations el nombre local en CUALQUIER set y devuelve
