@@ -10,7 +10,7 @@ export class ItemCarta extends BaseEntity {
     @Property({ type: 'string', nullable: true })
     name!: string
 
-    @Property({ type: 'string' })
+    @Property({ type: 'text' })
     description!: string
 
     @Property({ type: 'number' })
