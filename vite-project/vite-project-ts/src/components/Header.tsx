@@ -268,77 +268,102 @@ export function Header() {
 
             {user && userMenuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-[70]">
-                <button onClick={handleProfileClick} className="block w-full text-left px-4 py-2 hover:bg-orange-100">
-                  Mi Perfil
-                </button>
+                {user.role === 'tiendaRetiro' ? (
+                  <>
+                    <button
+                      onClick={() => { setUserMenuOpen(false); navigate('/tienda-retiro/perfil'); }}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                    >
+                      Mi Perfil
+                    </button>
+                    <button
+                      onClick={() => { setUserMenuOpen(false); navigate('/tienda-retiro/ventas'); }}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                    >
+                      Ventas
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                    >
+                      Cerrar Sesión
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleProfileClick} className="block w-full text-left px-4 py-2 hover:bg-orange-100">
+                      Mi Perfil
+                    </button>
 
-                {(user.role === 'user' || user.role === 'usuario') && (
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/wishlist') }}
-                    className="block w-full text-left px-4 py-2 hover:bg-orange-100 text-red-500 font-medium"
-                  >
-                    ♥ Mis Favoritos
-                  </button>
+                    {(user.role === 'user' || user.role === 'usuario') && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate('/wishlist'); }}
+                        className="block w-full text-left px-4 py-2 hover:bg-orange-100 text-red-500 font-medium"
+                      >
+                        ♥ Mis Favoritos
+                      </button>
+                    )}
+
+                    {user.role === 'user' && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
+                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      >
+                        Mis Compras
+                      </button>
+                    )}
+
+                    {user.role === 'vendedor' && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate('/mis-publicaciones'); }}
+                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      >
+                        Mis Publicaciones
+                      </button>
+                    )}
+
+                    {user.role === 'vendedor' && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas'); }}
+                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      >
+                        Mis Ventas
+                      </button>
+                    )}
+
+                    {user.role === 'usuario' && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
+                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      >
+                        Mis Compras
+                      </button>
+                    )}
+
+                    {user.role === 'intermediario' && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate('/intermediario'); }}
+                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      >
+                        Panel de Intermediario
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleDeleteAccount}
+                      className="block w-full text-left px-4 py-2 text-red-500 hover:bg-orange-100"
+                    >
+                      Eliminar Cuenta
+                    </button>
+
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                    >
+                      Cerrar Sesión
+                    </button>
+                  </>
                 )}
-
-                {user.role === 'user' && (
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
-                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                  >
-                    Mis Compras
-                  </button>
-                )}
-
-                {user.role === 'vendedor' && (
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/mis-publicaciones') }}
-                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                  >
-                    Mis Publicaciones
-                  </button>
-                )}
-
-                {user.role === 'vendedor' && (
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas') }}
-                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                  >
-                    Mis Ventas
-                  </button>
-                )}
-
-                {user.role === 'usuario' && (
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/purchases') }}
-                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                  >
-                    Mis Compras
-                  </button>
-                )}
-
-                {user.role === 'intermediario' && (
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/intermediario') }}
-                    className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                  >
-                    Panel de Intermediario
-                  </button>
-                )}
-
-                <button
-                  onClick={handleDeleteAccount}
-                  className="block w-full text-left px-4 py-2 text-red-500 hover:bg-orange-100"
-                >
-                  Eliminar Cuenta
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                >
-                  Cerrar Sesión
-                </button>
               </div>
             )}
           </div>
