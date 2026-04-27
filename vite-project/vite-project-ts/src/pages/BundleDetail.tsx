@@ -5,6 +5,11 @@ import { fetchApi } from '../services/api'
 import { useUser } from '../context/user'
 import { ChevronLeft, ChevronRight, Package } from 'lucide-react'
 
+const LANG_LABELS: Record<string, string> = {
+  en: 'Inglés', es: 'Español', pt: 'Portugués', fr: 'Francés',
+  de: 'Alemán', it: 'Italiano', ko: 'Coreano', th: 'Tailandés', id: 'Indonesio',
+};
+
 interface BundleCarta {
   id: number
   name: string
@@ -13,6 +18,12 @@ interface BundleCarta {
   rarity?: string
   setName?: string
   cardNumber?: string
+  lang?: string
+}
+
+interface GroupedCarta extends BundleCarta {
+  quantity: number
+  subtotal: number
 }
 
 interface Bundle {
@@ -56,11 +67,28 @@ export function BundleDetail() {
   if (!bundle) return null
 
   const cartas = bundle.cartas ?? []
-  const activeCarta = cartas[activeIdx]
+
+  // Agrupar cartas repetidas por identidad (nombre + número + set)
+  const groupedCartas: GroupedCarta[] = (() => {
+    const map = new Map<string, GroupedCarta>()
+    cartas.forEach(c => {
+      const key = `${c.name}|${c.cardNumber ?? ''}|${c.setName ?? ''}`
+      const existing = map.get(key)
+      if (existing) {
+        existing.quantity += 1
+        existing.subtotal += c.price ?? 0
+      } else {
+        map.set(key, { ...c, quantity: 1, subtotal: c.price ?? 0 })
+      }
+    })
+    return Array.from(map.values())
+  })()
+
+  const activeCarta = groupedCartas[activeIdx] ?? groupedCartas[0]
   const isInCart = cart.some((item: any) => item.id === `bundle-${bundle.id}`)
 
-  const prev = () => setActiveIdx(i => (i - 1 + cartas.length) % cartas.length)
-  const next = () => setActiveIdx(i => (i + 1) % cartas.length)
+  const prev = () => setActiveIdx(i => (i - 1 + groupedCartas.length) % groupedCartas.length)
+  const next = () => setActiveIdx(i => (i + 1) % groupedCartas.length)
 
   const handleAddToCart = () => {
     addToCart({
@@ -90,7 +118,7 @@ export function BundleDetail() {
       <div className="flex items-center gap-2 mb-4">
         <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full">
           <Package size={13} />
-          Paquete de {cartas.length} cartas
+          Paquete · {cartas.length} {cartas.length === 1 ? 'carta' : 'cartas'} ({groupedCartas.length} {groupedCartas.length === 1 ? 'tipo' : 'tipos'})
         </span>
       </div>
 
@@ -111,8 +139,14 @@ export function BundleDetail() {
                 Sin imagen
               </div>
             )}
+            {/* Badge de cantidad sobre la imagen */}
+            {activeCarta?.quantity > 1 && (
+              <span className="absolute top-3 right-3 bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
+                ×{activeCarta.quantity}
+              </span>
+            )}
 
-            {cartas.length > 1 && (
+            {groupedCartas.length > 1 && (
               <>
                 <button
                   onClick={prev}
@@ -131,13 +165,13 @@ export function BundleDetail() {
           </div>
 
           {/* Miniaturas */}
-          {cartas.length > 1 && (
+          {groupedCartas.length > 1 && (
             <div className="flex gap-2 flex-wrap justify-center">
-              {cartas.map((c, i) => (
+              {groupedCartas.map((c, i) => (
                 <button
-                  key={c.id}
+                  key={`${c.id}-${i}`}
                   onClick={() => setActiveIdx(i)}
-                  className={`w-14 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`relative w-14 h-20 rounded-lg overflow-hidden border-2 transition-all ${
                     i === activeIdx ? 'border-indigo-500 shadow-md scale-105' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                 >
@@ -145,13 +179,18 @@ export function BundleDetail() {
                     ? <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
                     : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[9px] text-gray-400 text-center px-0.5">{c.name}</div>
                   }
+                  {c.quantity > 1 && (
+                    <span className="absolute bottom-0 right-0 bg-indigo-600 text-white text-[9px] font-bold px-1 rounded-tl">
+                      ×{c.quantity}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
           )}
 
           {/* Indicador */}
-          <p className="text-sm text-gray-400">{activeIdx + 1} / {cartas.length}</p>
+          <p className="text-sm text-gray-400">{activeIdx + 1} / {groupedCartas.length}</p>
         </div>
 
         {/* Info */}
@@ -183,7 +222,14 @@ export function BundleDetail() {
           {activeCarta && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-2">
               <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wide">Carta seleccionada</p>
-              <p className="font-bold text-gray-800 text-lg leading-tight">{activeCarta.name}</p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-bold text-gray-800 text-lg leading-tight">{activeCarta.name}</p>
+                {activeCarta.quantity > 1 && (
+                  <span className="flex-shrink-0 bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    ×{activeCarta.quantity}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2 text-xs">
                 {activeCarta.setName && (
                   <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">{activeCarta.setName}</span>
@@ -194,11 +240,19 @@ export function BundleDetail() {
                 {activeCarta.cardNumber && (
                   <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">#{activeCarta.cardNumber}</span>
                 )}
+                {activeCarta.lang && (
+                  <span className="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-semibold uppercase">
+                    {activeCarta.lang.toUpperCase()} · {LANG_LABELS[activeCarta.lang] ?? activeCarta.lang}
+                  </span>
+                )}
               </div>
               {(activeCarta.price ?? 0) > 0 && (
-                <p className="text-sm text-gray-600">
-                  Precio individual: <span className="font-semibold text-green-600">${(activeCarta.price ?? 0).toFixed(2)}</span>
-                </p>
+                <div className="text-sm text-gray-600 space-y-0.5">
+                  <p>Precio unitario: <span className="font-semibold text-green-600">${(activeCarta.price ?? 0).toFixed(2)}</span></p>
+                  {activeCarta.quantity > 1 && (
+                    <p>Subtotal ({activeCarta.quantity}): <span className="font-semibold text-indigo-600">${activeCarta.subtotal.toFixed(2)}</span></p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -207,9 +261,9 @@ export function BundleDetail() {
           <div>
             <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Incluye</p>
             <ul className="space-y-1.5">
-              {cartas.map((c, i) => (
+              {groupedCartas.map((c, i) => (
                 <li
-                  key={c.id}
+                  key={`${c.id}-${i}`}
                   onClick={() => setActiveIdx(i)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition text-sm ${
                     i === activeIdx ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'
@@ -222,11 +276,28 @@ export function BundleDetail() {
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{c.name}</p>
-                    {c.setName && <p className="text-xs text-gray-400 truncate">{c.setName}</p>}
+                    <p className="font-medium text-gray-800 truncate">
+                      {c.quantity > 1 && (
+                        <span className="text-indigo-600 font-bold mr-1">{c.quantity}x</span>
+                      )}
+                      {c.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {c.setName && <p className="text-xs text-gray-400 truncate">{c.setName}</p>}
+                      {c.lang && (
+                        <span className="text-[10px] font-semibold bg-sky-100 text-sky-600 px-1.5 py-0.5 rounded-full uppercase leading-none">
+                          {c.lang.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {(c.price ?? 0) > 0 && (
-                    <span className="text-xs font-semibold text-green-600 flex-shrink-0">${(c.price ?? 0).toFixed(2)}</span>
+                  {(c.subtotal ?? 0) > 0 && (
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-xs font-semibold text-green-600">${c.subtotal.toFixed(2)}</span>
+                      {c.quantity > 1 && (
+                        <p className="text-[10px] text-gray-400">${c.price.toFixed(2)} c/u</p>
+                      )}
+                    </div>
                   )}
                 </li>
               ))}

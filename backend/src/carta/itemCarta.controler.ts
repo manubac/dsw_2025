@@ -31,6 +31,7 @@ async function findAll(req: Request, res: Response) {
              rarity: c.rarity,
              setName: c.setName,
              cardNumber: c.cardNumber,
+             lang: c.lang ?? null,
            })),
            uploader: item.uploaderVendedor,
            type: 'bundle',
@@ -64,6 +65,7 @@ async function findOne(req: Request, res: Response) {
             rarity: c.rarity ?? null,
             setName: c.setName ?? null,
             cardNumber: c.cardNumber ?? null,
+            lang: c.lang ?? null,
           })),
           uploader: item.uploaderVendedor
             ? { id: item.uploaderVendedor.id, nombre: (item.uploaderVendedor as any).nombre ?? null }
@@ -77,6 +79,7 @@ async function findOne(req: Request, res: Response) {
 }
 
 async function add(req: Request, res: Response) {
+    const emReq = orm.em.fork();
     try {
         const { intermediariosIds, cartasIds, uploaderId, ...itemData } = req.body;
 
@@ -98,74 +101,74 @@ async function add(req: Request, res: Response) {
         }
 
         // Buscar el cargador (solo un Vendedor puede subir items)
-        const uploader = await em.findOne(Vendedor, { id: uploaderId });
+        const uploader = await emReq.findOne(Vendedor, { id: uploaderId });
 
         if (!uploader) {
             return res.status(400).json({ message: 'Uploader not found or not a vendedor' });
         }
-        
-        const item = em.create(ItemCarta, { 
-            ...itemData, 
+
+        const item = emReq.create(ItemCarta, {
+            ...itemData,
             stock: itemData.stock || 1,
             estado: 'disponible',
             uploaderVendedor: uploader
         });
         if (intermediariosIds && Array.isArray(intermediariosIds)) {
-            const intermediarios = await em.find(Intermediario, { id: { $in: intermediariosIds } });
+            const intermediarios = await emReq.find(Intermediario, { id: { $in: intermediariosIds } });
             item.intermediarios.set(intermediarios);
         }
         if (cartasIds && Array.isArray(cartasIds)) {
-            const cartas = await em.find(Carta, { id: { $in: cartasIds } });
+            const cartas = await emReq.find(Carta, { id: { $in: cartasIds } });
             // Actualizar lado propietario (Carta -> ItemCarta)
             for (const carta of cartas) {
                 carta.items.add(item);
             }
         }
-        await em.flush();
+        await emReq.flush();
         res.status(201).json({message: 'Item created', data: item});
     } catch (error: any) {
+        console.error('[itemCarta.add] ERROR:', error);
         res.status(500).json({message: error.message || 'Internal server error'});
     }
 }
 
 async function update(req: Request, res: Response) {
+    const emReq = orm.em.fork();
     try {
         const id=Number.parseInt(req.params.id as string)
         const { userId, intermediariosIds, cartasIds, ...updateData } = req.body;
-        
-        const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['uploaderVendedor'] });
-        
+
+        const item = await emReq.findOneOrFail(ItemCarta, { id }, { populate: ['uploaderVendedor'] });
+
         // Verificar si el usuario es el cargador
         if (!userId || !item.uploaderVendedor || item.uploaderVendedor.id !== userId) {
             return res.status(403).json({ message: 'Only the uploader can edit this item' });
         }
-        
-        em.assign(item, updateData);
+
+        emReq.assign(item, updateData);
         if (intermediariosIds !== undefined && Array.isArray(intermediariosIds)) {
-            const intermediarios = await em.find(Intermediario, { id: { $in: intermediariosIds } });
+            const intermediarios = await emReq.find(Intermediario, { id: { $in: intermediariosIds } });
             item.intermediarios.set(intermediarios);
         }
         if (cartasIds !== undefined && Array.isArray(cartasIds)) {
             // Actualizar lado propietario (Carta -> ItemCarta)
             // 1. Remover item de cartas que no están en la nueva lista
-            // Necesitamos popular 'items' (Collection<ItemCarta>) para verificar presencia/remover correctamente
-            const currentCartas = await em.find(Carta, { items: item }, { populate: ['items'] });
+            const currentCartas = await emReq.find(Carta, { items: item }, { populate: ['items'] });
             for (const carta of currentCartas) {
                 if (!cartasIds.includes(carta.id)) {
                     carta.items.remove(item);
                 }
             }
-            
+
             // 2. Agregar item a cartas en la nueva lista
-            // Popular 'items' aquí también para verificar si ya está presente
-            const targetCartas = await em.find(Carta, { id: { $in: cartasIds } }, { populate: ['items'] });
+            const targetCartas = await emReq.find(Carta, { id: { $in: cartasIds } }, { populate: ['items'] });
             for (const carta of targetCartas) {
                  if (!carta.items.contains(item)) {
                      carta.items.add(item);
                  }
             }
         }
-        await em.flush()
+        await emReq.flush()
         res
             .status(200)
             .json({message: 'Item updated', data: item})
@@ -175,10 +178,11 @@ async function update(req: Request, res: Response) {
 }
 
 async function remove(req: Request, res: Response) {
+    const emReq = orm.em.fork();
     try {
         const id=Number.parseInt(req.params.id as string)
-        const item =  em.getReference(ItemCarta, id )
-        await em.removeAndFlush(item)
+        const item = emReq.getReference(ItemCarta, id)
+        await emReq.removeAndFlush(item)
         res.status(200).json({message: 'Item removed', data: item})
     } catch (error: any) {
         res.status(500).json({message: error.message || 'Internal server error'})

@@ -10,6 +10,18 @@ import { type ParsedCard, type DetectedFormat } from "../utils/deckParsers";
 
 type Juego = "pokemon" | "magic" | "yugioh" | "digimon" | "riftbound";
 
+const LANGUAGES = [
+  { code: 'en', label: 'EN', local: 'Inglés' },
+  { code: 'es', label: 'ES', local: 'Español' },
+  { code: 'pt', label: 'PT', local: 'Portugués' },
+  { code: 'fr', label: 'FR', local: 'Francés' },
+  { code: 'de', label: 'DE', local: 'Alemán' },
+  { code: 'it', label: 'IT', local: 'Italiano' },
+  { code: 'ko', label: 'KO', local: 'Coreano' },
+  { code: 'th', label: 'TH', local: 'Tailandés' },
+  { code: 'id', label: 'ID', local: 'Indonesio' },
+];
+
 interface CartaResultado {
   name: string;
   image?: string;
@@ -54,6 +66,7 @@ interface QueueItem {
   rarezasLoading?: boolean;
   rarezaElegida?: Rareza | null;
   cartaClassId?: number;
+  lang: string;
 }
 
 type PriceSiteKey = "coolstuff" | "tcgplayer" | "cardmarket" | "ebay" | "pricecharting" | "trollandtoad";
@@ -121,6 +134,7 @@ export default function PublicarCartaPage() {
   const [applyingPrices, setApplyingPrices] = useState(false);
   const [bulkPublishing, setBulkPublishing] = useState(false);
   const [bundleAll, setBundleAll] = useState(false);
+  const [bundleName, setBundleName] = useState("");
   const rarezasLoadingSet = useRef(new Set<string>());
 
   const [sugerencias, setSugerencias] = useState<string[]>([]);
@@ -136,6 +150,13 @@ export default function PublicarCartaPage() {
   const rarityHoveredRef = useRef<{ idx: number | null; rareza: Rareza | null }>({ idx: null, rareza: null });
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdFiredRef = useRef(false);
+
+  // Estado del popup de idioma (hold-to-open)
+  interface LangPopupState { uid: string; anchorRect: DOMRect; hoveredIdx: number | null; }
+  const [langPopup, setLangPopup] = useState<LangPopupState | null>(null);
+  const langHoveredRef = useRef<{ idx: number | null; lang: typeof LANGUAGES[0] | null }>({ idx: null, lang: null });
+  const langHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const langHoldFiredRef = useRef(false);
 
   const busquedaRef = useRef({ nombre: "", juego: "pokemon" as Juego, expansion: "" });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -307,6 +328,23 @@ export default function PublicarCartaPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rarityPopup?.uid]);
 
+  // Popup de idioma: seleccionar al soltar el mouse
+  useEffect(() => {
+    if (!langPopup) return;
+    const handleMouseUp = () => {
+      const { lang } = langHoveredRef.current;
+      const uid = langPopup.uid;
+      if (lang) {
+        setQueue(prev => prev.map(it => it.uid === uid ? { ...it, lang: lang.code } : it));
+      }
+      langHoveredRef.current = { idx: null, lang: null };
+      setLangPopup(null);
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langPopup?.uid]);
+
   const buscarCartas = async (nombreOverride?: string, juegoOverride?: Juego) => {
     const n = (nombreOverride ?? nombre).trim();
     if (!n) return;
@@ -449,6 +487,7 @@ export default function PublicarCartaPage() {
       stock: 1,
       checked: true,
       cartaClassId: cartaClassMatch?.id,
+      lang: 'en',
     };
 
     setQueue(prev => [...prev, newItem]);
@@ -606,6 +645,36 @@ export default function PublicarCartaPage() {
     setRarityPopup(prev => prev ? { ...prev, hoveredIdx: idx } : null);
   };
 
+  // ─── Handlers del chip de idioma ──────────────────────────────────────────
+
+  const handleLangMouseDown = (e: React.MouseEvent, uid: string) => {
+    e.preventDefault();
+    langHoldFiredRef.current = false;
+    langHoveredRef.current = { idx: null, lang: null };
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    langHoldTimerRef.current = setTimeout(() => {
+      langHoldFiredRef.current = true;
+      setLangPopup({ uid, anchorRect: rect, hoveredIdx: null });
+      langHoldTimerRef.current = null;
+    }, 280);
+  };
+
+  const handleLangMouseUp = (uid: string, currentLang: string) => {
+    if (langHoldTimerRef.current) {
+      clearTimeout(langHoldTimerRef.current);
+      langHoldTimerRef.current = null;
+    }
+    if (langHoldFiredRef.current) return;
+    const idx = LANGUAGES.findIndex(l => l.code === currentLang);
+    const next = LANGUAGES[(idx + 1) % LANGUAGES.length];
+    setQueue(prev => prev.map(it => it.uid === uid ? { ...it, lang: next.code } : it));
+  };
+
+  const handleLangHover = (idx: number, lang: typeof LANGUAGES[0]) => {
+    langHoveredRef.current = { idx, lang };
+    setLangPopup(prev => prev ? { ...prev, hoveredIdx: idx } : null);
+  };
+
   // Parsea una línea suelta en el formato del juego activo
   const parseSingleLine = (line: string, j: Juego): ParsedCard | null => {
     if (j === "pokemon") {
@@ -675,6 +744,7 @@ export default function PublicarCartaPage() {
       quantity: 1,
       stock: p.quantity,
       checked: true,
+      lang: 'en',
     }));
 
     setQueue((prev) => [...prev, ...newItems]);
@@ -755,6 +825,7 @@ export default function PublicarCartaPage() {
         cardNumber: item.rarezaElegida?.number ?? item.carta.number ?? null,
         cartaClass: cartaClassId,
         userId: user.id,
+        lang: item.lang ?? 'en',
       });
       const cartaId = cartaRes.data?.data?.id;
       if (cartaId) {
@@ -789,26 +860,30 @@ export default function PublicarCartaPage() {
       });
       if (mixed) { setBulkPublishing(false); return; }
 
-      // Paso 1: crear cada Carta individualmente y recolectar sus IDs
+      // Paso 1: crear cada Carta individualmente y recolectar sus IDs (N copias por item.stock)
       const cartaIds: number[] = [];
       for (const item of pending) {
         const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name === item.format)?.id ?? null;
-        try {
-          const res = await api.post("/api/cartas", {
-            name: item.carta!.name,
-            price: item.price || null,
-            image: item.rarezaElegida?.image ?? item.carta!.image ?? null,
-            link: null,
-            rarity: item.rarezaElegida?.rarity ?? item.carta!.rarity ?? null,
-            setName: item.rarezaElegida?.setName ?? item.carta!.setName ?? null,
-            setCode: item.carta!.setId ?? null,
-            cardNumber: item.rarezaElegida?.number ?? item.carta!.number ?? null,
-            cartaClass: cartaClassId,
-            userId: user!.id,
-          });
-          cartaIds.push(res.data.data.id);
-        } catch {
-          // carta individual fallida — seguimos con las demás
+        const copies = Math.max(1, item.stock ?? 1);
+        for (let q = 0; q < copies; q++) {
+          try {
+            const res = await api.post("/api/cartas", {
+              name: item.carta!.name,
+              price: item.price || null,
+              image: item.rarezaElegida?.image ?? item.carta!.image ?? null,
+              link: null,
+              rarity: item.rarezaElegida?.rarity ?? item.carta!.rarity ?? null,
+              setName: item.rarezaElegida?.setName ?? item.carta!.setName ?? null,
+              setCode: item.carta!.setId ?? null,
+              cardNumber: item.rarezaElegida?.number ?? item.carta!.number ?? null,
+              cartaClass: cartaClassId,
+              userId: user!.id,
+              lang: item.lang ?? 'en',
+            });
+            cartaIds.push(res.data.data.id);
+          } catch {
+            // carta individual fallida — seguimos con las demás
+          }
         }
       }
 
@@ -821,15 +896,26 @@ export default function PublicarCartaPage() {
       }
 
       // Paso 2: crear el ItemCarta que enlaza todas las Cartas
-      const bundleName = pending.map(it => it.carta!.name).join(" + ");
       const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
+      const rawBundleName = pending.map(it => {
+        const qty = it.stock ?? 1;
+        return qty > 1 ? `${qty}x ${it.carta!.name}` : it.carta!.name;
+      }).join(" + ");
+      const customName = bundleName.trim();
+      const finalBundleName = customName
+        ? (customName.length > 250 ? customName.substring(0, 247) + "..." : customName)
+        : (rawBundleName.length > 250 ? rawBundleName.substring(0, 247) + "..." : rawBundleName);
       const description = pending
-        .map(it => `${it.carta!.name}${it.price ? ` ($${parsePrice(it.price).toFixed(2)})` : ""}`)
+        .map(it => {
+          const qty = it.stock ?? 1;
+          const qtyStr = qty > 1 ? `${qty}x ` : "";
+          return `${qtyStr}${it.carta!.name}${it.price ? ` ($${parsePrice(it.price).toFixed(2)})` : ""}`;
+        })
         .join(", ");
 
       try {
         await api.post("/api/itemsCarta", {
-          name: bundleName,
+          name: finalBundleName,
           description,
           stock: 1,
           uploaderId: user!.id,
@@ -882,6 +968,7 @@ export default function PublicarCartaPage() {
         quantity: 1,
         stock: 1,
         checked: true,
+        lang: first.lang ?? 'en',
       };
       setQueue(prev => [...prev, newItem]);
       resolveItem(newItem).then(resolved =>
@@ -957,6 +1044,7 @@ export default function PublicarCartaPage() {
           quantity: 1,
           stock: 1,
           checked: true,
+          lang: (scanData.idioma ?? 'en').toLowerCase(),
         };
         setQueue(prev => [...prev, newItem]);
         resolveItem(newItem).then(resolved =>
@@ -1298,7 +1386,7 @@ export default function PublicarCartaPage() {
                         <input
                           type="checkbox"
                           checked={bundleAll}
-                          onChange={e => setBundleAll(e.target.checked)}
+                          onChange={e => { setBundleAll(e.target.checked); if (!e.target.checked) setBundleName(""); }}
                           className="accent-green-500"
                         />
                         Todo en una publicación
@@ -1306,6 +1394,16 @@ export default function PublicarCartaPage() {
                           <span className="ml-auto font-semibold text-green-600">${total.toFixed(2)}</span>
                         )}
                       </label>
+                      {bundleAll && !bundleClassMixed && (
+                        <input
+                          type="text"
+                          value={bundleName}
+                          onChange={e => setBundleName(e.target.value)}
+                          placeholder="Nombre de la publicación (opcional)"
+                          maxLength={250}
+                          className="text-xs border border-green-300 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-green-400 bg-green-50/60 text-gray-700 placeholder-gray-400 transition w-full"
+                        />
+                      )}
                       {bundleClassMixed && (
                         <p className="text-[11px] text-red-500 px-1 leading-tight">
                           Solo se pueden agrupar cartas del mismo juego.
@@ -1413,33 +1511,49 @@ export default function PublicarCartaPage() {
                         {item.carta.setName && (
                           <p className="text-xs text-gray-500 truncate">{item.carta.setName}</p>
                         )}
-                        {/* Chip de rareza */}
+                        {/* Chip de rareza + chip de idioma */}
                         {!item.published && (
-                          <button
-                            onMouseDown={e => handleRarezaMouseDown(e, item.uid, item)}
-                            onMouseUp={() => handleRarezaMouseUp(item.uid, item)}
-                            onMouseLeave={() => {
-                              if (holdTimerRef.current && !holdFiredRef.current) {
-                                clearTimeout(holdTimerRef.current);
-                                holdTimerRef.current = null;
-                              }
-                            }}
-                            className={`mt-1 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border select-none transition-all
-                              ${item.rarezasLoading ? "opacity-60 cursor-wait" : "cursor-pointer"}
-                              ${!item.rarezas || item.rarezas.length <= 1
-                                ? "border-gray-200 bg-gray-50 text-gray-400 opacity-50"
-                                : "border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                              }`}
-                            title={item.rarezas && item.rarezas.length > 1 ? "Click: cambiar · Mantener: elegir versión" : "Click para cargar versiones"}
-                          >
-                            {item.rarezasLoading
-                              ? <span className="w-2.5 h-2.5 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />
-                              : null}
-                            {item.rarezaElegida?.rarity ?? item.rarezas?.[0]?.rarity ?? "Versión"}
-                            {item.rarezas && item.rarezas.length > 1 && (
-                              <span className="text-indigo-400 text-[10px]">×{item.rarezas.length}</span>
-                            )}
-                          </button>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <button
+                              onMouseDown={e => handleRarezaMouseDown(e, item.uid, item)}
+                              onMouseUp={() => handleRarezaMouseUp(item.uid, item)}
+                              onMouseLeave={() => {
+                                if (holdTimerRef.current && !holdFiredRef.current) {
+                                  clearTimeout(holdTimerRef.current);
+                                  holdTimerRef.current = null;
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border select-none transition-all
+                                ${item.rarezasLoading ? "opacity-60 cursor-wait" : "cursor-pointer"}
+                                ${!item.rarezas || item.rarezas.length <= 1
+                                  ? "border-gray-200 bg-gray-50 text-gray-400 opacity-50"
+                                  : "border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                }`}
+                              title={item.rarezas && item.rarezas.length > 1 ? "Click: cambiar · Mantener: elegir versión" : "Click para cargar versiones"}
+                            >
+                              {item.rarezasLoading
+                                ? <span className="w-2.5 h-2.5 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />
+                                : null}
+                              {item.rarezaElegida?.rarity ?? item.rarezas?.[0]?.rarity ?? "Versión"}
+                              {item.rarezas && item.rarezas.length > 1 && (
+                                <span className="text-indigo-400 text-[10px]">×{item.rarezas.length}</span>
+                              )}
+                            </button>
+                            <button
+                              onMouseDown={e => handleLangMouseDown(e, item.uid)}
+                              onMouseUp={() => handleLangMouseUp(item.uid, item.lang ?? 'en')}
+                              onMouseLeave={() => {
+                                if (langHoldTimerRef.current && !langHoldFiredRef.current) {
+                                  clearTimeout(langHoldTimerRef.current);
+                                  langHoldTimerRef.current = null;
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border select-none transition-all cursor-pointer border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 font-semibold"
+                              title="Click: cambiar idioma · Mantener: elegir idioma"
+                            >
+                              {(item.lang ?? 'en').toUpperCase()}
+                            </button>
+                          </div>
                         )}
                         {item.publishError && (
                           <p className="text-xs text-red-500">{item.publishError}</p>
@@ -1623,6 +1737,46 @@ export default function PublicarCartaPage() {
                 {r.finish && (
                   <span className="text-[9px] text-gray-500 text-center truncate max-w-[72px]">{r.finish}</span>
                 )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Popup de idioma (hold-to-open) */}
+      {langPopup && (() => {
+        const popupW = Math.min(LANGUAGES.length * 64 + 16, window.innerWidth - 16);
+        const anchorCx = langPopup.anchorRect.left + langPopup.anchorRect.width / 2;
+        let left = Math.max(8, anchorCx - popupW / 2);
+        left = Math.min(left, window.innerWidth - popupW - 8);
+        const spaceAbove = langPopup.anchorRect.top - 8;
+        const popupH = 90;
+        const top = spaceAbove >= popupH
+          ? langPopup.anchorRect.top - popupH - 6
+          : langPopup.anchorRect.bottom + 6;
+        return (
+          <div
+            className="fixed z-[9999] flex gap-1.5 flex-wrap p-2 bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-700 select-none"
+            style={{ left, top, width: popupW }}
+            onMouseDown={e => e.preventDefault()}
+          >
+            {LANGUAGES.map((lang, idx) => (
+              <div
+                key={lang.code}
+                onMouseEnter={() => handleLangHover(idx, lang)}
+                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl cursor-pointer transition-all flex-shrink-0
+                  ${langPopup.hoveredIdx === idx
+                    ? "bg-sky-500/30 ring-2 ring-sky-400"
+                    : "hover:bg-white/10"
+                  }`}
+                style={{ minWidth: 52 }}
+              >
+                <span className={`text-sm font-bold ${langPopup.hoveredIdx === idx ? "text-sky-200" : "text-gray-100"}`}>
+                  {lang.label}
+                </span>
+                <span className={`text-[9px] text-center leading-tight ${langPopup.hoveredIdx === idx ? "text-sky-300" : "text-gray-400"}`}>
+                  {lang.local}
+                </span>
               </div>
             ))}
           </div>

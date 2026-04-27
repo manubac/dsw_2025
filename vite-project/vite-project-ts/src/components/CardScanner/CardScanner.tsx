@@ -9,6 +9,7 @@ export interface ScannedCard {
   set: string
   number: string
   imageDataUrl: string
+  lang?: string
 }
 
 type ScanStatus = 'scanning' | 'looking-up' | 'done' | 'review'
@@ -129,6 +130,7 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
       const nombre:    string = scanData?.nombre    ?? ''
       const coleccion: string = scanData?.coleccion ?? ''
       const numero:    string = scanData?.numero    ?? ''
+      const lang:      string = (scanData?.idioma ?? 'en').toLowerCase()
       // Con colección + número ya se puede resolver; nombre es bonus
       const canResolve = !!(coleccion && numero)
 
@@ -139,6 +141,7 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
               name:       nombre,
               set:        coleccion,
               number:     numero,
+              lang,
               status:     canResolve ? 'done' : 'review',
               candidatos: scanData?.candidatos ?? [],
             }
@@ -161,7 +164,7 @@ export function CardScanner({ onCardsScanned, onClose }: CardScannerProps) {
   const applyCandidato = (itemId: number, c: Candidato) => {
     setQueue(prev => prev.map(item =>
       item.itemId === itemId
-        ? { ...item, name: c.card_name, set: c.set_abbr, number: c.card_number, status: 'done', candidatos: [] }
+        ? { ...item, name: c.card_name, set: c.set_abbr, number: c.card_number, lang: c.lang_code.toLowerCase(), status: 'done', candidatos: [] }
         : item
     ))
   }

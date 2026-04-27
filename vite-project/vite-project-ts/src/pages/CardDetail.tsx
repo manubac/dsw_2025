@@ -8,6 +8,11 @@ import { useUser } from '../context/user'
 import WishlistModal from '../components/WishlistModal'
 
 
+const LANG_LABELS: Record<string, string> = {
+  en: 'Inglés', es: 'Español', pt: 'Portugués', fr: 'Francés',
+  de: 'Alemán', it: 'Italiano', ko: 'Coreano', th: 'Tailandés', id: 'Indonesio',
+};
+
 export function CardDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -207,11 +212,16 @@ export function CardDetail() {
           )}
         </div>
 
-        {/* Rareza */}
-        <div>
+        {/* Rareza + Idioma */}
+        <div className="flex flex-wrap gap-2">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 uppercase">
             {card.rarity || 'Unknown'}
           </span>
+          {card.lang && (
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-700 uppercase">
+              {card.lang.toUpperCase()} · {LANG_LABELS[card.lang] ?? card.lang}
+            </span>
+          )}
         </div>
 
         {/* Precio */}
@@ -352,10 +362,19 @@ export function CardDetail() {
               <span className="text-gray-800">{card.rarity}</span>
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex justify-between border-b pb-2">
               <span className="font-medium text-gray-500">Stock:</span>
               <span className="text-gray-800">{card.stock}</span>
             </div>
+
+            {card.lang && (
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-500">Idioma:</span>
+                <span className="text-gray-800 font-semibold">
+                  {card.lang.toUpperCase()} — {LANG_LABELS[card.lang] ?? card.lang}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

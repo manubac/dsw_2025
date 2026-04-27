@@ -81,6 +81,7 @@ async function findAll(req: Request, res: Response) {
             cartaClass: carta.cartaClass,
             items: carta.items,
             intermediarios,
+            lang: carta.lang ?? null,
         };
         
         if (carta.uploader) {
@@ -133,6 +134,7 @@ async function findOne(req: Request, res: Response) {
       stock: items.reduce((sum, item) => sum + item.stock, 0),
       cartaClass: carta.cartaClass,
       items,
+      lang: carta.lang ?? null,
       uploader: undefined as any
     } as any;
 
