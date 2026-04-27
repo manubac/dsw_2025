@@ -33,6 +33,9 @@ export class Carta extends BaseEntity {
   @Property({ type: 'string', nullable: true })
   lang?: string; // 'es' | 'en' | 'jp' | 'fr' | 'de' | 'it' | 'pt' | 'ko' | 'zh-tw'
 
+  @Property({ type: 'number', default: 0 })
+  viewCount: number = 0;
+
   @ManyToOne(() => CartaClass, { nullable: true })
   cartaClass?: Rel<CartaClass>;
 

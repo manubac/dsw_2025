@@ -5,7 +5,7 @@ import { CartaClass } from "./cartaClass.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
-import { resolveNamesAcrossLanguages } from "../identify/services/translationService.js";
+import { resolveNamesAcrossLanguages, getSetAbbreviations } from "../identify/services/translationService.js";
 import axios from "axios";
 import puppeteer, { type Browser } from "puppeteer";
 import { notifyWishlistSubscribers } from "../wishlist/wishlistNotifier.js";
@@ -49,6 +49,29 @@ async function findAll(req: Request, res: Response) {
   try {
     const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.cartas", "items.intermediarios.direccion", "uploader"] });
 
+    // Bulk-fetch set abbreviations (TCGdex slug → official abbr, e.g. "sv3pt5" → "MEW")
+    const setCodes = [...new Set(
+      cartas.map(c => c.setCode).filter((s): s is string => !!s)
+    )];
+    const abbrMap = await getSetAbbreviations(setCodes);
+
+    // Bulk-fetch vendor ratings for all uploaders
+    const uploaderIds: number[] = [...new Set(
+      cartas
+        .filter(c => (c as any).uploader?.id != null)
+        .map(c => (c as any).uploader.id as number)
+    )];
+    const ratingMap = new Map<number, { sum: number; count: number }>();
+    if (uploaderIds.length > 0) {
+      const allValoraciones = await em.find(Valoracion, { tipoObjeto: 'vendedor', objetoId: { $in: uploaderIds } });
+      for (const v of allValoraciones) {
+        const existing = ratingMap.get(v.objetoId) ?? { sum: 0, count: 0 };
+        existing.sum += v.puntuacion;
+        existing.count += 1;
+        ratingMap.set(v.objetoId, existing);
+      }
+    }
+
     // Mapear campos de la carta para coincidir con las expectativas del frontend (title, thumbnail, etc.)
     const cartasFormateadas = cartas
         .filter(carta => carta.items.getItems().every(item => item.cartas.getItems().length < 2))
@@ -69,7 +92,7 @@ async function findAll(req: Request, res: Response) {
             })
         );
         const intermediarios = Array.from(interMap.values());
-        
+
         const cartaFormateada: any = {
             id: carta.id,
             title: carta.name,
@@ -77,6 +100,8 @@ async function findAll(req: Request, res: Response) {
             price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
             description: carta.rarity || "Carta coleccionable",
             set: carta.setName || "Unknown Set",
+            setCode: carta.setCode ? (abbrMap.get(carta.setCode) ?? carta.setCode) : null,
+            cardNumber: carta.cardNumber ?? null,
             rarity: carta.rarity,
             link: carta.link,
             cartaClass: carta.cartaClass,
@@ -84,17 +109,24 @@ async function findAll(req: Request, res: Response) {
             intermediarios,
             lang: carta.lang ?? null,
         };
-        
+
         if (carta.uploader) {
-            cartaFormateada.uploader = { id: carta.uploader.id}
+            const uploaderId = carta.uploader.id as number;
+            const ratings = ratingMap.get(uploaderId) ?? { sum: 0, count: 0 };
+            cartaFormateada.uploader = {
+                id: uploaderId,
+                nombre: (carta.uploader as any).nombre,
+                rating: ratings.count > 0 ? ratings.sum / ratings.count : 0,
+                reviewsCount: ratings.count,
+            };
         }
-        
+
         // Calcular el stock total sumando todos los items
         cartaFormateada.stock = carta.items.getItems().reduce((sum, item) => sum + item.stock, 0);
 
         return cartaFormateada;
     });
-    
+
     res.status(200).json({ message: "Found all cartas", data: cartasFormateadas });
   } catch (error: any) {
     console.error("Error fetching cartas:", error);
@@ -273,6 +305,142 @@ async function remove(req: Request, res: Response) {
 
 
 
+
+// ============================
+// Endpoints para la HomePage
+// ============================
+
+function buildGameFilter(game: string): any {
+  if (game === 'all') return {};
+  // Cartas sin cartaClass se tratan como pokémon (mismo criterio que CardsPage)
+  if (game === 'pokemon') {
+    return { $or: [{ cartaClass: null }, { cartaClass: { name: { $ilike: 'pokemon' } } }] };
+  }
+  return { cartaClass: { name: { $ilike: game } } };
+}
+
+async function getPopulares(req: Request, res: Response) {
+  try {
+    const game = (req.query.game as string) || 'pokemon';
+    const limit = Math.min(Number(req.query.limit) || 10, 20);
+
+    const emFork = orm.em.fork();
+    const cartas = await emFork.find(Carta, buildGameFilter(game), {
+      populate: ['cartaClass', 'uploader'],
+      orderBy: [{ viewCount: 'DESC' }, { createdAt: 'DESC' }],
+      limit,
+    });
+
+    const data = cartas.map(c => ({
+      id: c.id,
+      title: c.name,
+      thumbnail: c.image,
+      price: c.price ? parseFloat(c.price.replace(/[^0-9.]/g, '')) : 0,
+      rarity: c.rarity,
+      set: c.setName,
+      viewCount: c.viewCount ?? 0,
+      cartaClass: c.cartaClass ? { name: (c.cartaClass as any).name } : null,
+      uploader: c.uploader ? { id: c.uploader.id, nombre: (c.uploader as any).nombre } : null,
+    }));
+
+    res.json({ data });
+  } catch (error: any) {
+    console.error('Error fetching populares:', error);
+    res.status(500).json({ message: 'Error fetching populares', error: error.message });
+  }
+}
+
+async function getMejoresVendedores(req: Request, res: Response) {
+  try {
+    const game = (req.query.game as string) || 'pokemon';
+    const limit = Math.min(Number(req.query.limit) || 8, 20);
+
+    const emFork = orm.em.fork();
+
+    // Traer cartas del juego seleccionado que tengan uploader (publicaciones individuales)
+    const gameFilter = { ...buildGameFilter(game), uploader: { $ne: null } };
+    const cartas = await emFork.find(Carta, gameFilter, {
+      populate: ['cartaClass', 'uploader'],
+      limit: 100,
+    });
+
+    if (cartas.length === 0) return res.json({ data: [] });
+
+    // Obtener ratings solo de los uploaders presentes
+    const uploaderIds = [...new Set(
+      cartas.map(c => c.uploader?.id).filter((id): id is number => id != null)
+    )];
+
+    const valoraciones = await emFork.find(Valoracion, {
+      tipoObjeto: 'vendedor',
+      objetoId: { $in: uploaderIds },
+    });
+
+    const ratingMap = new Map<number, { sum: number; count: number }>();
+    for (const v of valoraciones) {
+      const existing = ratingMap.get(v.objetoId) ?? { sum: 0, count: 0 };
+      existing.sum += v.puntuacion;
+      existing.count++;
+      ratingMap.set(v.objetoId, existing);
+    }
+
+    // Ordenar cartas por rating del uploader (desc), solo vendedores con al menos 1 reseña
+    const cartasOrdenadas = cartas
+      .map(c => {
+        const uid = c.uploader?.id;
+        const r = uid != null ? ratingMap.get(uid) : undefined;
+        return { c, uid, avg: r ? r.sum / r.count : -1, hasRating: !!r };
+      })
+      .filter(x => x.hasRating)
+      .sort((a, b) => b.avg - a.avg);
+
+    const uploaderCount = new Map<number, number>();
+    const result: any[] = [];
+
+    for (const { c, avg, uid } of cartasOrdenadas) {
+      if (result.length >= limit) break;
+      if (uid == null) continue;
+      const seen = uploaderCount.get(uid) ?? 0;
+      if (seen >= 2) continue;
+      uploaderCount.set(uid, seen + 1);
+      const rd = ratingMap.get(uid)!;
+      result.push({
+        id: c.id,
+        title: c.name,
+        thumbnail: c.image,
+        price: c.price ? parseFloat(c.price.replace(/[^0-9.]/g, '')) : 0,
+        rarity: c.rarity,
+        set: c.setName,
+        cartaClass: c.cartaClass ? { name: (c.cartaClass as any).name } : null,
+        uploader: {
+          id: uid,
+          nombre: (c.uploader as any).nombre,
+          rating: avg,
+          reviewsCount: rd.count,
+        },
+      });
+    }
+
+    res.json({ data: result });
+  } catch (error: any) {
+    console.error('Error fetching mejores vendedores:', error);
+    res.status(500).json({ message: 'Error fetching mejores vendedores', error: error.message });
+  }
+}
+
+async function incrementViewCount(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const emFork = orm.em.fork();
+    const carta = await emFork.findOne(Carta, { id });
+    if (!carta) return res.status(404).json({ message: 'Not found' });
+    carta.viewCount = (carta.viewCount ?? 0) + 1;
+    await emFork.flush();
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+}
 
 // ============================
 // Precios via scraping (solo para /publicar)
@@ -856,4 +1024,7 @@ export {
   update,
   remove,
   resolveNames,
+  getPopulares,
+  getMejoresVendedores,
+  incrementViewCount,
 };

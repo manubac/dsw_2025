@@ -504,7 +504,7 @@ export default function PublicarCartaPage() {
     if (!user || !modalCarta) return;
     if (juego === "pokemon" && !rarezaElegida) return;
 
-    const cartaClassMatch = cartaClasses.find(cc => cc.name === juego);
+    const cartaClassMatch = cartaClasses.find(cc => cc.name.toLowerCase() === juego.toLowerCase());
 
     const carta: CartaResultado = {
       name: modalCarta.name,
@@ -858,7 +858,7 @@ export default function PublicarCartaPage() {
 
   const publishQueueItem = async (item: QueueItem) => {
     if (!user || !item.carta) return;
-    const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name === item.format)?.id ?? null;
+    const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === item.format?.toLowerCase())?.id ?? null;
     try {
       const cartaRes = await api.post("/api/cartas", {
         name: item.carta.name,
@@ -899,9 +899,9 @@ export default function PublicarCartaPage() {
 
     if (bundleAll && pending.length > 0) {
       // Validación: todos deben ser del mismo cartaClass
-      const firstClassId = pending[0].cartaClassId ?? cartaClasses.find(cc => cc.name === pending[0].format)?.id;
+      const firstClassId = pending[0].cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === pending[0].format?.toLowerCase())?.id;
       const mixed = pending.some(it => {
-        const id = it.cartaClassId ?? cartaClasses.find(cc => cc.name === it.format)?.id;
+        const id = it.cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === it.format?.toLowerCase())?.id;
         return id !== firstClassId;
       });
       if (mixed) { setBulkPublishing(false); return; }
@@ -909,7 +909,7 @@ export default function PublicarCartaPage() {
       // Paso 1: crear cada Carta individualmente y recolectar sus IDs (N copias por item.stock)
       const cartaIds: number[] = [];
       for (const item of pending) {
-        const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name === item.format)?.id ?? null;
+        const cartaClassId = item.cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === item.format?.toLowerCase())?.id ?? null;
         const copies = Math.max(1, item.stock ?? 1);
         for (let q = 0; q < copies; q++) {
           try {
@@ -1423,9 +1423,9 @@ export default function PublicarCartaPage() {
                   const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
                   const total = checkedPending.reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
                   const bundleClassMixed = bundleAll && checkedPending.length > 1 && (() => {
-                    const firstId = checkedPending[0].cartaClassId ?? cartaClasses.find(cc => cc.name === checkedPending[0].format)?.id;
+                    const firstId = checkedPending[0].cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === checkedPending[0].format?.toLowerCase())?.id;
                     return checkedPending.some(it => {
-                      const id = it.cartaClassId ?? cartaClasses.find(cc => cc.name === it.format)?.id;
+                      const id = it.cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === it.format?.toLowerCase())?.id;
                       return id !== firstId;
                     });
                   })();

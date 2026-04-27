@@ -17,6 +17,7 @@ import PublicarCartaPage from "./pages/PublicarCarta";
 import { ContactPage } from "./pages/ContactPage";
 import EditarCartaPage from "./pages/EditarCartaPage";
 import EditarItemPage from "./pages/EditarItemPage";
+import CardGroupPage from "./pages/CardGroupPage";
 import IntermediarioDashboard from "./pages/IntermediarioDashboard";
 import MisPublicacionesPage from "./pages/MisPublicacionesPage";
 import MisVentasPage from "./pages/MisVentasPage";
@@ -110,6 +111,7 @@ function App() {
                 <Route path="cards" element={<CardsPage />} />
                 <Route path="card/:id" element={<CardDetail />} />
                 <Route path="bundle/:id" element={<BundleDetail />} />
+                <Route path="group" element={<CardGroupPage />} />
 
                 {/* Perfil Público de Vendedor */}
                 <Route path="vendedor/:id" element={<VendedorProfile />} />

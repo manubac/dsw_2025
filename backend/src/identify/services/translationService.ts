@@ -128,6 +128,25 @@ export async function resolveNamesAcrossLanguages(query: string): Promise<string
 }
 
 /**
+ * Dado un array de set IDs de TCGdex (e.g. ["sv3pt5", "swsh1"]), devuelve un
+ * Map de id → abbr (e.g. "sv3pt5" → "MEW"). Los IDs sin match se omiten.
+ */
+export async function getSetAbbreviations(setIds: string[]): Promise<Map<string, string>> {
+  if (setIds.length === 0) return new Map();
+  try {
+    const placeholders = setIds.map((_, i) => `$${i + 1}`).join(', ');
+    const result = await pool.query<{ id: string; abbr: string }>(
+      `SELECT id, abbr FROM pokemon_sets WHERE id IN (${placeholders})`,
+      setIds,
+    );
+    return new Map(result.rows.map(r => [r.id, r.abbr]));
+  } catch (err) {
+    console.error('[translationService] getSetAbbreviations error:', err);
+    return new Map();
+  }
+}
+
+/**
  * Fallback cuando el OCR no pudo leer la abreviatura del set con confianza.
  *
  * Busca en card_translations el nombre local en CUALQUIER set y devuelve
