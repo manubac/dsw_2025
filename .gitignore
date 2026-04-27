@@ -8,6 +8,8 @@ node_modules/
 # Salida de compilación de TypeScript
 dist/
 **/dist/
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 
 # Archivos de entorno

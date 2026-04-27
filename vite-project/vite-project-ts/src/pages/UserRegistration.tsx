@@ -17,6 +17,8 @@ export function UserRegistration() {
     provincia: '',
     pais: '',
     codigoPostal: '',
+    direccion: '',
+    horario: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -85,6 +87,22 @@ export function UserRegistration() {
       }
 
   // ================================
+  // REGISTRO DE TIENDA DE RETIRO
+  // ================================
+      else if (formData.rol === 'tiendaRetiro') {
+        endpoint = '/api/tiendas';
+        requestData = {
+          nombre: formData.nombre,
+          email: formData.email,
+          password: formData.password,
+          direccion: formData.direccion,
+          ciudad: formData.ciudad,
+          horario: formData.horario,
+          activo: true,
+        };
+      }
+
+  // ================================
   // Enviar request al backend
   // ================================
       console.log('Sending registration to:', endpoint, requestData);
@@ -109,6 +127,7 @@ export function UserRegistration() {
       const loginEndpoint =
         formData.rol === 'vendedor' ? '/api/vendedores/login' :
         formData.rol === 'intermediario' ? '/api/intermediarios/login' :
+        formData.rol === 'tiendaRetiro' ? '/api/tiendas/login' :
         '/api/users/login';
 
       const loginResponse = await fetchApi(loginEndpoint, {
@@ -136,7 +155,11 @@ export function UserRegistration() {
       };
 
       login(userData, loginResult.token);
-      navigate('/profile');
+      if (formData.rol === 'tiendaRetiro') {
+        navigate('/tienda-retiro/ventas');
+      } else {
+        navigate('/profile');
+      }
     } catch (error: any) {
       console.error('Error creating user:', error);
       setError(error.message);
@@ -153,18 +176,40 @@ export function UserRegistration() {
         {success && <div className="alert success">{success}</div>}
 
         <form onSubmit={handleSubmit}>
+          {/* Tipo de usuario — siempre visible */}
           <div className="form-group">
-            <label htmlFor="nombre">Nombre completo</label>
+            <label htmlFor="rol">Tipo de cuenta</label>
+            <select
+              id="rol"
+              name="rol"
+              value={formData.rol}
+              onChange={handleChange}
+              required
+            >
+              <option value="usuario">Usuario regular</option>
+              <option value="vendedor">Vendedor</option>
+              <option value="intermediario">Intermediario</option>
+              <option value="tiendaRetiro">Tienda de retiro</option>
+            </select>
+          </div>
+
+          {/* Nombre — label cambia según el rol */}
+          <div className="form-group">
+            <label htmlFor="nombre">
+              {formData.rol === 'tiendaRetiro' ? 'Nombre de la tienda' : 'Nombre completo'}
+            </label>
             <input
               type="text"
               id="nombre"
               name="nombre"
               value={formData.nombre}
               onChange={handleChange}
+              placeholder={formData.rol === 'tiendaRetiro' ? 'Ej: Cards & Games Rosario' : ''}
               required
             />
           </div>
 
+          {/* Email — siempre visible */}
           <div className="form-group">
             <label htmlFor="email">Correo electrónico</label>
             <input
@@ -177,6 +222,7 @@ export function UserRegistration() {
             />
           </div>
 
+          {/* Contraseña — siempre visible */}
           <div className="form-group">
             <label htmlFor="password">Contraseña</label>
             <input
@@ -189,77 +235,106 @@ export function UserRegistration() {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="telefono">Número de teléfono</label>
-            <input
-              type="tel"
-              id="telefono"
-              name="telefono"
-              value={formData.telefono}
-              onChange={handleChange}
-            />
-          </div>
+          {/* Campos exclusivos de Tienda de Retiro */}
+          {formData.rol === 'tiendaRetiro' && (
+            <>
+              <div className="form-group">
+                <label htmlFor="direccion">Dirección completa</label>
+                <input
+                  type="text"
+                  id="direccion"
+                  name="direccion"
+                  value={formData.direccion}
+                  onChange={handleChange}
+                  placeholder="Ej: Av. Córdoba 1240, Rosario"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="ciudad">Ciudad</label>
+                <input
+                  type="text"
+                  id="ciudad"
+                  name="ciudad"
+                  value={formData.ciudad}
+                  onChange={handleChange}
+                  placeholder="Ej: Rosario"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="horario">Horario de atención</label>
+                <input
+                  type="text"
+                  id="horario"
+                  name="horario"
+                  value={formData.horario}
+                  onChange={handleChange}
+                  placeholder="Ej: Lun-Vie 10:00-19:00"
+                />
+              </div>
+            </>
+          )}
 
-          <div className="form-group">
-            <label htmlFor="rol">Tipo de usuario</label>
-            <select
-              id="rol"
-              name="rol"
-              value={formData.rol}
-              onChange={handleChange}
-              required
-            >
-              <option value="usuario">Usuario regular</option>
-              <option value="vendedor">Vendedor</option>
-              <option value="intermediario">Intermediario</option>
-            </select>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group half">
-              <label htmlFor="ciudad">Ciudad</label>
-              <input
-                type="text"
-                id="ciudad"
-                name="ciudad"
-                value={formData.ciudad}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group half">
-              <label htmlFor="provincia">Provincia</label>
-              <input
-                type="text"
-                id="provincia"
-                name="provincia"
-                value={formData.provincia}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group half">
-              <label htmlFor="pais">País</label>
-              <input
-                type="text"
-                id="pais"
-                name="pais"
-                value={formData.pais}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group half">
-              <label htmlFor="codigoPostal">Código Postal</label>
-              <input
-                type="text"
-                id="codigoPostal"
-                name="codigoPostal"
-                value={formData.codigoPostal}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
+          {/* Campos exclusivos de otros roles */}
+          {formData.rol !== 'tiendaRetiro' && (
+            <>
+              <div className="form-group">
+                <label htmlFor="telefono">Número de teléfono</label>
+                <input
+                  type="tel"
+                  id="telefono"
+                  name="telefono"
+                  value={formData.telefono}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group half">
+                  <label htmlFor="ciudad">Ciudad</label>
+                  <input
+                    type="text"
+                    id="ciudad"
+                    name="ciudad"
+                    value={formData.ciudad}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="form-group half">
+                  <label htmlFor="provincia">Provincia</label>
+                  <input
+                    type="text"
+                    id="provincia"
+                    name="provincia"
+                    value={formData.provincia}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group half">
+                  <label htmlFor="pais">País</label>
+                  <input
+                    type="text"
+                    id="pais"
+                    name="pais"
+                    value={formData.pais}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="form-group half">
+                  <label htmlFor="codigoPostal">Código Postal</label>
+                  <input
+                    type="text"
+                    id="codigoPostal"
+                    name="codigoPostal"
+                    value={formData.codigoPostal}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <button type="submit">Crear cuenta</button>
         </form>

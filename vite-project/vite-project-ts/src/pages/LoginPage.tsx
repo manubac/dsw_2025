@@ -47,6 +47,8 @@ export function LoginPage() {
         endpoint = "/api/users/login";
       } else if (formData.rol === "intermediario") {
         endpoint = "/api/intermediarios/login";
+      } else if (formData.rol === "tiendaRetiro") {
+        endpoint = "/api/tiendas/login";
       } else {
         throw new Error("Rol de usuario no válido.");
       }
@@ -99,7 +101,11 @@ export function LoginPage() {
 
       // Redirigir después de un breve delay
       setTimeout(() => {
-        navigate("/");
+        if (formData.rol === 'tiendaRetiro') {
+          navigate("/tienda-retiro/ventas");
+        } else {
+          navigate("/");
+        }
       }, 1200);
     } catch (error: any) {
       console.error("Error en login:", error);
@@ -162,6 +168,7 @@ export function LoginPage() {
               <option value="vendedor">Vendedor</option>
               <option value="usuario">Usuario regular</option>
               <option value="intermediario">Intermediario</option>
+              <option value="tiendaRetiro">Tienda de retiro</option>
             </select>
           </div>
 

@@ -22,25 +22,6 @@ interface Carta {
   uploader?: { id: number };
 }
 
-interface Direccion {
-  id: number;
-  provincia: string;
-  ciudad: string;
-  codigoPostal: string;
-  calle: string;
-  altura: string;
-  departamento?: string;
-}
-
-interface Intermediario {
-  id: number;
-  nombre: string;
-  email: string;
-  telefono: string;
-  descripcion?: string;
-  activo: boolean;
-  direccion?: Direccion;
-}
 
 export default function EditarCartaPage() {
   const location = useLocation();
@@ -56,10 +37,6 @@ export default function EditarCartaPage() {
   const [published, setPublished] = useState(false);
   const [description, setDescription] = useState("");
   const [stock, setStock] = useState<number>(location.state?.stock ?? 1);
-  const [intermediarios, setIntermediarios] = useState<Intermediario[]>([]);
-  const [selectedIntermediarios, setSelectedIntermediarios] = useState<number[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
-  const [selectedCity, setSelectedCity] = useState<string>("");
   const [itemCartaId, setItemCartaId] = useState<number | null>(null);
   const [cartaClasses, setCartaClasses] = useState<CartaClassOption[]>([]);
   const [selectedCartaClass, setSelectedCartaClass] = useState<number | null>(
@@ -74,29 +51,6 @@ export default function EditarCartaPage() {
       .then(r => r.json())
       .then(d => setCartaClasses(d.data ?? []))
       .catch(() => {});
-  }, []);
-
-  // Fetch intermediarios
-  useEffect(() => {
-    const fetchIntermediarios = async () => {
-      try {
-        const res = await fetchApi('/api/intermediarios');
-        const json = await res.json();
-        const data = json.data || [];
-        setIntermediarios(data);
-        
-        // Extract unique cities
-        const uniqueCities = Array.from(new Set(data
-            .map((i: Intermediario) => i.direccion?.ciudad)
-            .filter((c: string | undefined) => c)
-        )) as string[];
-        setCities(uniqueCities.sort());
-        
-      } catch (error) {
-        console.error('Error fetching intermediarios:', error);
-      }
-    };
-    fetchIntermediarios();
   }, []);
 
   // Fetch latest carta data from backend (by id) so editor shows current DB values
@@ -139,10 +93,6 @@ export default function EditarCartaPage() {
               const itemJson = await itemRes.json();
               const itemData = itemJson?.data;
               if (itemData) {
-                if (itemData.intermediarios) {
-                  const ids = itemData.intermediarios.map((i: Intermediario) => i.id);
-                  setSelectedIntermediarios(ids);
-                }
                 if (typeof itemData.stock === 'number') {
                   setStock(itemData.stock);
                 }
@@ -226,7 +176,6 @@ export default function EditarCartaPage() {
           description,
           stock,
           cartasIds: cartaId ? [cartaId] : [],
-          intermediariosIds: selectedIntermediarios,
           userId: user?.id,
         });
         setMensaje("Item actualizado con éxito.");
@@ -237,7 +186,6 @@ export default function EditarCartaPage() {
             description,
             stock,
             cartasIds: cartaId ? [cartaId] : [],
-            intermediariosIds: selectedIntermediarios,
             uploaderId: user?.id,
         });
         setMensaje("Item publicado con éxito.");
@@ -287,6 +235,20 @@ export default function EditarCartaPage() {
         });
       } catch {
         setMensaje("Error al guardar cambios.");
+        return;
+      }
+    }
+    if (itemCartaId) {
+      try {
+        await api.put(`/api/itemsCarta/${itemCartaId}`, {
+          name: carta.name,
+          description,
+          stock,
+          cartasIds: carta.id ? [carta.id] : [],
+          userId: user?.id,
+        });
+      } catch {
+        setMensaje("Error al guardar el item.");
         return;
       }
     }
@@ -482,101 +444,6 @@ export default function EditarCartaPage() {
             >+</button>
           </div>
           <p className="text-xs text-gray-400">El stock disminuye automáticamente cuando un comprador reserva la carta.</p>
-        </div>
-
-        {/* ================= INTERMEDIARIOS ================= */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium">
-            Intermediarios permitidos
-          </label>
-
-          <select
-            value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2"
-          >
-            <option value="">-- Seleccionar Ciudad --</option>
-            {cities.map(city => (
-              <option key={city} value={city}>{city}</option>
-            ))}
-            <option value="all">Ver todos</option>
-          </select>
-
-          <div className="
-            grid
-            grid-cols-1 sm:grid-cols-2
-            gap-3
-            max-h-[400px]
-            overflow-y-auto
-            border
-            rounded-xl
-            p-3
-            bg-gray-50
-          ">
-            {intermediarios
-              .filter(inter =>
-                !selectedCity ||
-                selectedCity === "all" ||
-                inter.direccion?.ciudad === selectedCity
-              )
-              .map((inter) => {
-                const isSelected = selectedIntermediarios.includes(inter.id);
-
-                return (
-                  <div
-                    key={inter.id}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedIntermediarios(
-                          selectedIntermediarios.filter(id => id !== inter.id)
-                        );
-                      } else {
-                        setSelectedIntermediarios([
-                          ...selectedIntermediarios,
-                          inter.id
-                        ]);
-                      }
-                    }}
-                    className={`
-                      cursor-pointer
-                      rounded-lg
-                      p-3
-                      transition
-                      shadow-sm
-                      ${isSelected
-                        ? "border-2 border-green-500 bg-green-100"
-                        : "border bg-white hover:bg-green-50"}
-                    `}
-                  >
-                    <div className="font-semibold">
-                      {inter.nombre}
-                    </div>
-
-                    <div className="text-xs text-gray-600">
-                      {inter.direccion?.ciudad},{" "}
-                      {inter.direccion?.provincia}
-                    </div>
-
-                    <div className="text-xs text-gray-400">
-                      {inter.direccion?.calle}{" "}
-                      {inter.direccion?.altura}
-                    </div>
-                  </div>
-                );
-              })}
-
-            {intermediarios.filter(inter =>
-              !selectedCity ||
-              selectedCity === "all" ||
-              inter.direccion?.ciudad === selectedCity
-            ).length === 0 && (
-              <div className="col-span-full text-center text-gray-500 py-4">
-                {selectedCity
-                  ? "No hay intermediarios en esta ciudad."
-                  : "Selecciona una ciudad para ver intermediarios."}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* ================= ACTIONS ================= */}

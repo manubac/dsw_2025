@@ -12,13 +12,18 @@ export default function MisVentasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chatAbierto, setChatAbierto] = useState<number | null>(null);
+  const [miAlias, setMiAlias] = useState<string | null>(null);
 
   const fetchVentas = async () => {
     if (!user) return;
     try {
       setLoading(true);
-      const res = await api.get(`/api/vendedores/${user.id}/ventas`);
-      setVentas(res.data.data || []);
+      const [ventasRes, perfilRes] = await Promise.all([
+        api.get(`/api/vendedores/${user.id}/ventas`),
+        api.get(`/api/vendedores/${user.id}`),
+      ]);
+      setVentas(ventasRes.data.data || []);
+      setMiAlias(perfilRes.data.data?.alias ?? null);
     } catch (err: any) {
       console.error('Error fetching ventas:', err);
       setError('No se pudieron cargar las ventas');
@@ -38,12 +43,23 @@ export default function MisVentasPage() {
   const handleMarkSent = async (compraId: number) => {
     try {
       if (!confirm("¿Confirmas que has enviado los items al intermediario?")) return;
-      
+
       await api.post(`/api/vendedores/${user?.id}/ventas/${compraId}/enviar`);
       alert("Envío marcado correctamente.");
       await fetchVentas();
     } catch (err: any) {
         alert("Error al actualizar envío: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleEntregarTienda = async (compraId: number) => {
+    try {
+      if (!confirm('¿Confirmás que dejaste el pedido en la tienda?')) return;
+      await api.patch(`/api/vendedores/${user?.id}/ventas/${compraId}/entregar-tienda`);
+      alert('Pedido marcado como entregado a tienda. El comprador fue notificado por email.');
+      await fetchVentas();
+    } catch (err: any) {
+      alert('Error: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -99,6 +115,29 @@ export default function MisVentasPage() {
                   <strong>Comprador:</strong> {venta.comprador.nombre} ({venta.comprador.email})
                 </p>
 
+                {venta.tiendaRetiro ? (
+                  <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg">
+                    <h4 className="font-semibold text-orange-800 mb-1">
+                      📍 Entregar en tienda
+                    </h4>
+                    <p className="font-bold text-orange-900">{venta.tiendaRetiro.nombre}</p>
+                    <p className="text-sm text-orange-700">{venta.tiendaRetiro.direccion}</p>
+                    {venta.tiendaRetiro.horario && (
+                      <p className="text-xs text-orange-600 mt-1">🕐 {venta.tiendaRetiro.horario}</p>
+                    )}
+                    {miAlias && (
+                      <p className="text-sm text-orange-800 mt-2 font-medium">
+                        💸 Tu alias: <span className="font-mono font-bold">{miAlias}</span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-700 mb-1">💬 Coordinar via chat</h4>
+                    <p className="text-sm text-gray-500">El comprador prefiere acordar el punto de encuentro por chat.</p>
+                  </div>
+                )}
+
                 {venta.envio && venta.envio.intermediario && (
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-blue-800 mb-1">
@@ -137,6 +176,25 @@ export default function MisVentasPage() {
                     ))}
                   </ul>
                 </div>
+
+                {venta.tiendaRetiro && venta.estado === 'pendiente' && (
+                  <button
+                    className="w-full mt-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    onClick={() => handleEntregarTienda(venta.id)}
+                  >
+                    Entregar a tienda
+                  </button>
+                )}
+                {venta.tiendaRetiro && venta.estado === 'entregado_a_tienda' && (
+                  <div className="w-full mt-4 bg-blue-100 text-blue-800 font-semibold py-2 px-4 rounded-lg text-center">
+                    Entregado a tienda ✓
+                  </div>
+                )}
+                {venta.estado === 'retirado' && (
+                  <div className="w-full mt-4 bg-green-100 text-green-800 font-semibold py-2 px-4 rounded-lg text-center">
+                    Retirado ✓
+                  </div>
+                )}
 
                 {venta.envio &&
                   venta.estado !== 'ENVIADO_A_INTERMEDIARIO' &&

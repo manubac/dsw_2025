@@ -4,6 +4,7 @@ import { User } from "../user/user.entity.js";
 import { ItemCarta } from "../carta/itemCarta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio } from "../envio/envio.entity.js";
+import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 
 @Entity()
 export class Compra extends BaseEntity {
@@ -34,6 +35,9 @@ export class Compra extends BaseEntity {
 
   @ManyToOne(() => Envio, { nullable: true })
   envio?: Envio;
+
+  @ManyToOne(() => TiendaRetiro, { nullable: true })
+  tiendaRetiro?: TiendaRetiro;
 
   @Property({ type: 'string', nullable: true })
   metodoPago?: string;

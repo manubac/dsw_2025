@@ -25,6 +25,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { PagoExitoso } from "./pages/pagoExitoso";
 import WishlistPage from "./pages/WishlistPage";
+import TiendaRetiroVentasPage from "./pages/TiendaRetiroVentasPage";
 
 /* ✅ NUEVO — páginas de resultado de pago */
 import PagoError from "./pages/pagoError";
@@ -38,11 +39,18 @@ import DebugCropPage from "./pages/DebugCropPage";
  */
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'tiendaRetiro') return <Navigate to="/" replace />;
+  return children;
+}
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
+/**
+ * RUTA PROTEGIDA PARA TIENDA RETIRO
+ */
+function TiendaRetiroRoute({ children }: { children: JSX.Element }) {
+  const { user } = useUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'tiendaRetiro') return <Navigate to="/" replace />;
   return children;
 }
 
@@ -208,6 +216,24 @@ function App() {
                     <VendedorRoute>
                       <MisVentasPage />
                     </VendedorRoute>
+                  }
+                />
+
+                {/* Panel tienda retiro */}
+                <Route
+                  path="tienda-retiro/ventas"
+                  element={
+                    <TiendaRetiroRoute>
+                      <TiendaRetiroVentasPage />
+                    </TiendaRetiroRoute>
+                  }
+                />
+                <Route
+                  path="tienda-retiro/perfil"
+                  element={
+                    <TiendaRetiroRoute>
+                      <div className="p-8 text-center text-gray-500">Perfil de tienda — próximamente</div>
+                    </TiendaRetiroRoute>
                   }
                 />
 

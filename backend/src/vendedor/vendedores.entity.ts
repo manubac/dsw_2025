@@ -19,6 +19,12 @@ export class Vendedor extends BaseEntity {
     @Property({ type: 'string', nullable: true })
     ciudad?: string
 
+    @Property({ type: 'string', nullable: true })
+    alias?: string
+
+    @Property({ type: 'string', nullable: true })
+    cbu?: string
+
     @Property({ type: 'string', hidden: true, nullable: true })
     resetPasswordToken?: string;
 

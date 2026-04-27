@@ -23,6 +23,21 @@ export function Purchases() {
       setReviewModalOpen(true);
   }
 
+  const handleRetirar = async (compraId: number, vendedorId?: number, vendedorNombre?: string) => {
+    try {
+      if (!confirm('¿Confirmás que retiraste el pedido de la tienda?')) return;
+      await fetchApi(`/api/compras/${compraId}/retirar`, { method: 'PATCH' });
+      const res = await fetchApi(`/api/compras?compradorId=${user!.id}`);
+      const json = await res.json();
+      setCompras(json.data || []);
+      if (vendedorId && vendedorNombre) {
+        handleOpenReview(vendedorId, vendedorNombre);
+      }
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    }
+  };
+
   useEffect(() => {
     if (!user) return
 
@@ -105,8 +120,18 @@ export function Purchases() {
               <strong>Orden #{comp.id}</strong>
 
               <div className="flex items-center gap-2">
-                <span className="bg-gray-100 px-2 py-1 rounded text-xs">
-                  {comp.estado}
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  comp.estado === 'retirado'
+                    ? 'bg-green-100 text-green-800'
+                    : comp.estado === 'entregado_a_tienda'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {comp.estado === 'retirado'
+                    ? 'Retirado'
+                    : comp.estado === 'entregado_a_tienda'
+                    ? 'Listo para retirar'
+                    : comp.estado}
                 </span>
 
                 {comp.envio && (
@@ -133,16 +158,80 @@ export function Purchases() {
                 <strong>Contacto:</strong> {comp.nombre} — {comp.email}
               </p>
 
-              <p>
-                <strong>Dirección:</strong>{' '}
-                {comp.direccionEntrega
-                  ? `${comp.direccionEntrega.calle} ${comp.direccionEntrega.altura}${
-                      comp.direccionEntrega.departamento
-                        ? `, ${comp.direccionEntrega.departamento}`
-                        : ''
-                    }, ${comp.direccionEntrega.ciudad}, ${comp.direccionEntrega.provincia} - CP: ${comp.direccionEntrega.codigoPostal}`
-                  : 'No especificada'}
-              </p>
+              {comp.tiendaRetiro ? (
+                <div
+                  style={{
+                    background: '#fff7ed',
+                    border: '1px solid #fed7aa',
+                    borderRadius: '0.5rem',
+                    padding: '0.6rem 0.9rem',
+                    marginBottom: '0.5rem',
+                  }}
+                >
+                  <p style={{ fontWeight: 600, margin: 0, color: '#92400e' }}>
+                    📍 Retiro en tienda: {comp.tiendaRetiro.nombre}
+                  </p>
+                  <p style={{ fontSize: '0.85rem', color: '#78350f', margin: '0.15rem 0 0' }}>
+                    {comp.tiendaRetiro.direccion}
+                  </p>
+                  {comp.tiendaRetiro.horario && (
+                    <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '0.1rem 0 0' }}>
+                      🕐 {comp.tiendaRetiro.horario}
+                    </p>
+                  )}
+                  {(() => {
+                    const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor?.alias || ic.uploaderVendedor?.cbu)?.uploaderVendedor;
+                    if (!vendedor?.alias && !vendedor?.cbu) return null;
+                    return (
+                      <div style={{ marginTop: '0.6rem', background: '#fef3c7', borderRadius: '0.35rem', padding: '0.5rem 0.75rem', border: '1px solid #fcd34d' }}>
+                        <p style={{ fontWeight: 600, margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
+                          💸 Transferí antes de retirar y mostrá el comprobante en la tienda
+                        </p>
+                        {vendedor.alias && (
+                          <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
+                            <strong>Alias:</strong> {vendedor.alias}
+                          </p>
+                        )}
+                        {vendedor.cbu && (
+                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
+                            <strong>CBU:</strong> {vendedor.cbu}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {comp.estado === 'entregado_a_tienda' && (
+                    <button
+                      onClick={() => {
+                        const v = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
+                        handleRetirar(comp.id, v?.id, v?.nombre);
+                      }}
+                      style={{
+                        marginTop: '0.75rem',
+                        width: '100%',
+                        background: '#16a34a',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0.4rem',
+                        padding: '0.5rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Confirmar retiro
+                    </button>
+                  )}
+                  {comp.estado === 'retirado' && (
+                    <p style={{ marginTop: '0.5rem', color: '#15803d', fontWeight: 600 }}>
+                      ✓ Retirado
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  💬 Entrega a coordinar con el vendedor via chat
+                </p>
+              )}
 
               <div className="mt-2">
                 <strong>Items:</strong>
@@ -156,6 +245,24 @@ export function Purchases() {
                           )
                       )
                       const vendedor = associatedItemCarta?.uploaderVendedor
+
+                      if (it.itemCartaId !== undefined) {
+                        return (
+                          <li key={idx} className="mb-1">
+                            <a
+                              href={`/bundle/${it.itemCartaId}`}
+                              className="text-blue-500 hover:underline"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                navigate(`/bundle/${it.itemCartaId}`)
+                              }}
+                            >
+                              {it.title || `Bundle ${it.itemCartaId}`}
+                            </a>
+                            <span> — x{it.quantity} — ${Number(it.price || 0).toFixed(2)}</span>
+                          </li>
+                        )
+                      }
 
                       if (it.cartaId !== undefined) {
                         return (

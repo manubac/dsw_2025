@@ -4,9 +4,10 @@ import { orm } from '../db/orm.js';
 import { User } from '../../user/user.entity.js';
 import { Vendedor } from '../../vendedor/vendedores.entity.js';
 import { Intermediario } from '../../intermediario/intermediario.entity.js';
+import { TiendaRetiro } from '../../tiendaRetiro/tiendaRetiro.entity.js';
 
-export type Role = 'user' | 'vendedor' | 'intermediario';
-export type ActorEntity = User | Vendedor | Intermediario;
+export type Role = 'user' | 'vendedor' | 'intermediario' | 'tiendaRetiro';
+export type ActorEntity = User | Vendedor | Intermediario | TiendaRetiro;
 
 export interface AuthRequest extends Request {
   actor?: ActorEntity;
@@ -40,6 +41,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       actor = await em.findOne(Vendedor, { id: decoded.userId });
     } else if (decoded.role === 'intermediario') {
       actor = await em.findOne(Intermediario, { id: decoded.userId });
+    } else if (decoded.role === 'tiendaRetiro') {
+      actor = await em.findOne(TiendaRetiro, { id: decoded.userId });
     } else {
       // Rol por defecto 'user' – también maneja tokens anteriores sin campo role
       actor = await em.findOne(User, { id: decoded.userId });
