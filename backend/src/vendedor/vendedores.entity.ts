@@ -1,6 +1,7 @@
-import { Entity, PrimaryKey, Property, OneToMany, Collection } from "@mikro-orm/core"
+import { Entity, PrimaryKey, Property, OneToMany, ManyToMany, Collection } from "@mikro-orm/core"
 import { BaseEntity } from "../shared/db/baseEntity.js"
 import { ItemCarta } from "../carta/itemCarta.entity.js"
+import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js"
 
 @Entity()
 export class Vendedor extends BaseEntity {
@@ -35,4 +36,7 @@ export class Vendedor extends BaseEntity {
 
     @OneToMany(() => ItemCarta, (itemCarta) => itemCarta.uploaderVendedor)
     itemCartas = new Collection<ItemCarta>(this)
+
+    @ManyToMany(() => TiendaRetiro, undefined, { owner: true })
+    tiendasRetiro = new Collection<TiendaRetiro>(this)
 }

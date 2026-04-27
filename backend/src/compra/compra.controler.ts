@@ -26,6 +26,7 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     metodoPago,
     envioId,
     tiendaRetiroId,
+    tiendaRetiroPorVendedor,
     items,
   } = req.body;
 
@@ -43,6 +44,7 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
     metodoPago,
     envioId,
     tiendaRetiroId,
+    tiendaRetiroPorVendedor,
     items,
   };
 
@@ -113,9 +115,12 @@ async function add(req: AuthRequest, res: Response) {
       input.envioId && input.envioId !== 'direct'
         ? await em.findOne(Envio, { id: input.envioId })
         : undefined;
-    const tiendaRetiro = input.tiendaRetiroId
+
+    // Soporte para tienda única (legacy) o por vendedor
+    const tiendaRetiroGlobal = input.tiendaRetiroId
       ? await em.findOne(TiendaRetiro, { id: Number(input.tiendaRetiroId) })
       : undefined;
+    const tiendaRetiroPorVendedor: Record<string, number | null> = input.tiendaRetiroPorVendedor ?? {};
 
     if (!input.items || !Array.isArray(input.items) || input.items.length === 0) {
       return res.status(400).json({ message: "No se proporcionaron items válidos para la compra" });
@@ -203,11 +208,17 @@ async function add(req: AuthRequest, res: Response) {
     // Crear una Compra por cada vendedor
     const compras: Compra[] = [];
 
-    for (const [, group] of vendorMap) {
+    for (const [vendorId, group] of vendorMap) {
       const vendorTotal = group.items.reduce(
         (sum, i) => sum + (Number(i.price) || 0) * (i.quantity || 1),
         0
       );
+
+      // Tienda específica del vendedor, o la global como fallback
+      const tiendaIdParaVendor = tiendaRetiroPorVendedor[String(vendorId)] ?? null;
+      const tiendaRetiro = tiendaIdParaVendor
+        ? await em.findOne(TiendaRetiro, { id: Number(tiendaIdParaVendor) })
+        : tiendaRetiroGlobal;
 
       const compra = em.create(Compra, {
         comprador,

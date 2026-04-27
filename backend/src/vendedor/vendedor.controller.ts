@@ -3,6 +3,7 @@ import { orm } from '../shared/db/orm.js';
 import { wrap } from '@mikro-orm/core';
 import { Vendedor } from './vendedores.entity.js'
 import { Compra } from '../compra/compra.entity.js';
+import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
 import { EstadoEnvio } from '../envio/envio.entity.js';
 import { sendEmail } from '../shared/mailer.js';
 import jwt from 'jsonwebtoken';
@@ -273,5 +274,31 @@ async function entregarTienda(req: Request, res: Response) {
   }
 }
 
-export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, entregarTienda };
+async function getTiendasRetiro(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const vendedor = await em.findOne(Vendedor, { id }, { populate: ['tiendasRetiro'] });
+    if (!vendedor) return res.status(404).json({ message: 'Vendedor no encontrado' });
+    res.json({ data: vendedor.tiendasRetiro.getItems() });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+async function updateTiendasRetiro(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const tiendaIds: number[] = Array.isArray(req.body.tiendaIds) ? req.body.tiendaIds.map(Number) : [];
+    const vendedor = await em.findOne(Vendedor, { id }, { populate: ['tiendasRetiro'] });
+    if (!vendedor) return res.status(404).json({ message: 'Vendedor no encontrado' });
+    const tiendas = tiendaIds.length > 0 ? await em.find(TiendaRetiro, { id: { $in: tiendaIds } }) : [];
+    vendedor.tiendasRetiro.set(tiendas);
+    await em.flush();
+    res.json({ data: vendedor.tiendasRetiro.getItems() });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, entregarTienda, getTiendasRetiro, updateTiendasRetiro };
 
