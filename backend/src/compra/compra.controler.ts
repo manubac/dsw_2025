@@ -128,40 +128,77 @@ async function add(req: AuthRequest, res: Response) {
     for (const reqItem of input.items) {
       const requestedQty = reqItem.quantity || 1;
 
-      const carta = await em.findOne(
-        Carta,
-        { id: reqItem.cartaId },
-        { populate: ['items', 'items.uploaderVendedor', 'uploader'] }
-      );
+      if (reqItem.itemCartaId) {
+        // Bundle: look up ItemCarta directly
+        const itemCarta = await em.findOne(
+          ItemCarta,
+          { id: reqItem.itemCartaId },
+          { populate: ['uploaderVendedor'] }
+        );
 
-      if (!carta) {
-        return res.status(400).json({ message: `Carta con ID ${reqItem.cartaId} no encontrada` });
-      }
+        if (!itemCarta) {
+          return res.status(400).json({ message: `Bundle con ID ${reqItem.itemCartaId} no encontrado` });
+        }
 
-      const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty);
+        if (itemCarta.stock < requestedQty) {
+          return res.status(400).json({
+            message: `No hay suficiente stock para el bundle (Solicitado: ${requestedQty})`,
+          });
+        }
 
-      if (!availableItem) {
-        return res.status(400).json({
-          message: `No hay suficiente stock para la carta: ${carta.name} (Solicitado: ${requestedQty})`,
+        itemCarta.stock -= requestedQty;
+        if (itemCarta.stock < 0) itemCarta.stock = 0;
+
+        const vendorId = itemCarta.uploaderVendedor?.id ?? 0;
+
+        if (!vendorMap.has(vendorId)) {
+          vendorMap.set(vendorId, { itemCartas: [], items: [] });
+        }
+        const group = vendorMap.get(vendorId)!;
+        group.itemCartas.push(itemCarta);
+        group.items.push({
+          itemCartaId: reqItem.itemCartaId,
+          quantity: reqItem.quantity,
+          price: reqItem.price,
+          title: reqItem.title,
+        });
+      } else {
+        // Carta individual
+        const carta = await em.findOne(
+          Carta,
+          { id: reqItem.cartaId },
+          { populate: ['items', 'items.uploaderVendedor', 'uploader'] }
+        );
+
+        if (!carta) {
+          return res.status(400).json({ message: `Carta con ID ${reqItem.cartaId} no encontrada` });
+        }
+
+        const availableItem = carta.items.getItems().find(item => item.stock >= requestedQty);
+
+        if (!availableItem) {
+          return res.status(400).json({
+            message: `No hay suficiente stock para la carta: ${carta.name} (Solicitado: ${requestedQty})`,
+          });
+        }
+
+        availableItem.stock -= requestedQty;
+        if (availableItem.stock < 0) availableItem.stock = 0;
+
+        const vendorId = availableItem.uploaderVendedor?.id ?? carta.uploader?.id ?? 0;
+
+        if (!vendorMap.has(vendorId)) {
+          vendorMap.set(vendorId, { itemCartas: [], items: [] });
+        }
+        const group = vendorMap.get(vendorId)!;
+        group.itemCartas.push(availableItem);
+        group.items.push({
+          cartaId: reqItem.cartaId,
+          quantity: reqItem.quantity,
+          price: reqItem.price,
+          title: reqItem.title,
         });
       }
-
-      availableItem.stock -= requestedQty;
-      if (availableItem.stock < 0) availableItem.stock = 0;
-
-      const vendorId = availableItem.uploaderVendedor?.id ?? carta.uploader?.id ?? 0;
-
-      if (!vendorMap.has(vendorId)) {
-        vendorMap.set(vendorId, { itemCartas: [], items: [] });
-      }
-      const group = vendorMap.get(vendorId)!;
-      group.itemCartas.push(availableItem);
-      group.items.push({
-        cartaId: reqItem.cartaId,
-        quantity: reqItem.quantity,
-        price: reqItem.price,
-        title: reqItem.title,
-      });
     }
 
     // Crear una Compra por cada vendedor

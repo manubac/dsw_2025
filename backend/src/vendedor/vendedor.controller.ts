@@ -21,6 +21,8 @@ function sanitiseVendedorInput(
         password: req.body.password,
         telefono: req.body.telefono,
         ciudad: req.body.ciudad,
+        alias: req.body.alias,
+        cbu: req.body.cbu,
         items: req.body.items
     };
     //more checks here
