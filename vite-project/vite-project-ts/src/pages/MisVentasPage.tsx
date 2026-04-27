@@ -3,6 +3,7 @@ import { useUser } from '../context/user';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Chat } from '../components/Chat';
+import { ReviewModal } from '../components/ReviewModal';
 
 
 export default function MisVentasPage() {
@@ -13,17 +14,30 @@ export default function MisVentasPage() {
   const [error, setError] = useState<string | null>(null);
   const [chatAbierto, setChatAbierto] = useState<number | null>(null);
   const [miAlias, setMiAlias] = useState<string | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<{ id: number; name: string; type: 'tiendaRetiro' | 'user'; compraId: number } | null>(null);
+  // key: `${compraId}_${tipoObjeto}_${objetoId}` → puntuacion ya enviada
+  const [reviewedMap, setReviewedMap] = useState<Record<string, number>>({});
 
   const fetchVentas = async () => {
     if (!user) return;
     try {
       setLoading(true);
-      const [ventasRes, perfilRes] = await Promise.all([
+      const [ventasRes, perfilRes, misReviewsRes] = await Promise.all([
         api.get(`/api/vendedores/${user.id}/ventas`),
         api.get(`/api/vendedores/${user.id}`),
+        api.get('/api/valoraciones/mias'),
       ]);
       setVentas(ventasRes.data.data || []);
       setMiAlias(perfilRes.data.data?.alias ?? null);
+
+      const map: Record<string, number> = {};
+      for (const v of (misReviewsRes.data.data || [])) {
+        if (v.compra?.id != null) {
+          map[`${v.compra.id}_${v.tipoObjeto}_${v.objetoId}`] = v.puntuacion;
+        }
+      }
+      setReviewedMap(map);
     } catch (err: any) {
       console.error('Error fetching ventas:', err);
       setError('No se pudieron cargar las ventas');
@@ -50,6 +64,32 @@ export default function MisVentasPage() {
     } catch (err: any) {
         alert("Error al actualizar envío: " + (err.response?.data?.message || err.message));
     }
+  };
+
+  const handleOpenReview = (id: number, name: string, type: 'tiendaRetiro' | 'user', compraId: number) => {
+    setReviewTarget({ id, name, type, compraId });
+    setReviewModalOpen(true);
+  };
+
+  const renderReviewButton = (compraId: number, tipo: 'tiendaRetiro' | 'user', objId: number, name: string, activeClass: string) => {
+    const key = `${compraId}_${tipo}_${objId}`;
+    const puntuacion = reviewedMap[key];
+    if (puntuacion != null) {
+      return (
+        <div className="w-full flex items-center gap-2 bg-gray-100 text-gray-400 font-medium py-2 px-4 rounded-lg text-sm cursor-not-allowed">
+          <span className="text-orange-300">{'★'.repeat(puntuacion)}{'☆'.repeat(5 - puntuacion)}</span>
+          <span>{name} — ya valorado</span>
+        </div>
+      );
+    }
+    return (
+      <button
+        className={`w-full ${activeClass} font-medium py-2 px-4 rounded-lg text-sm transition`}
+        onClick={() => handleOpenReview(objId, name, tipo, compraId)}
+      >
+        ★ Valorar {tipo === 'tiendaRetiro' ? 'tienda' : 'comprador'}: {name}
+      </button>
+    );
   };
 
   const handleEntregarTienda = async (compraId: number) => {
@@ -93,11 +133,17 @@ export default function MisVentasPage() {
               <div className="flex justify-between items-center p-4 border-b">
                 <strong className="text-lg">Pedido #{venta.id}</strong>
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 text-sm rounded-full bg-orange-100 text-orange-700 font-medium">
-                    {venta.estado === 'ENVIADO_A_INTERMEDIARIO'
-                      ? 'Enviado a Intermediario'
-                      : venta.estado === 'ENTREGADO'
-                      ? 'Entregado'
+                  <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+                    venta.estado === 'finalizado' ? 'bg-green-100 text-green-800'
+                    : venta.estado === 'en_tienda' ? 'bg-blue-100 text-blue-800'
+                    : venta.estado === 'entregado_a_tienda' ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {venta.estado === 'ENVIADO_A_INTERMEDIARIO' ? 'Enviado a Intermediario'
+                      : venta.estado === 'ENTREGADO' ? 'Entregado'
+                      : venta.estado === 'entregado_a_tienda' ? 'Notificado a tienda ✓'
+                      : venta.estado === 'en_tienda' ? 'En tienda ✓'
+                      : venta.estado === 'finalizado' ? 'Finalizado ✓'
                       : (venta.envio?.estado || venta.estado)}
                   </span>
                   <button
@@ -185,14 +231,12 @@ export default function MisVentasPage() {
                     Entregar a tienda
                   </button>
                 )}
-                {venta.tiendaRetiro && venta.estado === 'entregado_a_tienda' && (
-                  <div className="w-full mt-4 bg-blue-100 text-blue-800 font-semibold py-2 px-4 rounded-lg text-center">
-                    Entregado a tienda ✓
-                  </div>
-                )}
-                {venta.estado === 'retirado' && (
-                  <div className="w-full mt-4 bg-green-100 text-green-800 font-semibold py-2 px-4 rounded-lg text-center">
-                    Retirado ✓
+
+                {venta.estado === 'finalizado' && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-semibold text-gray-700">¿Cómo fue la experiencia?</p>
+                    {venta.tiendaRetiro && renderReviewButton(venta.id, 'tiendaRetiro', venta.tiendaRetiro.id, venta.tiendaRetiro.nombre, 'bg-orange-100 hover:bg-orange-200 text-orange-800')}
+                    {venta.comprador?.id && renderReviewButton(venta.id, 'user', venta.comprador.id, venta.comprador.nombre, 'bg-gray-100 hover:bg-gray-200 text-gray-800')}
                   </div>
                 )}
 
@@ -219,6 +263,22 @@ export default function MisVentasPage() {
         </div>
 
       </div>
+
+      {reviewTarget && (
+        <ReviewModal
+          isOpen={reviewModalOpen}
+          onClose={() => setReviewModalOpen(false)}
+          targetId={reviewTarget.id}
+          targetType={reviewTarget.type}
+          targetName={reviewTarget.name}
+          compraId={reviewTarget.compraId}
+          onSuccess={(puntuacion) => {
+            const key = `${reviewTarget.compraId}_${reviewTarget.type}_${reviewTarget.id}`;
+            setReviewedMap(prev => ({ ...prev, [key]: puntuacion }));
+            setReviewModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

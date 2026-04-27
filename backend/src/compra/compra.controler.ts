@@ -8,7 +8,6 @@ import { Carta } from "../carta/carta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
 import { Envio } from "../envio/envio.entity.js";
 import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
-import { sendEmail } from "../shared/mailer.js";
 import { Preference } from "mercadopago";
 import mpClient from '../shared/mercadopago.js'
 
@@ -229,38 +228,6 @@ async function add(req: AuthRequest, res: Response) {
     }
 
     await em.flush();
-
-    // Email de confirmación con todas las órdenes generadas
-    try {
-      const ordersHtml = compras
-        .map((c) => {
-          const itemsHtml = (c.items || [])
-            .map(
-              (i: any) =>
-                `<li>${i.quantity}x ${i.title || 'Carta'} - $${((i.price || 0) * (i.quantity || 1)).toFixed(2)}</li>`
-            )
-            .join('');
-          return `<h4>Orden #${c.id} — Total: $${c.total}</h4><ul>${itemsHtml}</ul>`;
-        })
-        .join('<hr/>');
-
-      const emailHtml = `
-        <h1>¡Gracias por tu reserva, ${input.nombre || comprador.username}!</h1>
-        <p>Se generaron ${compras.length} orden${compras.length > 1 ? 'es' : ''} según los vendedores.</p>
-        ${ordersHtml}
-        <p><strong>Método de pago:</strong> ${input.metodoPago || 'efectivo'}</p>
-        <p>Te notificaremos cuando tu carta esté lista para retirar.</p>
-      `;
-
-      sendEmail(
-        input.email || comprador.email,
-        `Confirmación de reserva${compras.length > 1 ? `s (${compras.length} órdenes)` : ` #${compras[0].id}`}`,
-        'Gracias por tu reserva',
-        emailHtml
-      );
-    } catch (emailErr) {
-      console.error("Error sending confirmation email:", emailErr);
-    }
 
     res.status(201).json({ message: "Compras creadas con éxito", data: compras });
   } catch (error: any) {

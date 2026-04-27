@@ -160,6 +160,7 @@ async function getVentas(req: Request, res: Response) {
                  total: c.total,
                  estado: c.estado,
                  comprador: {
+                     id: c.comprador?.id,
                      nombre: c.comprador?.username || c.nombre || "Usuario",
                      email: c.comprador?.email || c.email
                  },
@@ -246,23 +247,22 @@ async function entregarTienda(req: Request, res: Response) {
     compra.estado = 'entregado_a_tienda';
     await em.flush();
 
-    const destinatario = compra.comprador?.email || compra.email;
-    const nombreComprador = compra.comprador?.username || compra.nombre || 'comprador';
     const tienda = compra.tiendaRetiro;
+    const nombreVendedor = (compra.itemCartas.getItems()[0]?.cartas.getItems()[0] as any)?.uploader?.nombre
+      || `Vendedor #${vendedorId}`;
+    const nombreComprador = compra.comprador?.username || compra.nombre || 'comprador';
 
-    if (destinatario && tienda) {
+    if (tienda?.email) {
       const html = `
-        <h2>¡Buenas noticias, ${nombreComprador}!</h2>
-        <p>Tu pedido <strong>#${compra.id}</strong> ya está disponible para retirar en:</p>
-        <p><strong>${tienda.nombre}</strong><br/>
-        ${tienda.direccion}<br/>
-        ${tienda.horario ? `🕐 ${tienda.horario}` : ''}</p>
-        <p>Cuando vayas a retirarlo, marcalo como completado desde <strong>"Mis Compras"</strong> en la web.</p>
+        <h2>Nuevo pedido en camino a tu tienda</h2>
+        <p>El vendedor indica que el pedido <strong>#${compra.id}</strong> está en camino a tu tienda.</p>
+        <p><strong>Comprador:</strong> ${nombreComprador}</p>
+        <p>Cuando lo recibas, marcalo como <strong>"En tienda"</strong> desde tu panel para notificar al comprador.</p>
       `;
       sendEmail(
-        destinatario,
-        `Tu pedido #${compra.id} está listo para retirar`,
-        `Tu pedido #${compra.id} está listo para retirar en ${tienda.nombre}`,
+        tienda.email,
+        `Pedido #${compra.id} en camino a tu tienda`,
+        `El pedido #${compra.id} está en camino`,
         html
       );
     }

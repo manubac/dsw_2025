@@ -7,12 +7,13 @@ interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   targetId: number;
-  targetType: 'vendedor' | 'intermediario' | 'carta';
-  targetName: string; 
-  onSuccess?: () => void;
+  targetType: 'vendedor' | 'intermediario' | 'carta' | 'tiendaRetiro' | 'user';
+  targetName: string;
+  compraId?: number;
+  onSuccess?: (puntuacion: number) => void;
 }
 
-export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName, onSuccess }: ReviewModalProps) {
+export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName, compraId, onSuccess }: ReviewModalProps) {
   const { user } = useUser();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -35,14 +36,15 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
         puntuacion: rating,
         comentario: comment,
         tipoObjeto: targetType,
-        objetoId: targetId
+        objetoId: targetId,
+        ...(compraId ? { compraId } : {}),
       }, {
         headers: {
              Authorization: `Bearer ${user.token}`
         }
       });
       alert('¡Gracias por tu valoración!');
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(rating);
       onClose();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Error al enviar valoración');
