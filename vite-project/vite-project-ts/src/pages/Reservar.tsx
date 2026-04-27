@@ -12,6 +12,8 @@ interface TiendaRetiro {
   horario?: string
 }
 
+type ModoRetiro = 'chat' | number | null
+
 export function Reservar() {
   const { cart, clearCart } = useContext(CartContext)
   const { user } = useUser()
@@ -28,16 +30,53 @@ export function Reservar() {
   const [error, setError] = useState<string | null>(null)
   const [compraIds, setCompraIds] = useState<number[]>([])
 
-  const [tiendas, setTiendas] = useState<TiendaRetiro[]>([])
-  // 'chat' = coordinar via chat | number = id de tienda elegida
-  const [modoRetiro, setModoRetiro] = useState<'chat' | number | null>(null)
+  // vendedorId (string) → { tiendas disponibles para ese vendedor, modo seleccionado }
+  const [tiendasPorVendedor, setTiendasPorVendedor] = useState<
+    Record<string, { tiendas: TiendaRetiro[]; modo: ModoRetiro }>
+  >({})
+
+  // Agrupar items del carrito por vendedor (calculado antes del useEffect para usarlo en la validación)
+  const itemsPorVendedor: Record<string, { vendedorNombre: string; items: any[] }> = {}
+  for (const item of cart) {
+    const key = String(item.uploader?.id ?? 'sin-vendedor')
+    const nombre = item.uploader?.nombre ?? 'Vendedor desconocido'
+    if (!itemsPorVendedor[key]) {
+      itemsPorVendedor[key] = { vendedorNombre: nombre, items: [] }
+    }
+    itemsPorVendedor[key].items.push(item)
+  }
 
   useEffect(() => {
-    fetchApi('/api/tiendas')
-      .then(r => r.json())
-      .then(json => setTiendas(json.data || []))
-      .catch(() => {})
-  }, [])
+    const vendedorIds = [...new Set(
+      cart.map((item: any) => item.uploader?.id).filter(Boolean)
+    )] as number[]
+
+    if (vendedorIds.length === 0) return
+
+    Promise.all(
+      vendedorIds.map(id =>
+        fetchApi(`/api/vendedores/${id}/tiendas`)
+          .then(r => r.json())
+          .then(json => ({ id: String(id), tiendas: (json.data || []) as TiendaRetiro[] }))
+          .catch(() => ({ id: String(id), tiendas: [] }))
+      )
+    ).then(results => {
+      setTiendasPorVendedor(prev => {
+        const next = { ...prev }
+        for (const { id, tiendas } of results) {
+          next[id] = { tiendas, modo: prev[id]?.modo ?? null }
+        }
+        return next
+      })
+    })
+  }, [cart])
+
+  const setModoVendedor = (vendedorId: string, modo: ModoRetiro) => {
+    setTiendasPorVendedor(prev => ({
+      ...prev,
+      [vendedorId]: { tiendas: prev[vendedorId]?.tiendas ?? [], modo },
+    }))
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -51,10 +90,21 @@ export function Reservar() {
     setLoading(true)
     setError(null)
 
-    if (modoRetiro === null) {
-      setError('Elegí una tienda de retiro o la opción de coordinar por chat.')
-      setLoading(false)
-      return
+    // Validar que cada vendedor tenga una selección
+    const vendedorKeys = Object.keys(itemsPorVendedor)
+    for (const key of vendedorKeys) {
+      if (!tiendasPorVendedor[key] || tiendasPorVendedor[key].modo === null) {
+        setError('Seleccioná una tienda de retiro o "coordinar via chat" para cada vendedor.')
+        setLoading(false)
+        return
+      }
+    }
+
+    // Construir mapa vendedorId → tiendaRetiroId (null = chat)
+    const tiendaRetiroPorVendedor: Record<string, number | null> = {}
+    for (const key of vendedorKeys) {
+      const modo = tiendasPorVendedor[key]?.modo
+      tiendaRetiroPorVendedor[key] = (modo !== null && modo !== 'chat') ? Number(modo) : null
     }
 
     try {
@@ -76,7 +126,7 @@ export function Reservar() {
           telefono: formData.telefono,
           metodoPago: 'efectivo',
           total: subtotal,
-          tiendaRetiroId: modoRetiro !== 'chat' ? modoRetiro : undefined,
+          tiendaRetiroPorVendedor,
           items,
         }),
       })
@@ -141,17 +191,6 @@ export function Reservar() {
     )
   }
 
-  // Agrupar items del carrito por vendedor
-  const itemsPorVendedor: Record<string, { vendedorNombre: string; items: any[] }> = {}
-  for (const item of cart) {
-    const key = item.uploader?.id ?? 'sin-vendedor'
-    const nombre = item.uploader?.nombre ?? 'Vendedor desconocido'
-    if (!itemsPorVendedor[key]) {
-      itemsPorVendedor[key] = { vendedorNombre: nombre, items: [] }
-    }
-    itemsPorVendedor[key].items.push(item)
-  }
-
   return (
     <div className="checkout-container">
       <div className="checkout-header">
@@ -159,7 +198,6 @@ export function Reservar() {
         <p>Completá tus datos para coordinar la entrega en persona</p>
       </div>
 
-      {/* Aviso del flujo */}
       <div
         style={{
           background: '#fff7ed',
@@ -218,100 +256,95 @@ export function Reservar() {
               </div>
             </div>
 
-            <div className="form-section">
-              <h3>¿Cómo querés coordinar el retiro?</h3>
+            {/* Selector de retiro por vendedor */}
+            {Object.entries(itemsPorVendedor).map(([vendedorId, grupo]) => {
+              const data = tiendasPorVendedor[vendedorId]
+              const tiendas = data?.tiendas ?? []
+              const modo = data?.modo ?? null
 
-              {/* Opción chat */}
-              <label
-                onClick={(e) => {
-                  e.preventDefault()
-                  setModoRetiro(modoRetiro === 'chat' ? null : 'chat')
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.75rem 1rem',
-                  border: `2px solid ${modoRetiro === 'chat' ? '#f97316' : '#e5e7eb'}`,
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  background: modoRetiro === 'chat' ? '#fff7ed' : '#fff',
-                  marginBottom: '1rem',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="modoRetiro"
-                  checked={modoRetiro === 'chat'}
-                  onChange={() => {}}
-                />
-                <div>
-                  <p style={{ fontWeight: 600, margin: 0 }}>💬 Coordinar via chat con el vendedor</p>
-                  <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
-                    El vendedor te contactará para acordar el punto de encuentro.
-                  </p>
-                </div>
-              </label>
+              return (
+                <div className="form-section" key={vendedorId}>
+                  <h3>
+                    Retiro — <span style={{ color: '#f97316' }}>{grupo.vendedorNombre}</span>
+                  </h3>
 
-              {/* Separador */}
-              <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#6b7280', margin: '0 0 0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                — o elegí una tienda de retiro —
-              </p>
-
-              {/* Tiendas: se grisan cuando chat está seleccionado */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.6rem',
-                  opacity: modoRetiro === 'chat' ? 0.4 : 1,
-                  transition: 'opacity 0.2s',
-                  pointerEvents: modoRetiro === 'chat' ? 'none' : 'auto',
-                }}
-              >
-                {tiendas.length === 0 && (
-                  <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Cargando tiendas...</p>
-                )}
-                {tiendas.map(tienda => (
+                  {/* Opción chat */}
                   <label
-                    key={tienda.id}
                     onClick={(e) => {
                       e.preventDefault()
-                      setModoRetiro(modoRetiro === tienda.id ? null : tienda.id)
+                      setModoVendedor(vendedorId, modo === 'chat' ? null : 'chat')
                     }}
                     style={{
                       display: 'flex',
-                      alignItems: 'flex-start',
+                      alignItems: 'center',
                       gap: '0.75rem',
                       padding: '0.75rem 1rem',
-                      border: `2px solid ${modoRetiro === tienda.id ? '#f97316' : '#e5e7eb'}`,
+                      border: `2px solid ${modo === 'chat' ? '#f97316' : '#e5e7eb'}`,
                       borderRadius: '0.5rem',
                       cursor: 'pointer',
-                      background: modoRetiro === tienda.id ? '#fff7ed' : '#fff',
+                      background: modo === 'chat' ? '#fff7ed' : '#fff',
+                      marginBottom: '0.75rem',
                     }}
                   >
-                    <input
-                      type="radio"
-                      name="modoRetiro"
-                      checked={modoRetiro === tienda.id}
-                      onChange={() => {}}
-                      style={{ marginTop: '0.25rem', flexShrink: 0 }}
-                    />
+                    <input type="radio" checked={modo === 'chat'} onChange={() => {}} />
                     <div>
-                      <p style={{ fontWeight: 600, margin: 0 }}>📍 {tienda.nombre}</p>
+                      <p style={{ fontWeight: 600, margin: 0 }}>💬 Coordinar via chat con el vendedor</p>
                       <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
-                        {tienda.direccion}
+                        El vendedor te contactará para acordar el punto de encuentro.
                       </p>
-                      {tienda.horario && (
-                        <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
-                          🕐 {tienda.horario}
-                        </p>
-                      )}
                     </div>
                   </label>
-                ))}
-              </div>
-            </div>
+
+                  {/* Tiendas habilitadas por este vendedor */}
+                  {tiendas.length > 0 && (
+                    <>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#6b7280', margin: '0 0 0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        — o elegí una tienda de retiro —
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                        {tiendas.map(tienda => (
+                          <label
+                            key={tienda.id}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setModoVendedor(vendedorId, modo === tienda.id ? null : tienda.id)
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '0.75rem',
+                              padding: '0.75rem 1rem',
+                              border: `2px solid ${modo === tienda.id ? '#f97316' : '#e5e7eb'}`,
+                              borderRadius: '0.5rem',
+                              cursor: 'pointer',
+                              background: modo === tienda.id ? '#fff7ed' : '#fff',
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              checked={modo === tienda.id}
+                              onChange={() => {}}
+                              style={{ marginTop: '0.25rem', flexShrink: 0 }}
+                            />
+                            <div>
+                              <p style={{ fontWeight: 600, margin: 0 }}>📍 {tienda.nombre}</p>
+                              <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
+                                {tienda.direccion}
+                              </p>
+                              {tienda.horario && (
+                                <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
+                                  🕐 {tienda.horario}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
 
             {error && (
               <p style={{ color: 'red', marginBottom: '1rem' }}>{error}</p>

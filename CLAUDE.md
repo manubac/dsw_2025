@@ -1,7 +1,7 @@
 # CLAUDE.md — DSW 2025: Marketplace de Cartas Pokémon
 
 ## Project Overview
-Academic marketplace for Pokémon card trading.  
+Peer-to-peer marketplace for buying and selling TCG cards
 Team: Manuel Bacolla (50214), Nicolás Volentiera (51824), Bruno Leo Santi (51950).
 
 ## Architecture

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useUser } from '../context/user'
 import { useNavigate } from 'react-router-dom'
 import { ReviewModal } from '../components/ReviewModal';
@@ -13,29 +13,36 @@ export function Purchases() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [chatAbierto, setChatAbierto] = useState<number | null>(null)
-  
+
   // Review Modal State
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [reviewTarget, setReviewTarget] = useState<{id: number, name: string} | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<{ id: number; name: string; type: 'vendedor' | 'tiendaRetiro'; compraId: number } | null>(null);
+  const [reviewedMap, setReviewedMap] = useState<Record<string, number>>({});
 
-  const handleOpenReview = (vendedorId: number, vendedorName: string) => {
-      setReviewTarget({ id: vendedorId, name: vendedorName });
-      setReviewModalOpen(true);
-  }
+  const handleOpenReview = (id: number, name: string, type: 'vendedor' | 'tiendaRetiro', compraId: number) => {
+    setReviewTarget({ id, name, type, compraId });
+    setReviewModalOpen(true);
+  };
 
-  const handleRetirar = async (compraId: number, vendedorId?: number, vendedorNombre?: string) => {
-    try {
-      if (!confirm('¿Confirmás que retiraste el pedido de la tienda?')) return;
-      await fetchApi(`/api/compras/${compraId}/retirar`, { method: 'PATCH' });
-      const res = await fetchApi(`/api/compras?compradorId=${user!.id}`);
-      const json = await res.json();
-      setCompras(json.data || []);
-      if (vendedorId && vendedorNombre) {
-        handleOpenReview(vendedorId, vendedorNombre);
-      }
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+  const renderReviewButton = (compraId: number, tipo: 'vendedor' | 'tiendaRetiro', objId: number, name: string, activeStyle: React.CSSProperties, label: string) => {
+    const key = `${compraId}_${tipo}_${objId}`;
+    const puntuacion = reviewedMap[key];
+    if (puntuacion != null) {
+      return (
+        <div style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '0.4rem', padding: '0.4rem 0.6rem', fontSize: '0.82rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ color: '#fbbf24' }}>{'★'.repeat(puntuacion)}{'☆'.repeat(5 - puntuacion)}</span>
+          <span>{name} — ya valorado</span>
+        </div>
+      );
     }
+    return (
+      <button
+        onClick={() => handleOpenReview(objId, name, tipo, compraId)}
+        style={activeStyle}
+      >
+        {label}
+      </button>
+    );
   };
 
   useEffect(() => {
@@ -43,13 +50,22 @@ export function Purchases() {
 
     const fetchCompras = async () => {
       try {
-        const res = await fetchApi(`/api/compras?compradorId=${user.id}`)
-        const json = await res.json()
-        console.log('API Response:', json)
-        console.log('User ID:', user.id, 'User role:', user.role)
+        const [comprasRes, misReviewsRes] = await Promise.all([
+          fetchApi(`/api/compras?compradorId=${user.id}`),
+          fetchApi('/api/valoraciones/mias'),
+        ])
+        const json = await comprasRes.json()
         const data = json.data || []
-        // No need to filter on frontend anymore - backend does it
         setCompras(data)
+
+        const reviewsJson = await misReviewsRes.json()
+        const map: Record<string, number> = {}
+        for (const v of (reviewsJson.data || [])) {
+          if (v.compra?.id != null) {
+            map[`${v.compra.id}_${v.tipoObjeto}_${v.objetoId}`] = v.puntuacion
+          }
+        }
+        setReviewedMap(map)
       } catch (err: any) {
         console.error('Error fetching compras:', err)
         setError('No se pudieron cargar las compras')
@@ -121,16 +137,18 @@ export function Purchases() {
 
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  comp.estado === 'retirado'
+                  comp.estado === 'finalizado' || comp.estado === 'retirado'
                     ? 'bg-green-100 text-green-800'
-                    : comp.estado === 'entregado_a_tienda'
+                    : comp.estado === 'en_tienda'
                     ? 'bg-blue-100 text-blue-800'
+                    : comp.estado === 'entregado_a_tienda'
+                    ? 'bg-yellow-100 text-yellow-800'
                     : 'bg-gray-100 text-gray-700'
                 }`}>
-                  {comp.estado === 'retirado'
-                    ? 'Retirado'
-                    : comp.estado === 'entregado_a_tienda'
-                    ? 'Listo para retirar'
+                  {comp.estado === 'finalizado' ? 'Finalizado'
+                    : comp.estado === 'retirado' ? 'Retirado'
+                    : comp.estado === 'en_tienda' ? 'En tienda'
+                    : comp.estado === 'entregado_a_tienda' ? 'Esperando tienda'
                     : comp.estado}
                 </span>
 
@@ -179,48 +197,54 @@ export function Purchases() {
                       🕐 {comp.tiendaRetiro.horario}
                     </p>
                   )}
-                  {(() => {
+                  {comp.estado === 'entregado_a_tienda' && (
+                    <p style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#92400e' }}>
+                      ⏳ El vendedor entregó el pedido — esperando confirmación de la tienda.
+                    </p>
+                  )}
+
+                  {comp.estado === 'en_tienda' && (() => {
                     const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor?.alias || ic.uploaderVendedor?.cbu)?.uploaderVendedor;
-                    if (!vendedor?.alias && !vendedor?.cbu) return null;
                     return (
-                      <div style={{ marginTop: '0.6rem', background: '#fef3c7', borderRadius: '0.35rem', padding: '0.5rem 0.75rem', border: '1px solid #fcd34d' }}>
-                        <p style={{ fontWeight: 600, margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
-                          💸 Transferí antes de retirar y mostrá el comprobante en la tienda
+                      <>
+                        <p style={{ marginTop: '0.5rem', fontWeight: 600, color: '#1d4ed8', fontSize: '0.85rem' }}>
+                          ✅ ¡Tu pedido ya está en la tienda! Podés ir a buscarlo.
                         </p>
-                        {vendedor.alias && (
-                          <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
-                            <strong>Alias:</strong> {vendedor.alias}
-                          </p>
+                        {(vendedor?.alias || vendedor?.cbu) && (
+                          <div style={{ marginTop: '0.6rem', background: '#fef3c7', borderRadius: '0.35rem', padding: '0.5rem 0.75rem', border: '1px solid #fcd34d' }}>
+                            <p style={{ fontWeight: 600, margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
+                              💸 Transferí antes de retirar y mostrá el comprobante en la tienda
+                            </p>
+                            {vendedor.alias && (
+                              <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
+                                <strong>Alias:</strong> {vendedor.alias}
+                              </p>
+                            )}
+                            {vendedor.cbu && (
+                              <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
+                                <strong>CBU:</strong> {vendedor.cbu}
+                              </p>
+                            )}
+                          </div>
                         )}
-                        {vendedor.cbu && (
-                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
-                            <strong>CBU:</strong> {vendedor.cbu}
-                          </p>
-                        )}
+                      </>
+                    );
+                  })()}
+
+                  {comp.estado === 'finalizado' && (() => {
+                    const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
+                    return (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <p style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>✓ Compra finalizada</p>
+                        <p style={{ fontSize: '0.82rem', color: '#374151', marginBottom: '0.4rem' }}>¿Cómo fue la experiencia?</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {comp.tiendaRetiro && renderReviewButton(comp.id, 'tiendaRetiro', comp.tiendaRetiro.id, comp.tiendaRetiro.nombre, { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '0.4rem', padding: '0.4rem 0.6rem', fontWeight: 500, fontSize: '0.82rem', cursor: 'pointer', color: '#92400e' }, `★ Valorar tienda: ${comp.tiendaRetiro.nombre}`)}
+                          {vendedor && renderReviewButton(comp.id, 'vendedor', vendedor.id, vendedor.nombre, { background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.4rem', padding: '0.4rem 0.6rem', fontWeight: 500, fontSize: '0.82rem', cursor: 'pointer', color: '#15803d' }, `★ Valorar vendedor: ${vendedor.nombre}`)}
+                        </div>
                       </div>
                     );
                   })()}
-                  {comp.estado === 'entregado_a_tienda' && (
-                    <button
-                      onClick={() => {
-                        const v = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
-                        handleRetirar(comp.id, v?.id, v?.nombre);
-                      }}
-                      style={{
-                        marginTop: '0.75rem',
-                        width: '100%',
-                        background: '#16a34a',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '0.4rem',
-                        padding: '0.5rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Confirmar retiro
-                    </button>
-                  )}
+
                   {comp.estado === 'retirado' && (
                     <p style={{ marginTop: '0.5rem', color: '#15803d', fontWeight: 600 }}>
                       ✓ Retirado
@@ -297,19 +321,7 @@ export function Purchases() {
                               </span>
                             )}
 
-                            {comp.estado === 'ENTREGADO' && vendedor && (
-                              <button
-                                className="ml-3 px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded"
-                                onClick={() =>
-                                  handleOpenReview(
-                                    vendedor.id,
-                                    vendedor.nombre
-                                  )
-                                }
-                              >
-                                ★ Calificar
-                              </button>
-                            )}
+                            {comp.estado === 'ENTREGADO' && vendedor && renderReviewButton(comp.id, 'vendedor', vendedor.id, vendedor.nombre, {}, `★ Calificar`)}
                           </li>
                         )
                       }
@@ -331,9 +343,14 @@ export function Purchases() {
         isOpen={reviewModalOpen}
         onClose={() => setReviewModalOpen(false)}
         targetId={reviewTarget.id}
-        targetType="vendedor"
+        targetType={reviewTarget.type}
         targetName={reviewTarget.name}
-        onSuccess={() => {}}
+        compraId={reviewTarget.compraId}
+        onSuccess={(puntuacion) => {
+          const key = `${reviewTarget.compraId}_${reviewTarget.type}_${reviewTarget.id}`
+          setReviewedMap(prev => ({ ...prev, [key]: puntuacion }))
+          setReviewModalOpen(false)
+        }}
       />
     )}
   </div>

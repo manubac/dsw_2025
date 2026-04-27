@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useUser, Direccion } from "../context/user";
+import { useNavigate } from "react-router-dom";
 import "./UserProfilePage.css";
 import { fetchApi } from "../services/api";
 
@@ -11,12 +12,19 @@ import { fetchApi } from "../services/api";
 
 export function UserProfilePage() {
   const { user, updateUser, logout, addDireccion, removeDireccion, loadDirecciones } = useUser();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
     password: "********",
+    // Campos exclusivos de vendedor
+    telefono: "",
+    ciudad: "",
+    alias: "",
+    cbu: "",
   });
 
   const [message, setMessage] = useState<string | null>(null);
@@ -40,6 +48,25 @@ export function UserProfilePage() {
       loadDirecciones();
     }
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pre-poblar campos extra del vendedor desde el backend
+  useEffect(() => {
+    if (user?.role !== 'vendedor' || !user?.id) return;
+    fetchApi(`/api/vendedores/${user.id}`)
+      .then(r => r.json())
+      .then(json => {
+        const v = json.data;
+        if (!v) return;
+        setFormData(prev => ({
+          ...prev,
+          telefono: v.telefono || "",
+          ciudad: v.ciudad || "",
+          alias: v.alias || "",
+          cbu: v.cbu || "",
+        }));
+      })
+      .catch(() => {});
+  }, [user?.id, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manejar cambios en el formulario de dirección
   const handleDireccionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,7 +245,16 @@ export function UserProfilePage() {
       // El backend de usuarios espera `username` en lugar de `nombre`.
       // El backend de intermediarios espera nombre/telefono/etc.
       const updateData: Record<string, any> =
-        user.role === "vendedor" || user.role === "intermediario"
+        user.role === "vendedor"
+          ? {
+              nombre: formData.name,
+              email: formData.email,
+              telefono: formData.telefono || undefined,
+              ciudad: formData.ciudad || undefined,
+              alias: formData.alias || undefined,
+              cbu: formData.cbu || undefined,
+            }
+          : user.role === "intermediario"
           ? { nombre: formData.name, email: formData.email }
           : { username: formData.name, email: formData.email };
 
@@ -257,6 +293,35 @@ export function UserProfilePage() {
       setError(err.message || "Error al actualizar el perfil.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id) return;
+    if (!confirm("¿Estás seguro de que querés eliminar tu cuenta? Esta acción no se puede deshacer.")) return;
+
+    setDeleteLoading(true);
+    try {
+      let endpoint = "";
+      if (user.role === "vendedor") {
+        endpoint = `/api/vendedores/${user.id}`;
+      } else if (user.role === "intermediario") {
+        endpoint = `/api/intermediarios/${user.id}`;
+      } else {
+        endpoint = `/api/users/${user.id}`;
+      }
+
+      const response = await fetchApi(endpoint, { method: "DELETE" });
+      if (response.ok) {
+        logout();
+        navigate("/");
+      } else {
+        alert("Error al eliminar la cuenta.");
+      }
+    } catch {
+      alert("Error al eliminar la cuenta.");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -337,6 +402,68 @@ export function UserProfilePage() {
           </small>
         </div>
 
+        {/* Campos exclusivos de vendedor */}
+        {user.role === 'vendedor' && (
+          <>
+            <hr style={{ margin: '1.25rem 0', borderColor: '#e5e7eb' }} />
+            <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Datos de tu cuenta de vendedor
+            </p>
+
+            <div className="form-group">
+              <label htmlFor="telefono">Teléfono</label>
+              <input
+                id="telefono"
+                type="tel"
+                name="telefono"
+                value={formData.telefono}
+                onChange={handleChange}
+                disabled={loading}
+                placeholder="Ej: +54 11 1234-5678"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="ciudad">Ciudad</label>
+              <input
+                id="ciudad"
+                type="text"
+                name="ciudad"
+                value={formData.ciudad}
+                onChange={handleChange}
+                disabled={loading}
+                placeholder="Ej: Buenos Aires"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="alias">Alias de pago (MercadoPago / CBU)</label>
+              <input
+                id="alias"
+                type="text"
+                name="alias"
+                value={formData.alias}
+                onChange={handleChange}
+                disabled={loading}
+                placeholder="Ej: mi.alias.mp"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cbu">CBU / CVU</label>
+              <input
+                id="cbu"
+                type="text"
+                name="cbu"
+                value={formData.cbu}
+                onChange={handleChange}
+                disabled={loading}
+                placeholder="22 dígitos"
+              />
+            </div>
+          </>
+        )}
+
         {/* Botones de acción */}
         <div className="profile-actions">
           <button
@@ -358,6 +485,21 @@ export function UserProfilePage() {
       </div>
 
       {/* Sección de Direcciones – solo para usuarios e intermediarios */}
+      {user?.role === 'vendedor' && (
+        <div className="profile-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div>
+            <h3 style={{ marginBottom: '0.25rem' }}>Volver al perfil</h3>
+            <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>Ver publicaciones y valoraciones.</p>
+          </div>
+          <button
+            className="logout-button"
+            onClick={() => navigate('/mi-perfil')}
+          >
+            ← Mi Perfil
+          </button>
+        </div>
+      )}
+
       {user?.role !== 'vendedor' && <div className="profile-card">
         <h3>Mis Direcciones</h3>
         
@@ -498,6 +640,28 @@ export function UserProfilePage() {
           </div>
         )}
       </div>}
+      {/* Zona de peligro: eliminar cuenta */}
+      <div className="profile-card" style={{ borderColor: '#fee2e2', background: '#fff5f5' }}>
+        <h3 style={{ color: '#dc2626' }}>Zona de peligro</h3>
+        <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          Una vez que eliminás tu cuenta, todos tus datos serán borrados de forma permanente. Esta acción no se puede deshacer.
+        </p>
+        <button
+          onClick={handleDeleteAccount}
+          disabled={deleteLoading}
+          style={{
+            backgroundColor: deleteLoading ? '#fca5a5' : '#dc2626',
+            color: 'white',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '6px',
+            cursor: deleteLoading ? 'not-allowed' : 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          {deleteLoading ? 'Eliminando...' : 'Eliminar mi cuenta'}
+        </button>
+      </div>
     </div>
   );
 }

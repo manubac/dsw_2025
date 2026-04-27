@@ -16,7 +16,9 @@ type Venta = {
 
 const ESTADO_BADGE: Record<string, { label: string; color: string }> = {
   pendiente: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800" },
-  entregado_a_tienda: { label: "En tienda", color: "bg-blue-100 text-blue-800" },
+  entregado_a_tienda: { label: "Por llegar", color: "bg-orange-100 text-orange-800" },
+  en_tienda: { label: "En tienda", color: "bg-blue-100 text-blue-800" },
+  finalizado: { label: "Finalizado", color: "bg-green-100 text-green-800" },
   retirado: { label: "Retirado", color: "bg-green-100 text-green-800" },
 };
 
@@ -25,8 +27,9 @@ export default function TiendaRetiroVentasPage() {
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  useEffect(() => {
+  const fetchVentas = () => {
     if (!user?.id) return;
     fetchApi(`/api/tiendas/${user.id}/ventas`)
       .then((r) => r.json())
@@ -38,7 +41,37 @@ export default function TiendaRetiroVentasPage() {
         setError("Error al cargar las ventas");
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchVentas();
   }, [user?.id]);
+
+  const handleMarcarEnTienda = async (ventaId: number) => {
+    if (!confirm("¿Confirmás que recibiste este pedido en la tienda?")) return;
+    setActionLoading(ventaId);
+    try {
+      await fetchApi(`/api/tiendas/${user!.id}/ventas/${ventaId}/en-tienda`, { method: "PATCH" });
+      fetchVentas();
+    } catch {
+      alert("Error al actualizar el estado");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleFinalizar = async (ventaId: number) => {
+    if (!confirm("¿Confirmás que el comprador retiró el pedido y completó el pago?")) return;
+    setActionLoading(ventaId);
+    try {
+      await fetchApi(`/api/tiendas/${user!.id}/ventas/${ventaId}/finalizar`, { method: "PATCH" });
+      fetchVentas();
+    } catch {
+      alert("Error al finalizar la orden");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Cargando ventas...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
@@ -89,6 +122,9 @@ export default function TiendaRetiroVentasPage() {
                         {v.alias && (
                           <p className="text-gray-500 text-xs">Alias: {v.alias}</p>
                         )}
+                        {v.cbu && (
+                          <p className="text-gray-500 text-xs">CBU: {v.cbu}</p>
+                        )}
                       </div>
                     ))
                   )}
@@ -115,10 +151,30 @@ export default function TiendaRetiroVentasPage() {
                 )}
               </div>
 
-              <div className="mt-4 pt-3 border-t flex justify-end">
+              <div className="mt-4 pt-3 border-t flex items-center justify-between">
                 <span className="font-bold text-gray-900">
                   Total: ${venta.total.toLocaleString("es-AR")}
                 </span>
+
+                {venta.estado === "entregado_a_tienda" && (
+                  <button
+                    disabled={actionLoading === venta.id}
+                    onClick={() => handleMarcarEnTienda(venta.id)}
+                    className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+                  >
+                    {actionLoading === venta.id ? "Procesando..." : "Confirmar recepción"}
+                  </button>
+                )}
+
+                {venta.estado === "en_tienda" && (
+                  <button
+                    disabled={actionLoading === venta.id}
+                    onClick={() => handleFinalizar(venta.id)}
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+                  >
+                    {actionLoading === venta.id ? "Procesando..." : "Finalizar orden"}
+                  </button>
+                )}
               </div>
             </div>
           );

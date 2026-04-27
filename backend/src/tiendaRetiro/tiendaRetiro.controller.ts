@@ -3,6 +3,7 @@ import { orm } from "../shared/db/orm.js";
 import { wrap } from "@mikro-orm/core";
 import { TiendaRetiro } from "./tiendaRetiro.entity.js";
 import { Compra } from "../compra/compra.entity.js";
+import { sendEmail } from "../shared/mailer.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
@@ -141,6 +142,112 @@ export async function getVentas(req: Request, res: Response) {
     });
 
     res.json({ data });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function marcarEnTienda(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const tiendaId = Number(req.params.id);
+
+    const compra = await orm.em.findOne(
+      Compra,
+      { id: compraId, tiendaRetiro: { id: tiendaId } },
+      { populate: ['comprador', 'tiendaRetiro'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
+
+    if (compra.estado !== 'entregado_a_tienda') {
+      return res.status(400).json({ message: 'La compra no está en estado entregado_a_tienda' });
+    }
+
+    compra.estado = 'en_tienda';
+    await orm.em.flush();
+
+    const tienda = compra.tiendaRetiro;
+    const destinatario = (compra.comprador as any)?.email || compra.email;
+    const nombreComprador = (compra.comprador as any)?.username || compra.nombre || 'comprador';
+
+    if (destinatario && tienda) {
+      const html = `
+        <h2>¡Buenas noticias, ${nombreComprador}!</h2>
+        <p>Tu pedido <strong>#${compra.id}</strong> ya está en la tienda y podés ir a buscarlo:</p>
+        <p><strong>${tienda.nombre}</strong><br/>
+        ${tienda.direccion}<br/>
+        ${tienda.horario ? `🕐 ${tienda.horario}` : ''}</p>
+        <p>No olvides transferir al alias del vendedor antes de retirar y mostrar el comprobante en la tienda.</p>
+      `;
+      sendEmail(
+        destinatario,
+        `Tu pedido #${compra.id} ya está en tienda`,
+        `Tu pedido #${compra.id} está listo para retirar en ${tienda.nombre}`,
+        html
+      );
+    }
+
+    res.json({ message: 'Compra marcada como en tienda', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function finalizarCompra(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const tiendaId = Number(req.params.id);
+
+    const compra = await orm.em.findOne(
+      Compra,
+      { id: compraId, tiendaRetiro: { id: tiendaId } },
+      { populate: ['comprador', 'tiendaRetiro', 'itemCartas', 'itemCartas.uploaderVendedor'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
+
+    if (compra.estado !== 'en_tienda') {
+      return res.status(400).json({ message: 'La compra no está en estado en_tienda' });
+    }
+
+    compra.estado = 'finalizado';
+    await orm.em.flush();
+
+    const tienda = compra.tiendaRetiro;
+    const destinatarioComprador = (compra.comprador as any)?.email || compra.email;
+    const nombreComprador = (compra.comprador as any)?.username || compra.nombre || 'comprador';
+
+    if (destinatarioComprador) {
+      const html = `
+        <h2>¡Tu compra fue finalizada, ${nombreComprador}!</h2>
+        <p>La orden <strong>#${compra.id}</strong> quedó completada${tienda ? ` en ${tienda.nombre}` : ''}.</p>
+        <p>Podés dejar tu valoración del vendedor y la tienda desde <strong>"Mis Compras"</strong>.</p>
+      `;
+      sendEmail(
+        destinatarioComprador,
+        `Tu compra #${compra.id} fue finalizada`,
+        `Tu compra #${compra.id} fue finalizada`,
+        html
+      );
+    }
+
+    const vendedor = (compra.itemCartas.getItems()[0] as any)?.uploaderVendedor;
+    if (vendedor?.email) {
+      const html = `
+        <h2>Tu venta fue finalizada</h2>
+        <p>La orden <strong>#${compra.id}</strong> quedó completada${tienda ? ` en ${tienda.nombre}` : ''}.</p>
+        <p>Podés dejar tu valoración del comprador y la tienda desde <strong>"Mis Ventas"</strong>.</p>
+      `;
+      sendEmail(
+        vendedor.email,
+        `Tu venta #${compra.id} fue finalizada`,
+        `Tu venta #${compra.id} fue finalizada`,
+        html
+      );
+    }
+
+    res.json({ message: 'Compra finalizada', data: compra });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }

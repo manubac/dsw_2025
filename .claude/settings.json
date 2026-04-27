@@ -30,7 +30,26 @@
       "Bash(pnpm tsc *)",
       "Read(//c/Users/volen/.claude/projects/c--Users-volen-dsw-2025/020ebb23-907e-47f7-b5ab-cae06ec88d3e/tool-results/**)",
       "Bash(git commit -m ' *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git merge *)",
+      "Bash(git rm *)",
+      "Bash(PGPASSWORD=post1234 psql -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD COLUMN IF NOT EXISTS vendedor_id INT; ALTER TABLE valoracion ALTER COLUMN usuario_id DROP NOT NULL;\")",
+      "PowerShell($env:PGPASSWORD = \"post1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD COLUMN IF NOT EXISTS vendedor_id INT; ALTER TABLE valoracion ALTER COLUMN usuario_id DROP NOT NULL;\" 2>&1)",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(find /c -name \"psql.exe\")",
+      "PowerShell($env:PGPASSWORD = \"post1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD COLUMN IF NOT EXISTS vendedor_id INT; ALTER TABLE valoracion ALTER COLUMN usuario_id DROP NOT NULL;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"honolulu3\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD COLUMN IF NOT EXISTS vendedor_id INT; ALTER TABLE valoracion ALTER COLUMN usuario_id DROP NOT NULL;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"honolulu3\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD CONSTRAINT valoracion_vendedor_id_foreign FOREIGN KEY \\(vendedor_id\\) REFERENCES vendedor\\(id\\) ON UPDATE CASCADE ON DELETE SET NULL;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"honolulu3\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD COLUMN IF NOT EXISTS compra_id INT; ALTER TABLE valoracion ADD CONSTRAINT IF NOT EXISTS valoracion_compra_id_foreign FOREIGN KEY \\(compra_id\\) REFERENCES compra\\(id\\) ON UPDATE CASCADE ON DELETE SET NULL;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"honolulu3\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"ALTER TABLE valoracion ADD COLUMN IF NOT EXISTS compra_id INT;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"honolulu3\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h localhost -U postgres -d heroclash_dsw -c \"DO \\\\$\\\\$ BEGIN IF NOT EXISTS \\(SELECT 1 FROM pg_constraint WHERE conname = 'valoracion_compra_id_foreign'\\) THEN ALTER TABLE valoracion ADD CONSTRAINT valoracion_compra_id_foreign FOREIGN KEY \\(compra_id\\) REFERENCES compra\\(id\\) ON UPDATE CASCADE ON DELETE SET NULL; END IF; END \\\\$\\\\$;\" 2>&1)",
+      "Bash(psql \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE email LIKE '%@placeholder.local';\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE email LIKE '%@placeholder.local';\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE email LIKE '%@placeholder.local';\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE email LIKE '%@placeholder.local'; SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE \\(email = '' OR email IS NULL\\); SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"DELETE FROM tienda_retiro WHERE email = '' OR email IS NULL; SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")"
     ]
   }
 }

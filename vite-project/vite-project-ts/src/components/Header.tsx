@@ -189,7 +189,11 @@ export function Header() {
 
   const handleProfileClick = () => {
     setUserMenuOpen(false);
-    navigate("/profile");
+    if (user?.role === 'vendedor') {
+      navigate("/mi-perfil");
+    } else {
+      navigate("/profile");
+    }
   };
 
   const handleLogout = () => {
@@ -388,21 +392,12 @@ export function Header() {
                       </button>
                     )}
 
-                    {user.role === 'user' && (
+                    {(user.role === 'user' || user.role === 'usuario') && (
                       <button
                         onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
                         className="block w-full text-left px-4 py-2 hover:bg-orange-100"
                       >
                         Mis Compras
-                      </button>
-                    )}
-
-                    {user.role === 'vendedor' && (
-                      <button
-                        onClick={() => { setUserMenuOpen(false); navigate('/mis-publicaciones'); }}
-                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                      >
-                        Mis Publicaciones
                       </button>
                     )}
 
@@ -415,15 +410,6 @@ export function Header() {
                       </button>
                     )}
 
-                    {user.role === 'usuario' && (
-                      <button
-                        onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
-                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                      >
-                        Mis Compras
-                      </button>
-                    )}
-
                     {user.role === 'intermediario' && (
                       <button
                         onClick={() => { setUserMenuOpen(false); navigate('/intermediario'); }}
@@ -432,13 +418,6 @@ export function Header() {
                         Panel de Intermediario
                       </button>
                     )}
-
-                    <button
-                      onClick={handleDeleteAccount}
-                      className="block w-full text-left px-4 py-2 text-red-500 hover:bg-orange-100"
-                    >
-                      Eliminar Cuenta
-                    </button>
 
                     <button
                       onClick={handleLogout}

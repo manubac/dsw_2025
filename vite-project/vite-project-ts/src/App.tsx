@@ -21,6 +21,7 @@ import CardGroupPage from "./pages/CardGroupPage";
 import IntermediarioDashboard from "./pages/IntermediarioDashboard";
 import MisPublicacionesPage from "./pages/MisPublicacionesPage";
 import MisVentasPage from "./pages/MisVentasPage";
+import MiPerfilVendedorPage from "./pages/MiPerfilVendedorPage";
 import { VendedorProfile } from "./pages/VendedorProfile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -202,7 +203,17 @@ function App() {
                   }
                 />
 
-                {/* Mis publicaciones */}
+                {/* Perfil unificado del vendedor */}
+                <Route
+                  path="mi-perfil"
+                  element={
+                    <VendedorRoute>
+                      <MiPerfilVendedorPage />
+                    </VendedorRoute>
+                  }
+                />
+
+                {/* Mis publicaciones (ruta legacy, accesible pero sin link en header) */}
                 <Route
                   path="mis-publicaciones"
                   element={
