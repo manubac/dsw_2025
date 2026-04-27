@@ -14,4 +14,13 @@ export class TiendaRetiro extends BaseEntity {
 
   @Property({ type: 'boolean', default: true })
   activo!: boolean;
+
+  @Property({ type: 'string', nullable: true, unique: true })
+  email?: string;
+
+  @Property({ type: 'string', hidden: true, nullable: true })
+  password?: string;
+
+  @Property({ type: 'string', nullable: true })
+  ciudad?: string;
 }
