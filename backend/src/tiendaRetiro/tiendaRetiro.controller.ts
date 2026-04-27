@@ -12,7 +12,7 @@ export function sanitizeTiendaRetiroInput(req: Request, res: Response, next: Nex
   req.body.sanitizedInput = {
     nombre: req.body.nombre,
     email: req.body.email,
-    password: req.body.password,
+    // password excluida: se gestiona solo en add/login (nunca en update)
     direccion: req.body.direccion,
     horario: req.body.horario,
     ciudad: req.body.ciudad,
@@ -105,7 +105,7 @@ export async function getVentas(req: Request, res: Response) {
       Compra,
       { tiendaRetiro: { id } },
       {
-        populate: ["comprador", "itemCartas", "itemCartas.cartas", "itemCartas.cartas.uploader"],
+        populate: ["comprador", "itemCartas", "itemCartas.uploaderVendedor"],
         orderBy: { createdAt: "DESC" },
       }
     );
@@ -113,11 +113,9 @@ export async function getVentas(req: Request, res: Response) {
     const data = compras.map((compra) => {
       const vendedoresMap = new Map<number, { nombre: string; alias: string | null; cbu: string | null }>();
       for (const itemCarta of compra.itemCartas) {
-        for (const carta of (itemCarta as any).cartas) {
-          const v = (carta as any).uploader;
-          if (v && !vendedoresMap.has(v.id)) {
-            vendedoresMap.set(v.id, { nombre: v.nombre, alias: v.alias ?? null, cbu: v.cbu ?? null });
-          }
+        const v = (itemCarta as any).uploaderVendedor;
+        if (v && !vendedoresMap.has(v.id)) {
+          vendedoresMap.set(v.id, { nombre: v.nombre, alias: v.alias ?? null, cbu: v.cbu ?? null });
         }
       }
 
