@@ -1,15 +1,20 @@
-import { Router } from 'express';
-import { orm } from '../shared/db/orm.js';
-import { TiendaRetiro } from './tiendaRetiro.entity.js';
+import { Router } from "express";
+import {
+  sanitizeTiendaRetiroInput,
+  findAll,
+  findOne,
+  add,
+  login,
+  update,
+  getVentas,
+} from "./tiendaRetiro.controller.js";
+import { authenticate, authorizeRoles, authorizeSelf } from "../shared/middleware/auth.js";
 
 export const tiendaRouter = Router();
 
-tiendaRouter.get('/', async (_req, res) => {
-  try {
-    const em = orm.em.fork();
-    const tiendas = await em.find(TiendaRetiro, { activo: true }, { orderBy: { nombre: 'ASC' } });
-    res.json({ data: tiendas });
-  } catch (e: any) {
-    res.status(500).json({ message: e.message });
-  }
-});
+tiendaRouter.get("/", findAll);
+tiendaRouter.post("/", sanitizeTiendaRetiroInput, add);
+tiendaRouter.post("/login", login);
+tiendaRouter.get("/:id", findOne);
+tiendaRouter.patch("/:id", authenticate, authorizeRoles("tiendaRetiro" as any), authorizeSelf, sanitizeTiendaRetiroInput, update);
+tiendaRouter.get("/:id/ventas", authenticate, authorizeRoles("tiendaRetiro" as any), authorizeSelf, getVentas);
