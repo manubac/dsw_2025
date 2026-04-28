@@ -4,29 +4,23 @@ import { wrap } from '@mikro-orm/core';
 import { Vendedor } from './vendedores.entity.js'
 import { Compra } from '../compra/compra.entity.js';
 import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
-import { EstadoEnvio } from '../envio/envio.entity.js';
 import { sendEmail } from '../shared/mailer.js';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 
 const em= orm.em
 
 function sanitiseVendedorInput(
-    req: Request, 
-    res: Response, 
+    req: Request,
+    res: Response,
     next: NextFunction
 ) {
     req.body.sanitisedInput = {
         nombre: req.body.nombre,
-        email: req.body.email,
-        password: req.body.password,
         telefono: req.body.telefono,
         ciudad: req.body.ciudad,
         alias: req.body.alias,
         cbu: req.body.cbu,
         items: req.body.items
     };
-    //more checks here
 
     Object.keys(req.body.sanitisedInput).forEach(key => {
         if (req.body.sanitisedInput[key] === undefined) {
@@ -39,9 +33,9 @@ function sanitiseVendedorInput(
 async function findAll(req: Request, res: Response) {
     try {
         const vendedores = await em.find(
-            Vendedor, 
-            {}, 
-            {populate:['itemCartas']}
+            Vendedor,
+            {},
+            {populate:['user', 'itemCartas']}
         )
         res
         .status(200)
@@ -56,7 +50,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
     try {
         const id= Number.parseInt(req.params.id as string)
-        const vendedor = await em.findOne(Vendedor, {id}, {populate:['itemCartas', 'itemCartas.cartas']})
+        const vendedor = await em.findOne(Vendedor, {id}, {populate:['user', 'itemCartas', 'itemCartas.cartas']})
         res.status(200).json({message:'Found one vendedor', data:vendedor})
     } catch (error: any) {
         res.status(500).json({message: error.message})
@@ -64,23 +58,7 @@ async function findOne(req: Request, res: Response) {
 }
 
 async function add(req: Request, res: Response) {
-    try{
-        console.log('Sanitised input:', req.body.sanitisedInput); // Debug log
-        
-        const saltRounds = 10;
-        req.body.sanitisedInput.password = await bcrypt.hash(req.body.sanitisedInput.password, saltRounds);
-
-        const vendedor = em.create(Vendedor, req.body.sanitisedInput)
-        await em.flush()
-        res
-        .status(201)
-        .json({message:'Vendedor created', data:vendedor})
-    } catch (error:any) {
-        console.error('Error creating vendedor:', error); // Debug log
-        res
-        .status(500)
-        .json({message:'Error creating vendedor', error: error.message, details: error})
-    }
+    return res.status(410).json({ message: 'Registro directo deshabilitado. Usá el flujo de upgrade desde tu perfil de comprador.' });
 }
 
 async function update(req: Request, res: Response) {
@@ -107,30 +85,7 @@ async function remove(req: Request, res: Response) {
 }
 
 async function login(req: Request, res: Response) {
-    try {
-        const { email, password } = req.body
-        const vendedor = await em.findOne(Vendedor, { email }, { populate: ['itemCartas'] })
-        if (!vendedor) {
-            return res.status(401).json({ message: 'Invalid credentials' })
-        }
-        
-        const isMatch = await bcrypt.compare(password, vendedor.password);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-        
-        const token = jwt.sign(
-            { userId: vendedor.id, role: 'vendedor' },
-            process.env.JWT_SECRET || 'default_secret',
-            { expiresIn: '7d' }
-        );
-
-        // Se usa wrap().toJSON() para que los campos ocultos (password, tokens) no se incluyan en la respuesta
-        const vendedorData = { ...(wrap(vendedor).toJSON() as any), role: 'vendedor' };
-        res.status(200).json({ message: 'Login successful', data: vendedorData, token })
-    } catch (error: any) {
-        res.status(500).json({ message: 'Error logging in', error: error.message })
-    }
+    return res.status(410).json({ message: 'Login deprecado. Usá POST /api/users/login' });
 }
 
 async function logout(req: Request, res: Response) {
@@ -143,15 +98,15 @@ async function getVentas(req: Request, res: Response) {
         const id = Number(req.params.id);
         const compras = await em.find(Compra, {
             itemCartas: {
-                cartas: { uploader: { id } },
+                uploaderVendedor: { id },
             }
         }, {
-             populate: ['itemCartas', 'itemCartas.cartas', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion', 'tiendaRetiro']
+             populate: ['itemCartas', 'itemCartas.cartas', 'itemCartas.uploaderVendedor', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion', 'tiendaRetiro']
         });
 
         const result = compras.map(c => {
              const myItems = c.itemCartas.getItems().filter(item =>
-                 item.cartas.getItems().some(card => card.uploader?.id === id)
+                 item.uploaderVendedor?.id === id
              );
              if (myItems.length === 0) return null;
 
@@ -202,21 +157,20 @@ async function markSent(req: Request, res: Response) {
    try {
        const compraId = Number(req.params.compraId);
        const vendedorId = Number(req.params.id);
-       
-       const compra = await em.findOneOrFail(Compra, { id: compraId }, { populate: ['envio', 'itemCartas.cartas'] });
 
-       const isVendor = compra.itemCartas.getItems().some(item => 
-           item.cartas.getItems().some(card => card.uploader?.id === vendedorId)
+       const compra = await em.findOneOrFail(Compra, { id: compraId }, { populate: ['envio', 'itemCartas', 'itemCartas.uploaderVendedor'] });
+
+       const isVendor = compra.itemCartas.getItems().some(item =>
+           item.uploaderVendedor?.id === vendedorId
        );
-       
+
        if (!isVendor) return res.status(403).json({ message: "No eres vendedor en esta compra" });
 
        if (!compra.envio) return res.status(400).json({ message: "Compra sin envío asignado" });
 
-       // Actualizamos el estado de la compra individual, NO del envío masivo (Envio)
        compra.estado = 'ENVIADO_A_INTERMEDIARIO';
        await em.flush();
-       
+
        res.json({ message: "Envío marcado como enviado al intermediario" });
    } catch(e: any) {
        res.status(500).json({ message: e.message });
@@ -231,13 +185,13 @@ async function entregarTienda(req: Request, res: Response) {
     const compra = await em.findOne(
       Compra,
       { id: compraId },
-      { populate: ['itemCartas', 'itemCartas.cartas', 'comprador', 'tiendaRetiro'] }
+      { populate: ['itemCartas', 'itemCartas.cartas', 'itemCartas.uploaderVendedor', 'comprador', 'tiendaRetiro'] }
     );
 
     if (!compra) return res.status(404).json({ message: 'Compra no encontrada' });
 
     const isVendor = compra.itemCartas.getItems().some(item =>
-      item.cartas.getItems().some(card => card.uploader?.id === vendedorId)
+      item.uploaderVendedor?.id === vendedorId
     );
     if (!isVendor) return res.status(403).json({ message: 'No eres vendedor en esta compra' });
 
@@ -249,7 +203,7 @@ async function entregarTienda(req: Request, res: Response) {
     await em.flush();
 
     const tienda = compra.tiendaRetiro;
-    const nombreVendedor = (compra.itemCartas.getItems()[0]?.cartas.getItems()[0] as any)?.uploader?.nombre
+    const nombreVendedor = compra.itemCartas.getItems()[0]?.uploaderVendedor?.nombre
       || `Vendedor #${vendedorId}`;
     const nombreComprador = compra.comprador?.username || compra.nombre || 'comprador';
 
@@ -301,4 +255,3 @@ async function updateTiendasRetiro(req: Request, res: Response) {
 }
 
 export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, entregarTienda, getTiendasRetiro, updateTiendasRetiro };
-
