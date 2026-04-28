@@ -38,7 +38,7 @@ for (const v of vendedores) {
     v.user = existingUser;
   } else {
     const newUser = em.create(User, {
-      username: v.nombre,
+      username: v.email,
       email: v.email,
       password: v.password,
       role: 'user',
