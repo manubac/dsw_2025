@@ -144,6 +144,7 @@ async function remove(req: Request, res: Response) {
 async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
+    const em = orm.em.fork();
     const user = await em.findOne(User, { email });
 
     if (!user) {
@@ -155,13 +156,20 @@ async function login(req: Request, res: Response) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    const vendedor = await em.findOne(Vendedor, { user }, { populate: ['itemCartas', 'tiendasRetiro'] });
+    const role = vendedor ? 'vendedor' : 'user';
     const token = jwt.sign(
-      { userId: user.id, role: 'user' },
+      { userId: user.id, role },
       process.env.JWT_SECRET || 'default_secret',
       { expiresIn: '7d' }
     );
 
-    res.status(200).json({ message: "Login successful", data: user, token });
+    if (vendedor) {
+      const vendedorData = { ...(vendedor as any), role: 'vendedor', email: user.email };
+      return res.status(200).json({ message: "Login successful", data: vendedorData, token, role });
+    }
+
+    res.status(200).json({ message: "Login successful", data: user, token, role });
   } catch (error: any) {
     res.status(500).json({ message: "Error logging in", error: error.message });
   }
@@ -171,7 +179,6 @@ async function forgotPassword(req: Request, res: Response) {
   try {
     const { email } = req.body;
     let user: any = await em.findOne(User, { email });
-    if (!user) user = await em.findOne(Vendedor, { email });
     if (!user) user = await em.findOne(Intermediario, { email });
 
     // Security: don't reveal if user exists, but for debug/dev maybe we can be more verbose or generic.
@@ -210,7 +217,6 @@ async function resetPassword(req: Request, res: Response) {
     };
     
     let user: any = await em.findOne(User, whereClause);
-    if (!user) user = await em.findOne(Vendedor, whereClause);
     if (!user) user = await em.findOne(Intermediario, whereClause);
 
     if (!user) {
