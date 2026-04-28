@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { api, fetchApi } from '../services/api';
+import SellerOnboarding from '../components/SellerOnboarding';
 
 interface Valoracion {
   id: number;
@@ -357,6 +358,9 @@ export default function MiPerfilUsuarioPage() {
             </>
           )}
         </div>
+
+        {/* ── CONVERTIRSE EN VENDEDOR ── */}
+        <SellerOnboarding />
 
       </div>
     </div>
