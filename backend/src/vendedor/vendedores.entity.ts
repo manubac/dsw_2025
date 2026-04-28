@@ -6,17 +6,11 @@ import { User } from "../user/user.entity.js"
 
 @Entity()
 export class Vendedor extends BaseEntity {
-    @OneToOne(() => User, { owner: true, unique: true, nullable: true })
-    user?: Rel<User>
+    @OneToOne(() => User, { owner: true, unique: true, nullable: false })
+    user!: Rel<User>
 
     @Property({ type: 'string', nullable: false, unique: true })
     nombre!: string
-
-    @Property({ type: 'string', hidden: true, nullable: false, unique: true })
-    email!: string
-
-    @Property({ type: 'string', hidden: true, nullable: false })
-    password!: string
 
     @Property({ type: 'string', nullable: false, unique: true })
     telefono!: string
@@ -29,12 +23,6 @@ export class Vendedor extends BaseEntity {
 
     @Property({ type: 'string', nullable: true })
     cbu?: string
-
-    @Property({ type: 'string', hidden: true, nullable: true })
-    resetPasswordToken?: string;
-
-    @Property({ type: 'datetime', hidden: true, nullable: true })
-    resetPasswordExpires?: Date;
 
     @OneToMany(() => ItemCarta, (itemCarta) => itemCarta.uploaderVendedor)
     itemCartas = new Collection<ItemCarta>(this)
