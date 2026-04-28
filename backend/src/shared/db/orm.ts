@@ -14,9 +14,10 @@ import { Valoracion } from "../../valoracion/valoracion.entity.js"
 import { StagePokemon } from "../../stage/stage.entity.js"
 import { Mensaje } from "../../mensaje/mensaje.entity.js"
 import { Wishlist } from "../../wishlist/wishlist.entity.js"
+import { VerificationCode } from "../../verification/verificationCode.entity.js"
 
 export const orm = await MikroORM.init({
-    entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, User, Direccion, Intermediario, Envio, Valoracion, StagePokemon, Mensaje, Wishlist],
+    entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, User, Direccion, Intermediario, Envio, Valoracion, StagePokemon, Mensaje, Wishlist, VerificationCode],
     dbName: process.env.DB_NAME || 'heroclash_dsw',
     clientUrl: process.env.DB_CONNECTION_STRING || 'postgresql://postgres:post1234@localhost:5432/heroclash_dsw',
     highlighter: new SqlHighlighter(),

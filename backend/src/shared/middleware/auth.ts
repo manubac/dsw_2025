@@ -38,7 +38,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     let actor: ActorEntity | null = null;
 
     if (decoded.role === 'vendedor') {
-      actor = await em.findOne(Vendedor, { id: decoded.userId });
+      const vendedorUser = await em.findOne(User, { id: decoded.userId });
+      actor = vendedorUser ? await em.findOne(Vendedor, { user: vendedorUser }) : null;
     } else if (decoded.role === 'intermediario') {
       actor = await em.findOne(Intermediario, { id: decoded.userId });
     } else if (decoded.role === 'tiendaRetiro') {

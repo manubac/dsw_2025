@@ -19,6 +19,8 @@ export interface User {
   role?: string // 'user' o 'vendedor'
   direcciones?: Direccion[]
   token?: string
+  is_email_verified?: boolean
+  is_phone_verified?: boolean
 }
 
 interface UserContextType {
@@ -30,6 +32,7 @@ interface UserContextType {
   removeDireccion: (id: number) => void
   loadDirecciones: () => Promise<void>
   getAuthHeaders: () => Record<string, string | undefined>
+  upgradeToSeller: (token: string, vendedorData: Partial<User>) => void
 }
 
 const UserContext = createContext<UserContextType | null>(null)
@@ -91,6 +94,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const upgradeToSeller = (token: string, vendedorData: Partial<User>) => {
+    if (!user) return
+    const upgraded = { ...user, ...vendedorData, token, role: 'vendedor' }
+    setUser(upgraded)
+    localStorage.setItem('user', JSON.stringify(upgraded))
+  }
+
   const getAuthHeaders = () => {
     if (user?.token) {
       return { Authorization: `Bearer ${user.token}` }
@@ -99,7 +109,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <UserContext.Provider value={{ user, login, logout, updateUser, addDireccion, removeDireccion, loadDirecciones, getAuthHeaders }}>
+    <UserContext.Provider value={{ user, login, logout, updateUser, addDireccion, removeDireccion, loadDirecciones, getAuthHeaders, upgradeToSeller }}>
       {children}
     </UserContext.Provider>
   )

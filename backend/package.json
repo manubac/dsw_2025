@@ -12,6 +12,7 @@
     "update-card-numbers": "npx tsx src/scripts/update_card_numbers.ts",
     "seed-en-names": "npx tsx src/scripts/seed_en_names.ts",
     "seed-tiendas": "npx tsx src/scripts/seed_tiendas.ts",
+    "migrate:sellers": "npx tsx src/scripts/migrate_vendedores_to_users.ts",
     "search-card": "node search_card.js",
     "identify": "node identify_from_photo.js",
     "build": "tsc -p tsconfig.json",
@@ -52,7 +53,8 @@
     "reflect-metadata": "0.2.2",
     "sharp": "^0.33.5",
     "socket.io": "^4.8.3",
-    "tesseract.js": "^5.1.1"
+    "tesseract.js": "^5.1.1",
+    "twilio": "^6.0.0"
   },
   "devDependencies": {
     "@mikro-orm/cli": "6.5.3",
@@ -68,6 +70,7 @@
     "@types/pg": "^8.20.0",
     "@types/puppeteer-core": "^7.0.4",
     "@types/sharp": "^0.31.1",
+    "@types/twilio": "^3.19.3",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.6",
     "ts-node-dev": "^2.0.0",
