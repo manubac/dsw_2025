@@ -19,7 +19,8 @@ function sanitiseVendedorInput(
         ciudad: req.body.ciudad,
         alias: req.body.alias,
         cbu: req.body.cbu,
-        items: req.body.items
+        items: req.body.items,
+        descripcionCompra: req.body.descripcionCompra,
     };
 
     Object.keys(req.body.sanitisedInput).forEach(key => {
