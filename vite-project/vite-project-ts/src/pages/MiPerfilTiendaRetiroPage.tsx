@@ -5,10 +5,9 @@ import { fetchApi } from '../services/api';
 export default function MiPerfilTiendaRetiroPage() {
   const { user } = useUser();
 
-  const [tienda, setTienda]               = useState<any>(null);
-  const [loading, setLoading]             = useState(true);
-  const [statsExpanded, setStatsExpanded] = useState(false);
-  const [editOpen, setEditOpen]           = useState(false);
+  const [tienda, setTienda]     = useState<any>(null);
+  const [loading, setLoading]   = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     nombre:    '',
@@ -21,6 +20,12 @@ export default function MiPerfilTiendaRetiroPage() {
   const [saving, setSaving]       = useState(false);
   const [saveMsg, setSaveMsg]     = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Edición rápida de horario
+  const [editingHorario, setEditingHorario] = useState(false);
+  const [horarioDraft, setHorarioDraft]     = useState('');
+  const [horarioSaving, setHorarioSaving]   = useState(false);
+  const [horarioMsg, setHorarioMsg]         = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -39,6 +44,7 @@ export default function MiPerfilTiendaRetiroPage() {
           ciudad:    t?.ciudad    ?? '',
           activo:    t?.activo    ?? true,
         });
+        setHorarioDraft(t?.horario ?? '');
       } catch (err) {
         console.error('Error loading tienda profile:', err);
       } finally {
@@ -72,11 +78,35 @@ export default function MiPerfilTiendaRetiroPage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Error al actualizar.');
       setTienda((prev: any) => ({ ...prev, ...formData }));
+      setHorarioDraft(formData.horario);
       setSaveMsg('Datos actualizados correctamente.');
     } catch (err: any) {
       setSaveError(err.message || 'Error al guardar.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveHorario = async () => {
+    if (!user?.id) return;
+    setHorarioSaving(true);
+    setHorarioMsg(null);
+    try {
+      const response = await fetchApi(`/api/tiendas/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ horario: horarioDraft }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Error al actualizar.');
+      setTienda((prev: any) => ({ ...prev, horario: horarioDraft }));
+      setFormData(prev => ({ ...prev, horario: horarioDraft }));
+      setEditingHorario(false);
+      setHorarioMsg('Horario actualizado.');
+    } catch (err: any) {
+      setHorarioMsg(`Error: ${err.message}`);
+    } finally {
+      setHorarioSaving(false);
     }
   };
 
@@ -150,12 +180,6 @@ export default function MiPerfilTiendaRetiroPage() {
                     <>
                       <span className="text-gray-300">·</span>
                       <span>{tienda.direccion}</span>
-                    </>
-                  )}
-                  {tienda.horario && (
-                    <>
-                      <span className="text-gray-300">·</span>
-                      <span>🕐 {tienda.horario}</span>
                     </>
                   )}
                 </div>
@@ -232,20 +256,89 @@ export default function MiPerfilTiendaRetiroPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* ── STATS ── */}
-            <div className="mt-4">
-              <button
-                onClick={() => setStatsExpanded(o => !o)}
-                className="flex items-center gap-1.5 text-orange-500 hover:text-orange-600 text-xs font-semibold uppercase tracking-wider transition"
-              >
-                {statsExpanded ? 'Mostrar menos ▲' : 'Mostrar más ▼'}
-              </button>
+        {/* ── MI TIENDA DE RETIRO ── */}
+        <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">Mi tienda de retiro</h2>
+
+          <div className="bg-amber-50 border border-orange-100 rounded-lg p-4">
+            <p className="text-sm font-semibold text-gray-800">📍 {tienda.nombre}</p>
+            {tienda.direccion && <p className="text-xs text-gray-500 mt-1">{tienda.direccion}</p>}
+            {tienda.ciudad && <p className="text-xs text-gray-400 mt-0.5">{tienda.ciudad}</p>}
+
+            <div className="mt-3 pt-3 border-t border-orange-100">
+              <p className="text-xs font-medium text-gray-600 mb-2">Horario de atención</p>
+
+              {horarioMsg && (
+                <div className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-1.5">
+                  {horarioMsg}
+                </div>
+              )}
+
+              {editingHorario ? (
+                <div className="flex gap-2 items-center flex-wrap">
+                  <input
+                    type="text"
+                    value={horarioDraft}
+                    onChange={e => setHorarioDraft(e.target.value)}
+                    disabled={horarioSaving}
+                    placeholder="Ej: Lun-Vie 10-20hs, Sáb 10-14hs"
+                    className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-orange-400 transition disabled:opacity-60"
+                  />
+                  <button
+                    onClick={saveHorario}
+                    disabled={horarioSaving}
+                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition"
+                  >
+                    {horarioSaving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingHorario(false); setHorarioDraft(tienda.horario || ''); setHorarioMsg(null); }}
+                    className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-3 py-1.5 rounded-lg transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">
+                    {tienda.horario
+                      ? `🕐 ${tienda.horario}`
+                      : <span className="text-gray-400 italic text-xs">Sin horario cargado</span>}
+                  </span>
+                  <button
+                    onClick={() => { setEditingHorario(true); setHorarioMsg(null); }}
+                    className="text-xs text-orange-500 hover:text-orange-600 border border-orange-200 px-2 py-1 rounded-full transition"
+                  >
+                    ✏ Editar
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ── MIS VENTAS (próximamente) ── */}
+        {/* ── MIS PUBLICACIONES (placeholder) ── */}
+        <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-5">Mis Publicaciones</h2>
+          <div className="text-center py-12">
+            <div className="text-5xl mb-3 opacity-30">🃏</div>
+            <p className="text-gray-400">Próximamente: publicaciones de la tienda.</p>
+          </div>
+        </div>
+
+        {/* ── VALORACIONES (placeholder) ── */}
+        <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-5">Valoraciones recibidas</h2>
+          <div className="text-center py-8 text-gray-400">
+            <div className="text-4xl mb-2 opacity-40">⭐</div>
+            <p>Próximamente: valoraciones de compradores.</p>
+          </div>
+        </div>
+
+        {/* ── MIS VENTAS (placeholder) ── */}
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-800 mb-5">Mis Ventas</h2>
           <div className="text-center py-12">
