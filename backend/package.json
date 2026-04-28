@@ -12,6 +12,7 @@
     "update-card-numbers": "npx tsx src/scripts/update_card_numbers.ts",
     "seed-en-names": "npx tsx src/scripts/seed_en_names.ts",
     "seed-tiendas": "npx tsx src/scripts/seed_tiendas.ts",
+    "migrate:sellers": "npx tsx src/scripts/migrate_vendedores_to_users.ts",
     "search-card": "node search_card.js",
     "identify": "node identify_from_photo.js",
     "build": "tsc -p tsconfig.json",
