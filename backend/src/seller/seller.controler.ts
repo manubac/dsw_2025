@@ -80,7 +80,7 @@ export async function requestOtp(req: AuthRequest, res: Response) {
     const codeHash = sha256(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    em.create(VerificationCode, { user, codeHash, purpose: 'seller_upgrade', expiresAt });
+    em.create(VerificationCode, { user, codeHash, purpose: 'seller_upgrade', expiresAt, used: false });
     await em.flush();
 
     await whatsAppService.send(phone, otp);

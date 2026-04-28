@@ -18,6 +18,9 @@ import { Mensaje } from '../mensaje/mensaje.entity.js';
 import { Wishlist } from '../wishlist/wishlist.entity.js';
 import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
 
+// Migration already executed — all Vendedores have been linked to a User.
+// This script now serves as a verification/no-op check.
+
 const orm = await MikroORM.init({
   entities: [Carta, CartaClass, ItemCarta, Compra, Vendedor, User, Direccion, Intermediario, Envio, Valoracion, StagePokemon, Mensaje, Wishlist, TiendaRetiro, VerificationCode],
   clientUrl: process.env.DB_CONNECTION_STRING || 'postgresql://postgres:post1234@localhost:5432/heroclash_dsw',
@@ -27,29 +30,11 @@ const orm = await MikroORM.init({
 
 const em = orm.em.fork();
 
-const vendedores = await em.find(Vendedor, { user: null });
-console.log(`Migrando ${vendedores.length} vendedor(es) sin User asociado...`);
-
-for (const v of vendedores) {
-  const existingUser = await em.findOne(User, { email: v.email });
-
-  if (existingUser) {
-    console.log(`  [skip] ${v.email} — User ya existe (id=${existingUser.id}), vinculando.`);
-    v.user = existingUser;
-  } else {
-    const newUser = em.create(User, {
-      username: v.email,
-      email: v.email,
-      password: v.password,
-      role: 'user',
-      is_email_verified: true,
-      is_phone_verified: false,
-    });
-    v.user = newUser;
-    console.log(`  [create] User para ${v.email}`);
-  }
+const unlinked = await em.count(Vendedor, { user: null });
+if (unlinked === 0) {
+  console.log('Todos los Vendedores ya tienen User asociado. Nada que migrar.');
+} else {
+  console.log(`Hay ${unlinked} Vendedor(es) sin User. Ejecutar migración manual con psql o ajustar este script.`);
 }
 
-await em.flush();
-console.log('Migración completada.');
 await orm.close();
