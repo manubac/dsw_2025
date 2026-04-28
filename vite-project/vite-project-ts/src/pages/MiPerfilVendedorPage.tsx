@@ -25,7 +25,6 @@ interface Publication {
   description: string;
   stock: number;
   estado: string;
-  uploaderVendedor: { id: number; nombre: string };
   cartas: Carta[];
 }
 
@@ -83,12 +82,11 @@ export default function MiPerfilVendedorPage() {
 
     const fetchAll = async () => {
       try {
-        const [vendedorRes, reviewsRes, avgRes, ventasRes, pubsRes, tiendasVendedorRes, todasTiendasRes] = await Promise.all([
+        const [vendedorRes, reviewsRes, avgRes, ventasRes, tiendasVendedorRes, todasTiendasRes] = await Promise.all([
           api.get(`/api/vendedores/${user.id}`),
           api.get(`/api/valoraciones/vendedor/${user.id}`),
           api.get(`/api/valoraciones/vendedor/${user.id}/average`),
           api.get(`/api/vendedores/${user.id}/ventas`),
-          fetchApi('/api/itemsCarta/'),
           api.get(`/api/vendedores/${user.id}/tiendas`),
           fetchApi('/api/tiendas'),
         ]);
@@ -104,16 +102,12 @@ export default function MiPerfilVendedorPage() {
           password: '********',
         });
         setDescDraft(v?.descripcionCompra || '');
+        setPublicaciones(v?.itemCartas || []);
 
         const rawReviews = reviewsRes.data;
         setReviews(Array.isArray(rawReviews) ? rawReviews : (rawReviews.data || []));
         setAverage(Number(avgRes.data.average) || 0);
         setVentas(ventasRes.data.data || []);
-
-        const allPubs = (await pubsRes.json()).data || [];
-        setPublicaciones(
-          allPubs.filter((p: Publication) => p.uploaderVendedor?.id === user.id)
-        );
 
         const vendedorTiendas: TiendaRetiro[] = tiendasVendedorRes.data.data || [];
         setSelectedTiendaIds(new Set(vendedorTiendas.map(t => t.id)));
@@ -217,13 +211,13 @@ export default function MiPerfilVendedorPage() {
   )];
 
   const publicacionesFiltradas = publicaciones.filter(p => {
-    const carta = p.cartas[0];
-    const precio = carta ? parseFloat(carta.price) : 0;
+    const carta = p.cartas?.[0];
+    const precio = carta?.price ? parseFloat(String(carta.price).replace(/[^0-9.]/g, '')) : 0;
     const min = filterMinPrice !== '' ? parseFloat(filterMinPrice) : -Infinity;
     const max = filterMaxPrice !== '' ? parseFloat(filterMaxPrice) : Infinity;
     return (
-      (searchName === '' || p.name.toLowerCase().includes(searchName.toLowerCase()) ||
-        carta?.name.toLowerCase().includes(searchName.toLowerCase())) &&
+      (searchName === '' || p.name?.toLowerCase().includes(searchName.toLowerCase()) ||
+        carta?.name?.toLowerCase().includes(searchName.toLowerCase())) &&
       (filterEstado === 'all' || p.estado === filterEstado) &&
       precio >= min && precio <= max &&
       (filterRareza === '' || carta?.rarity === filterRareza) &&
