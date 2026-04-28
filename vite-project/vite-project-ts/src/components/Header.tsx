@@ -191,6 +191,8 @@ export function Header() {
     setUserMenuOpen(false);
     if (user?.role === 'vendedor') {
       navigate("/mi-perfil");
+    } else if (user?.role === 'user' || user?.role === 'usuario') {
+      navigate("/mi-perfil-usuario");
     } else {
       navigate("/profile");
     }

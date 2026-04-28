@@ -49,7 +49,11 @@
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:post1234@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE email LIKE '%@placeholder.local';\")",
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE email LIKE '%@placeholder.local'; SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")",
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"UPDATE tienda_retiro SET activo = false WHERE \\(email = '' OR email IS NULL\\); SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")",
-      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"DELETE FROM tienda_retiro WHERE email = '' OR email IS NULL; SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")"
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" \"postgresql://postgres:honolulu3@localhost:5432/heroclash_dsw\" -c \"DELETE FROM tienda_retiro WHERE email = '' OR email IS NULL; SELECT id, nombre, email, activo FROM tienda_retiro ORDER BY id;\")",
+      "Bash(pnpm run *)",
+      "Read(//c/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/**)",
+      "Read(//c/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/**)",
+      "Bash(bash \"C:/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/volen/dsw_2025\")"
     ]
   }
 }

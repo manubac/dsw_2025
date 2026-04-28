@@ -22,12 +22,14 @@ import IntermediarioDashboard from "./pages/IntermediarioDashboard";
 import MisPublicacionesPage from "./pages/MisPublicacionesPage";
 import MisVentasPage from "./pages/MisVentasPage";
 import MiPerfilVendedorPage from "./pages/MiPerfilVendedorPage";
+import MiPerfilUsuarioPage from "./pages/MiPerfilUsuarioPage";
 import { VendedorProfile } from "./pages/VendedorProfile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { PagoExitoso } from "./pages/pagoExitoso";
 import WishlistPage from "./pages/WishlistPage";
 import TiendaRetiroVentasPage from "./pages/TiendaRetiroVentasPage";
+import MiPerfilTiendaRetiroPage from "./pages/MiPerfilTiendaRetiroPage";
 
 /* ✅ NUEVO — páginas de resultado de pago */
 import PagoError from "./pages/pagoError";
@@ -70,6 +72,16 @@ function VendedorRoute({ children }: { children: JSX.Element }) {
     return <Navigate to="/" replace />;
   }
 
+  return children;
+}
+
+/**
+ * RUTA PROTEGIDA PARA USUARIOS
+ */
+function UserRoute({ children }: { children: JSX.Element }) {
+  const { user } = useUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'user' && user.role !== 'usuario') return <Navigate to="/" replace />;
   return children;
 }
 
@@ -213,6 +225,16 @@ function App() {
                   }
                 />
 
+                {/* Perfil unificado del usuario */}
+                <Route
+                  path="mi-perfil-usuario"
+                  element={
+                    <UserRoute>
+                      <MiPerfilUsuarioPage />
+                    </UserRoute>
+                  }
+                />
+
                 {/* Mis publicaciones (ruta legacy, accesible pero sin link en header) */}
                 <Route
                   path="mis-publicaciones"
@@ -245,7 +267,7 @@ function App() {
                   path="tienda-retiro/perfil"
                   element={
                     <TiendaRetiroRoute>
-                      <div className="p-8 text-center text-gray-500">Perfil de tienda — próximamente</div>
+                      <MiPerfilTiendaRetiroPage />
                     </TiendaRetiroRoute>
                   }
                 />

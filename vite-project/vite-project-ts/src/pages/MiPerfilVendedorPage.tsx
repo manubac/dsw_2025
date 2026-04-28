@@ -24,7 +24,7 @@ interface Review {
   puntuacion: number;
   comentario?: string;
   createdAt?: string;
-  usuario?: { nombre: string };
+  usuario?: { username: string };
 }
 
 export default function MiPerfilVendedorPage() {
@@ -410,7 +410,7 @@ export default function MiPerfilVendedorPage() {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-gray-700 text-sm font-medium">
-                        {review.usuario?.nombre || 'Usuario'}
+                        {review.usuario?.username || 'Usuario'}
                       </span>
                       <span className="text-amber-400 text-sm">
                         {'★'.repeat(review.puntuacion)}{'☆'.repeat(5 - review.puntuacion)}
