@@ -22,6 +22,7 @@ import { mensajeRouter } from "./mensaje/mensaje.routes.js";
 import { tcgProxyRouter } from "./tcgproxy/tcgproxy.routes.js";
 import { wishlistRouter } from "./wishlist/wishlist.routes.js";
 import { tiendaRouter } from "./tiendaRetiro/tiendaRetiro.routes.js";
+import { sellerRouter } from "./seller/seller.routes.js";
 const app = express();
 
 //  Middlewares base
@@ -59,6 +60,7 @@ app.use("/api/mensajes", mensajeRouter);
 app.use("/api/tcg", tcgProxyRouter);
 app.use("/api/wishlist", wishlistRouter);
 app.use("/api/tiendas", tiendaRouter);
+app.use("/api/seller", sellerRouter);
 // identifyRouter se carga dinámicamente para que un fallo de opencv no tire el servidor.
 // El slot debe registrarse ANTES del 404 handler; el handler interno se swapea cuando el
 // módulo termina de cargar.
