@@ -3,6 +3,7 @@ import { useUser, Direccion } from "../context/user";
 import { useNavigate } from "react-router-dom";
 import "./UserProfilePage.css";
 import { fetchApi } from "../services/api";
+import SellerOnboarding from "../components/SellerOnboarding";
 
 /**
  * Página de perfil del usuario.
@@ -483,6 +484,8 @@ export function UserProfilePage() {
           </button>
         </div>
       </div>
+
+      <SellerOnboarding />
 
       {/* Sección de Direcciones – solo para usuarios e intermediarios */}
       {user?.role === 'vendedor' && (
