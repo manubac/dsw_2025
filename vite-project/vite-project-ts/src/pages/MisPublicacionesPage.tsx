@@ -21,7 +21,7 @@ export default function MisPublicacionesPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user || user.role !== 'vendedor') {
+    if (!user || (user.role !== 'vendedor' && user.role !== 'tiendaRetiro')) {
       navigate('/');
       return;
     }
@@ -53,7 +53,7 @@ export default function MisPublicacionesPage() {
     navigate('/editar-carta', { state: { carta: publicacion } });
   };
 
-  if (!user || user.role !== 'vendedor') {
+  if (!user || (user.role !== 'vendedor' && user.role !== 'tiendaRetiro')) {
     return (
       <div style={{ padding: "2rem", textAlign: "center" }}>
         <p>No tienes permisos para acceder a esta página.</p>

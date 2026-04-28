@@ -8,8 +8,11 @@ import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 
 @Entity()
 export class Compra extends BaseEntity {
-  @ManyToOne(() => User)
-  comprador!: User;
+  @ManyToOne(() => User, { nullable: true })
+  comprador?: User;
+
+  @ManyToOne(() => TiendaRetiro, { nullable: true })
+  compradorTienda?: TiendaRetiro;
 
   @ManyToMany(() => ItemCarta, undefined, { owner: true })
   itemCartas = new Collection<ItemCarta>(this);

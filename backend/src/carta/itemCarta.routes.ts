@@ -8,7 +8,7 @@ export const itemCartaRouter = Router();
 itemCartaRouter.get('/', findAll);
 itemCartaRouter.get('/:id', findOne);
 
-// Solo los vendedores pueden crear, actualizar o eliminar publicaciones de items
-itemCartaRouter.post('/', authenticate, authorizeRoles('vendedor'), add);
-itemCartaRouter.put('/:id', authenticate, authorizeRoles('vendedor'), update);
-itemCartaRouter.delete('/:id', authenticate, authorizeRoles('vendedor'), remove);
+// Vendedores y tiendas de retiro pueden crear, actualizar o eliminar publicaciones de items
+itemCartaRouter.post('/', authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), add);
+itemCartaRouter.put('/:id', authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), update);
+itemCartaRouter.delete('/:id', authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), remove);

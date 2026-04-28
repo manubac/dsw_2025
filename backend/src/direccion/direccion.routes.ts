@@ -9,6 +9,6 @@ direccionRouter.get('/', authenticate, findAll);
 direccionRouter.get('/:id', authenticate, findOne);
 
 // Tanto users (dirección de entrega) como intermediarios (dirección de recogida) gestionan direcciones
-direccionRouter.post('/', authenticate, authorizeRoles('user', 'intermediario'), sanitizeDireccionInput, add);
-direccionRouter.put('/:id', authenticate, authorizeRoles('user', 'intermediario'), sanitizeDireccionInput, update);
-direccionRouter.delete('/:id', authenticate, authorizeRoles('user', 'intermediario'), remove);
+direccionRouter.post('/', authenticate, authorizeRoles('user', 'vendedor', 'tiendaRetiro', 'intermediario'), sanitizeDireccionInput, add);
+direccionRouter.put('/:id', authenticate, authorizeRoles('user', 'vendedor', 'tiendaRetiro', 'intermediario'), sanitizeDireccionInput, update);
+direccionRouter.delete('/:id', authenticate, authorizeRoles('user', 'vendedor', 'tiendaRetiro', 'intermediario'), remove);

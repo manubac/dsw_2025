@@ -9,6 +9,6 @@ cartaClassRouter.get('/', findAll);
 cartaClassRouter.get('/:id', findOne);
 
 // Solo los vendedores pueden gestionar las clases de cartas
-cartaClassRouter.post('/', authenticate, authorizeRoles('vendedor'), add);
-cartaClassRouter.put('/:id', authenticate, authorizeRoles('vendedor'), update);
-cartaClassRouter.delete('/:id', authenticate, authorizeRoles('vendedor'), remove);
+cartaClassRouter.post('/', authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), add);
+cartaClassRouter.put('/:id', authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), update);
+cartaClassRouter.delete('/:id', authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), remove);

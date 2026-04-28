@@ -1,15 +1,17 @@
 import { Request, Response } from 'express';
 import { orm } from '../shared/db/orm.js';
+import { AuthRequest } from '../shared/middleware/auth.js';
 import { ItemCarta } from './itemCarta.entity.js';
 import { Intermediario } from '../intermediario/intermediario.entity.js';
 import { Carta } from './carta.entity.js';
 import { Vendedor } from '../vendedor/vendedores.entity.js';
+import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
 
 const em=orm.em
 
 async function findAll(req: Request, res: Response) {
    try {
-       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor'] });
+       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor', 'uploaderTienda'] });
        // Formatear para cumplir con las expectativas del frontend
        const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
        const itemsFormateadas = items.map(item => {
@@ -33,7 +35,9 @@ async function findAll(req: Request, res: Response) {
              cardNumber: c.cardNumber,
              lang: c.lang ?? null,
            })),
-           uploader: item.uploaderVendedor,
+           uploader: item.uploaderTienda
+            ? { id: item.uploaderTienda.id, nombre: (item.uploaderTienda as any).nombre ?? null }
+            : item.uploaderVendedor,
            type: 'bundle',
          };
        });
@@ -46,7 +50,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
     try {
         const id=Number(req.params.id)
-        const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor'] });
+        const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor', 'uploaderTienda'] });
         const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
         const cartaItems = item.cartas.getItems();
         const totalPrice = cartaItems.reduce((sum, c) => sum + parseCartaPrice(c.price), 0);
@@ -67,9 +71,11 @@ async function findOne(req: Request, res: Response) {
             cardNumber: c.cardNumber ?? null,
             lang: c.lang ?? null,
           })),
-          uploader: item.uploaderVendedor
-            ? { id: item.uploaderVendedor.id, nombre: (item.uploaderVendedor as any).nombre ?? null }
-            : null,
+          uploader: item.uploaderTienda
+            ? { id: item.uploaderTienda.id, nombre: (item.uploaderTienda as any).nombre ?? null }
+            : item.uploaderVendedor
+              ? { id: item.uploaderVendedor.id, nombre: (item.uploaderVendedor as any).nombre ?? null }
+              : null,
           type: 'bundle',
         };
         res.status(200).json({message: 'found item', data: itemFormateado});
@@ -78,40 +84,46 @@ async function findOne(req: Request, res: Response) {
     }
 }
 
-async function add(req: Request, res: Response) {
+async function add(req: AuthRequest, res: Response) {
     const emReq = orm.em.fork();
     try {
         const { intermediariosIds, cartasIds, uploaderId, ...itemData } = req.body;
 
-        // Registro diagnóstico para ayudar a identificar fallos en las subidas
-        try {
-            console.log('itemCarta.add payload summary:', {
-                nameLength: itemData.name ? String(itemData.name).length : 0,
-                intermediariosCount: Array.isArray(intermediariosIds) ? intermediariosIds.length : 0,
-                cartasCount: Array.isArray(cartasIds) ? cartasIds.length : 0,
-                uploaderId
-            });
-        } catch (logErr) {
-            console.warn('Failed to log itemCarta payload summary', logErr);
-        }
+        let uploaderVendedor: Vendedor | null = null;
+        let uploaderTienda: TiendaRetiro | null = null;
 
-        // Validar uploaderId temprano para evitar errores 500 ambiguos
-        if (!uploaderId) {
-            return res.status(400).json({ message: 'uploaderId is required. Are you logged in as a vendedor?' });
-        }
+        if (req.actorRole === 'tiendaRetiro') {
+            uploaderTienda = req.actor as TiendaRetiro;
+        } else {
+            // Registro diagnóstico para ayudar a identificar fallos en las subidas
+            try {
+                console.log('itemCarta.add payload summary:', {
+                    nameLength: itemData.name ? String(itemData.name).length : 0,
+                    intermediariosCount: Array.isArray(intermediariosIds) ? intermediariosIds.length : 0,
+                    cartasCount: Array.isArray(cartasIds) ? cartasIds.length : 0,
+                    uploaderId
+                });
+            } catch (logErr) {
+                console.warn('Failed to log itemCarta payload summary', logErr);
+            }
 
-        // Buscar el cargador (solo un Vendedor puede subir items)
-        const uploader = await emReq.findOne(Vendedor, { id: uploaderId });
+            if (!uploaderId) {
+                return res.status(400).json({ message: 'uploaderId is required. Are you logged in as a vendedor?' });
+            }
 
-        if (!uploader) {
-            return res.status(400).json({ message: 'Uploader not found or not a vendedor' });
+            uploaderVendedor = await emReq.findOne(Vendedor, { id: uploaderId });
+
+            if (!uploaderVendedor) {
+                return res.status(400).json({ message: 'Uploader not found or not a vendedor' });
+            }
         }
 
         const item = emReq.create(ItemCarta, {
             ...itemData,
             stock: itemData.stock || 1,
             estado: 'disponible',
-            uploaderVendedor: uploader
+            ...(uploaderVendedor ? { uploaderVendedor } : {}),
+            ...(uploaderTienda ? { uploaderTienda } : {}),
         });
         if (intermediariosIds && Array.isArray(intermediariosIds)) {
             const intermediarios = await emReq.find(Intermediario, { id: { $in: intermediariosIds } });
@@ -132,17 +144,24 @@ async function add(req: Request, res: Response) {
     }
 }
 
-async function update(req: Request, res: Response) {
+async function update(req: AuthRequest, res: Response) {
     const emReq = orm.em.fork();
     try {
         const id=Number.parseInt(req.params.id as string)
         const { userId, intermediariosIds, cartasIds, ...updateData } = req.body;
 
-        const item = await emReq.findOneOrFail(ItemCarta, { id }, { populate: ['uploaderVendedor'] });
+        const item = await emReq.findOneOrFail(ItemCarta, { id }, { populate: ['uploaderVendedor', 'uploaderTienda'] });
 
-        // Verificar si el usuario es el cargador
-        if (!userId || !item.uploaderVendedor || item.uploaderVendedor.id !== userId) {
-            return res.status(403).json({ message: 'Only the uploader can edit this item' });
+        // Verificar ownership según el tipo de actor
+        const isTienda = req.actorRole === 'tiendaRetiro';
+        if (isTienda) {
+            if (!item.uploaderTienda || item.uploaderTienda.id !== req.actor!.id) {
+                return res.status(403).json({ message: 'Only the uploader can edit this item' });
+            }
+        } else {
+            if (!userId || !item.uploaderVendedor || item.uploaderVendedor.id !== userId) {
+                return res.status(403).json({ message: 'Only the uploader can edit this item' });
+            }
         }
 
         emReq.assign(item, updateData);

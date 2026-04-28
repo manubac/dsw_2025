@@ -3,6 +3,7 @@ import { BaseEntity } from "../shared/db/baseEntity.js";
 import {CartaClass } from "./cartaClass.entity.js";
 import { ItemCarta } from "./itemCarta.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
+import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 
 @Entity()
 export class Carta extends BaseEntity {
@@ -48,4 +49,7 @@ export class Carta extends BaseEntity {
 
   @ManyToOne(() => Vendedor, { nullable: true })
   uploader?: Rel<Vendedor>;
+
+  @ManyToOne(() => TiendaRetiro, { nullable: true })
+  uploaderTienda?: Rel<TiendaRetiro>;
 }

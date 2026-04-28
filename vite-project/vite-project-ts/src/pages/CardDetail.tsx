@@ -50,7 +50,7 @@ export function CardDetail() {
   }, [id, navigate])
 
   useEffect(() => {
-    if (!user || (user.role !== 'user' && user.role !== 'usuario') || !card?.id) return
+    if (!user || (user.role !== 'user' && user.role !== 'usuario' && user.role !== 'vendedor' && user.role !== 'tiendaRetiro') || !card?.id) return
     fetchApi('/api/wishlist')
       .then(r => r.json())
       .then(json => {
@@ -198,7 +198,7 @@ export function CardDetail() {
             </div>
           )}
 
-          {(user?.role === 'usuario' || user?.role === 'user') && (
+          {(user?.role === 'usuario' || user?.role === 'user' || user?.role === 'vendedor' || user?.role === 'tiendaRetiro') && (
             <button
               onClick={handleToggleWishlist}
               disabled={wishlistLoading}

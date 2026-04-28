@@ -4,6 +4,7 @@ import { Carta } from "./carta.entity.js";
 import { Intermediario } from "../intermediario/intermediario.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
+import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 
 @Entity()
 export class ItemCarta extends BaseEntity {
@@ -20,7 +21,10 @@ export class ItemCarta extends BaseEntity {
     estado!: string
 
     @ManyToOne(() => Vendedor, { nullable: true })
-    uploaderVendedor!: Rel<Vendedor>;
+    uploaderVendedor?: Rel<Vendedor>;
+
+    @ManyToOne(() => TiendaRetiro, { nullable: true })
+    uploaderTienda?: Rel<TiendaRetiro>;
 
     @ManyToMany(() => Carta, (Carta) => Carta.items)
     cartas = new Collection<Carta>(this)

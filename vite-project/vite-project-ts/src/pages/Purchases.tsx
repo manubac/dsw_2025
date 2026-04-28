@@ -90,7 +90,7 @@ export function Purchases() {
   }
 
   // Only users (compradores) can view purchases
-  if (user.role !== 'usuario' && user.role !== 'user') {
+  if (user.role !== 'usuario' && user.role !== 'user' && user.role !== 'vendedor' && user.role !== 'tiendaRetiro') {
     return (
       <div className="purchases-wrapper">
         <div className="purchases-card">

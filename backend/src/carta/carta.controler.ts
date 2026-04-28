@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { orm } from "../shared/db/orm.js";
+import { AuthRequest } from "../shared/middleware/auth.js";
 import { Carta } from "./carta.entity.js";
 import { CartaClass } from "./cartaClass.entity.js";
 import { Vendedor } from "../vendedor/vendedores.entity.js";
+import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import { resolveNamesAcrossLanguages, getSetAbbreviations } from "../identify/services/translationService.js";
@@ -195,7 +197,7 @@ async function findOne(req: Request, res: Response) {
 }
 
 // Agregar una carta
-async function add(req: Request, res: Response) {
+async function add(req: AuthRequest, res: Response) {
   const emReq = orm.em.fork();
   try {
     console.log("Sanitised input:", req.body.sanitisedInput);
@@ -213,10 +215,14 @@ async function add(req: Request, res: Response) {
       }
     }
 
-    // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
-    const vendedorId = req.body.userId ?? req.body.vendedorId;
-    if (vendedorId) {
-      cartaData.uploader = emReq.getReference(Vendedor, Number(vendedorId));
+    if (req.actorRole === 'tiendaRetiro') {
+      cartaData.uploaderTienda = emReq.getReference(TiendaRetiro, req.actor!.id as number);
+    } else {
+      // Si el frontend proporcionó vendedorId (vendedor logueado), enlazar uploader
+      const vendedorId = req.body.userId ?? req.body.vendedorId;
+      if (vendedorId) {
+        cartaData.uploader = emReq.getReference(Vendedor, Number(vendedorId));
+      }
     }
 
     const carta = emReq.create(Carta, cartaData);
@@ -263,21 +269,23 @@ async function update(req: Request, res: Response) {
 }
 
 // Eliminar una carta
-async function remove(req: Request, res: Response) {
+async function remove(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
-    const vendedorId = Number(req.body.userId ?? req.body.vendedorId);
-    if (!vendedorId) return res.status(400).json({ message: "vendedorId required for deletion" });
 
-    // populate uploader and items to perform ownership and safety checks
-    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader', 'items'] });
+    const carta = await em.findOneOrFail(Carta, { id }, { populate: ['uploader', 'uploaderTienda', 'items'] });
 
-    if (!carta.uploader) {
-      return res.status(403).json({ message: "You are not authorized to delete this carta" });
-    }
+    if (req.actorRole === 'tiendaRetiro') {
+      if (!carta.uploaderTienda || carta.uploaderTienda.id !== req.actor!.id) {
+        return res.status(403).json({ message: "You are not authorized to delete this carta" });
+      }
+    } else {
+      const vendedorId = Number(req.body.userId ?? req.body.vendedorId);
+      if (!vendedorId) return res.status(400).json({ message: "vendedorId required for deletion" });
 
-    if (carta.uploader.id !== vendedorId) {
-      return res.status(403).json({ message: "You are not authorized to delete this carta" });
+      if (!carta.uploader || carta.uploader.id !== vendedorId) {
+        return res.status(403).json({ message: "You are not authorized to delete this carta" });
+      }
     }
 
     // Check if any items are in existing compras referencing these items

@@ -3,6 +3,7 @@ import { orm } from "../shared/db/orm.js";
 import { AuthRequest } from "../shared/middleware/auth.js";
 import { Compra } from "./compra.entity.js";
 import { User } from "../user/user.entity.js";
+import { Vendedor } from "../vendedor/vendedores.entity.js";
 import { ItemCarta } from "../carta/itemCarta.entity.js";
 import { Carta } from "../carta/carta.entity.js";
 import { Direccion } from "../direccion/direccion.entity.js";
@@ -10,6 +11,27 @@ import { Envio } from "../envio/envio.entity.js";
 import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 import { Preference } from "mercadopago";
 import mpClient from '../shared/mercadopago.js'
+
+// Resuelve el User comprador para vendedores (tienen un User vinculado) y users normales.
+// Devuelve null para tiendas de retiro, que usan compradorTienda en su lugar.
+function resolveCompradorUser(req: AuthRequest): User | null {
+  if (req.actorRole === 'vendedor') {
+    return (req.actor as Vendedor).user as User;
+  }
+  if (req.actorRole === 'tiendaRetiro') {
+    return null;
+  }
+  return req.actor as User;
+}
+
+// Where clause para filtrar las compras del actor autenticado.
+function compradorWhereClause(req: AuthRequest): Record<string, any> {
+  if (req.actorRole === 'tiendaRetiro') {
+    return { compradorTienda: { id: req.actor!.id } };
+  }
+  const user = resolveCompradorUser(req);
+  return { comprador: { id: user!.id } };
+}
 
 const em = orm.em;
 
@@ -54,12 +76,12 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todas las compras
 async function findAll(req: AuthRequest, res: Response) {
   try {
-    // Siempre filtrar por las compras del usuario autenticado
-    const whereClause = { comprador: { id: req.actor!.id } };
+    const whereClause = compradorWhereClause(req);
 
     const compras = await em.find(Compra, whereClause, {
         populate: [
             "comprador",
+            "compradorTienda",
             "itemCartas",
             "itemCartas.cartas",
             "itemCartas.uploaderVendedor",
@@ -79,12 +101,12 @@ async function findOne(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    // Verificar propiedad: el usuario solo puede acceder a sus propias compras
-    const whereClause = { id, comprador: { id: req.actor!.id } };
+    const whereClause = { id, ...compradorWhereClause(req) };
 
     const compra = await em.findOne(Compra, whereClause, {
         populate: [
             "comprador",
+            "compradorTienda",
             "itemCartas",
             "itemCartas.cartas",
             "itemCartas.uploaderVendedor",
@@ -107,7 +129,9 @@ async function add(req: AuthRequest, res: Response) {
   try {
     const input = req.body.sanitizedInput;
 
-    const comprador = req.actor as User;
+    const compradorUser = resolveCompradorUser(req);
+    const compradorTienda = req.actorRole === 'tiendaRetiro' ? req.actor as TiendaRetiro : undefined;
+
     const direccionEntrega = input.direccionEntregaId
       ? await em.findOne(Direccion, { id: input.direccionEntregaId })
       : undefined;
@@ -116,10 +140,12 @@ async function add(req: AuthRequest, res: Response) {
         ? await em.findOne(Envio, { id: input.envioId })
         : undefined;
 
-    // Soporte para tienda única (legacy) o por vendedor
-    const tiendaRetiroGlobal = input.tiendaRetiroId
-      ? await em.findOne(TiendaRetiro, { id: Number(input.tiendaRetiroId) })
-      : undefined;
+    // Las tiendas de retiro solo pueden elegir su propia tienda como punto de retiro
+    const tiendaRetiroGlobal = compradorTienda
+      ? compradorTienda
+      : input.tiendaRetiroId
+        ? await em.findOne(TiendaRetiro, { id: Number(input.tiendaRetiroId) })
+        : undefined;
     const tiendaRetiroPorVendedor: Record<string, number | null> = input.tiendaRetiroPorVendedor ?? {};
 
     if (!input.items || !Array.isArray(input.items) || input.items.length === 0) {
@@ -221,7 +247,8 @@ async function add(req: AuthRequest, res: Response) {
         : tiendaRetiroGlobal;
 
       const compra = em.create(Compra, {
-        comprador,
+        ...(compradorUser ? { comprador: compradorUser } : {}),
+        ...(compradorTienda ? { compradorTienda } : {}),
         itemCartas: group.itemCartas,
         total: vendorTotal,
         estado: input.estado || 'pendiente',
@@ -251,8 +278,8 @@ async function createPreference(req: AuthRequest, res: Response) {
   try {
     const input = req.body.sanitizedInput;
 
-    // Use the authenticated user as the buyer
-    const comprador = req.actor as User;
+    const compradorUser = resolveCompradorUser(req);
+    const compradorTienda = req.actorRole === 'tiendaRetiro' ? req.actor as TiendaRetiro : undefined;
 
     if (!input.items || input.items.length === 0) {
       return res.status(400).json({ message: "Compra sin items" });
@@ -263,7 +290,8 @@ async function createPreference(req: AuthRequest, res: Response) {
     // ======================
 
     const compra = em.create(Compra, {
-      comprador,
+      ...(compradorUser ? { comprador: compradorUser } : {}),
+      ...(compradorTienda ? { compradorTienda } : {}),
       total: input.total,
       estado: "pendiente",
       nombre: input.nombre,
@@ -323,10 +351,7 @@ async function update(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    // Verificar propiedad mediante el token
-    const whereClause = { id, comprador: { id: req.actor!.id } };
-
-    const compra = await em.findOne(Compra, whereClause, { populate: ["itemCartas", "direccionEntrega"] });
+    const compra = await em.findOne(Compra, { id, ...compradorWhereClause(req) }, { populate: ["itemCartas", "direccionEntrega"] });
 
     if (!compra) return res.status(404).json({ message: "Compra not found or access denied" });
 
@@ -364,10 +389,7 @@ async function remove(req: AuthRequest, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    // Verificar propiedad mediante el token
-    const whereClause = { id, comprador: { id: req.actor!.id } };
-
-    const compra = await em.findOne(Compra, whereClause);
+    const compra = await em.findOne(Compra, { id, ...compradorWhereClause(req) });
 
     if (!compra) return res.status(404).json({ message: "Compra not found or access denied" });
 
@@ -384,8 +406,8 @@ async function retirar(req: AuthRequest, res: Response) {
 
     const compra = await em.findOne(
       Compra,
-      { id, comprador: { id: req.actor!.id } },
-      { populate: ['comprador'] }
+      { id, ...compradorWhereClause(req) },
+      { populate: ['comprador', 'compradorTienda'] }
     );
 
     if (!compra) return res.status(404).json({ message: 'Compra no encontrada o acceso denegado' });

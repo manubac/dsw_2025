@@ -24,7 +24,7 @@ export default function EditarItemPage() {
   const [mensaje, setMensaje] = useState("");
 
   useEffect(() => {
-    if (!user || user.role !== 'vendedor' || itemInicial?.uploader?.id !== user.id) {
+    if (!user || (user.role !== 'vendedor' && user.role !== 'tiendaRetiro') || itemInicial?.uploader?.id !== user.id) {
       setMensaje('No estás autorizado para editar este item.');
     }
   }, [user, itemInicial]);
@@ -46,7 +46,7 @@ export default function EditarItemPage() {
     }
   };
 
-  if (!user || user.role !== 'vendedor' || itemInicial?.uploader?.id !== user.id) {
+  if (!user || (user.role !== 'vendedor' && user.role !== 'tiendaRetiro') || itemInicial?.uploader?.id !== user.id) {
     return (
       <div className="card-form" style={{ flexDirection: "column", padding: "2rem" }}>
         <p className="text-center">No estás autorizado para editar este item.</p>

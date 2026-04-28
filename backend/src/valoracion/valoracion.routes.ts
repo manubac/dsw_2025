@@ -4,10 +4,10 @@ import { authenticate, authorizeRoles } from '../shared/middleware/auth.js';
 
 const router = Router();
 
-router.post('/', authenticate, authorizeRoles('user', 'vendedor'), createValoracion);
+router.post('/', authenticate, authorizeRoles('user', 'vendedor', 'tiendaRetiro'), createValoracion);
 
 // Must be before /:tipoObjeto/:objetoId to avoid route collision
-router.get('/mias', authenticate, authorizeRoles('user', 'vendedor'), getMyValoraciones);
+router.get('/mias', authenticate, authorizeRoles('user', 'vendedor', 'tiendaRetiro'), getMyValoraciones);
 
 // Público – cualquiera puede leer valoraciones y promedios
 router.get('/:tipoObjeto/:objetoId', getValoracionesByObjeto);

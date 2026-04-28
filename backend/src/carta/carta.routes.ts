@@ -36,8 +36,8 @@ cartaRouter.get("/:id", findOne);
 // Incrementar viewCount (fire-and-forget, sin auth)
 cartaRouter.post("/:id/view", incrementViewCount);
 
-// Solo los vendedores pueden crear, editar o eliminar cartas
-cartaRouter.post("/", authenticate, authorizeRoles('vendedor'), sanitizeCartaInput, add);
-cartaRouter.put("/:id", authenticate, authorizeRoles('vendedor'), sanitizeCartaInput, update);
-cartaRouter.patch("/:id", authenticate, authorizeRoles('vendedor'), sanitizeCartaInput, update);
-cartaRouter.delete("/:id", authenticate, authorizeRoles('vendedor'), remove);
+// Vendedores y tiendas de retiro pueden crear, editar o eliminar cartas
+cartaRouter.post("/", authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), sanitizeCartaInput, add);
+cartaRouter.put("/:id", authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), sanitizeCartaInput, update);
+cartaRouter.patch("/:id", authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), sanitizeCartaInput, update);
+cartaRouter.delete("/:id", authenticate, authorizeRoles('vendedor', 'tiendaRetiro'), remove);

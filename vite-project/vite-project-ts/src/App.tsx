@@ -44,7 +44,6 @@ import DebugCropPage from "./pages/DebugCropPage";
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'tiendaRetiro') return <Navigate to="/" replace />;
   return children;
 }
 
@@ -81,7 +80,14 @@ function VendedorRoute({ children }: { children: JSX.Element }) {
 function UserRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'user' && user.role !== 'usuario') return <Navigate to="/" replace />;
+  if (user.role !== 'user' && user.role !== 'usuario' && user.role !== 'vendedor' && user.role !== 'tiendaRetiro') return <Navigate to="/" replace />;
+  return children;
+}
+
+function PublicarRoute({ children }: { children: JSX.Element }) {
+  const { user } = useUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'vendedor' && user.role !== 'tiendaRetiro') return <Navigate to="/" replace />;
   return children;
 }
 
@@ -239,9 +245,9 @@ function App() {
                 <Route
                   path="mis-publicaciones"
                   element={
-                    <VendedorRoute>
+                    <PublicarRoute>
                       <MisPublicacionesPage />
-                    </VendedorRoute>
+                    </PublicarRoute>
                   }
                 />
 
