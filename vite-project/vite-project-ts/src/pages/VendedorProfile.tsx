@@ -73,6 +73,18 @@ export function VendedorProfile() {
         </div>
       </div>
 
+      {/* DESCRIPCIÓN DE COMPRA */}
+      {vendedor.descripcionCompra && (
+        <div className="bg-white border border-green-200 rounded-2xl p-6 shadow-sm mb-8">
+          <h2 className="text-lg font-semibold text-green-800 mb-3 flex items-center gap-2">
+            <span>📋</span> Información de retiro
+          </h2>
+          <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
+            {vendedor.descripcionCompra}
+          </p>
+        </div>
+      )}
+
       {/* PUBLICACIONES */}
       <div className="mb-10">
         <h2 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
