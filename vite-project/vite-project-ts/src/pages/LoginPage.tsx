@@ -91,6 +91,8 @@ export function LoginPage() {
         email: result.data.email,
         password: formData.password, // Guardamos solo temporalmente en contexto
         role: result.role ?? formData.rol,
+        is_email_verified: result.data.is_email_verified,
+        is_phone_verified: result.data.is_phone_verified,
       };
 
       // Guardar usuario en el contexto global
