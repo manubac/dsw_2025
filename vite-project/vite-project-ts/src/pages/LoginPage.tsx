@@ -90,7 +90,7 @@ export function LoginPage() {
         name: result.data.username || result.data.nombre || result.data.name || "Usuario",
         email: result.data.email,
         password: formData.password, // Guardamos solo temporalmente en contexto
-        role: formData.rol,
+        role: result.role ?? formData.rol,
       };
 
       // Guardar usuario en el contexto global
