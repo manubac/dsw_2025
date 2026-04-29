@@ -1,0 +1,43 @@
+### Generate invite
+POST http://localhost:3000/api/admin/store-invite
+x-admin-key: admin123
+
+### Validate token (replace TOKEN with value from previous response)
+GET http://localhost:3000/api/store-register/validate?token=TOKEN
+
+### Verify email (wrong code — expect 400)
+POST http://localhost:3000/api/store-register/verify-email
+Content-Type: application/json
+
+{ "token": "TOKEN", "code": "999999" }
+
+### Verify email (correct code)
+POST http://localhost:3000/api/store-register/verify-email
+Content-Type: application/json
+
+{ "token": "TOKEN", "code": "123456" }
+
+### Verify phone (correct code)
+POST http://localhost:3000/api/store-register/verify-phone
+Content-Type: application/json
+
+{ "token": "TOKEN", "code": "123456" }
+
+### Complete registration
+POST http://localhost:3000/api/store-register/complete
+Content-Type: application/json
+
+{
+  "token": "TOKEN",
+  "nombreTienda": "Tienda Test",
+  "email": "tienda@test.com",
+  "password": "test123",
+  "telefono": "+54 9 1234 5678",
+  "ciudad": "Rosario",
+  "direccion": "San Martín 1234",
+  "piso": "2",
+  "departamento": "B",
+  "alias": "tiendatest",
+  "cbu": "0000000000000000000000",
+  "descripcion": "Descripción de prueba"
+}
