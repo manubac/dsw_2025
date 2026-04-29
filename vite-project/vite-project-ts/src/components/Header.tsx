@@ -193,6 +193,8 @@ export function Header() {
       navigate("/mi-perfil");
     } else if (user?.role === 'user' || user?.role === 'usuario') {
       navigate("/mi-perfil-usuario");
+    } else if (user?.role === 'tiendaRetiro') {
+      navigate("/tienda-retiro/perfil");
     } else {
       navigate("/profile");
     }
