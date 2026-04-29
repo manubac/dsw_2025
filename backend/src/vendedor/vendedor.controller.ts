@@ -21,6 +21,9 @@ function sanitiseVendedorInput(
         cbu: req.body.cbu,
         items: req.body.items,
         descripcionCompra: req.body.descripcionCompra,
+        direccion: req.body.direccion,
+        piso: req.body.piso,
+        departamento: req.body.departamento,
     };
 
     Object.keys(req.body.sanitisedInput).forEach(key => {
