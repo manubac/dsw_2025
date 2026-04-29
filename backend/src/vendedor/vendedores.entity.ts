@@ -27,6 +27,15 @@ export class Vendedor extends BaseEntity {
     @Property({ type: 'text', nullable: true })
     descripcionCompra?: string
 
+    @Property({ type: 'string', nullable: true })
+    direccion?: string
+
+    @Property({ type: 'string', nullable: true })
+    piso?: string
+
+    @Property({ type: 'string', nullable: true })
+    departamento?: string
+
     @OneToMany(() => ItemCarta, (itemCarta) => itemCarta.uploaderVendedor)
     itemCartas = new Collection<ItemCarta>(this)
 
