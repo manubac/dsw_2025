@@ -96,7 +96,7 @@ export async function completeRegistration(req: Request, res: Response) {
       username: nombreTienda,
       email,
       password: hashedPassword,
-      role: 'vendedor',
+      role: 'user',
       is_email_verified: true,
       is_phone_verified: true,
     });
