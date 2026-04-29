@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { orm } from '../shared/db/orm.js';
 import { StoreInvite } from './storeInvite.entity.js';
-import { User } from '../user/user.entity.js';
-import { Vendedor } from '../vendedor/vendedores.entity.js';
+import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -65,7 +64,7 @@ export async function completeRegistration(req: Request, res: Response) {
   try {
     const {
       token, nombreTienda, email, password, telefono,
-      ciudad, direccion, piso, departamento, alias, cbu, descripcion,
+      ciudad, direccion,
     } = req.body;
 
     const em = orm.em.fork();
@@ -75,65 +74,49 @@ export async function completeRegistration(req: Request, res: Response) {
     if (!invite.emailVerified) return res.status(403).json({ message: 'Email no verificado' });
     if (!invite.phoneVerified) return res.status(403).json({ message: 'Teléfono no verificado' });
 
-    if (!nombreTienda || !email || !password || !telefono) {
+    if (!nombreTienda || !email || !password || !telefono || !direccion) {
       return res.status(400).json({ message: 'Faltan campos obligatorios' });
     }
     if (!isValidPhone(telefono)) {
       return res.status(400).json({ message: 'Formato de teléfono inválido. Usá +54 9 XXXX XXXX' });
     }
 
-    const existingUser = await em.findOne(User, { email });
-    if (existingUser) return res.status(409).json({ message: 'El email ya está registrado' });
+    const existingEmail = await em.findOne(TiendaRetiro, { email });
+    if (existingEmail) return res.status(409).json({ message: 'El email ya está registrado' });
 
-    const existingVendedor = await em.findOne(Vendedor, { nombre: nombreTienda });
-    if (existingVendedor) return res.status(409).json({ message: 'El nombre de tienda ya está en uso' });
-
-    const existingPhone = await em.findOne(Vendedor, { telefono });
-    if (existingPhone) return res.status(409).json({ message: 'El teléfono ya está en uso' });
+    const existingNombre = await em.findOne(TiendaRetiro, { nombre: nombreTienda });
+    if (existingNombre) return res.status(409).json({ message: 'El nombre de tienda ya está en uso' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = em.create(User, {
-      username: nombreTienda,
+    const tienda = em.create(TiendaRetiro, {
+      nombre: nombreTienda,
       email,
       password: hashedPassword,
-      role: 'user',
-      is_email_verified: true,
-      is_phone_verified: true,
-    });
-
-    const vendedor = em.create(Vendedor, {
-      user,
-      nombre: nombreTienda,
       telefono,
       ciudad: ciudad || undefined,
-      direccion: direccion || undefined,
-      piso: piso || undefined,
-      departamento: departamento || undefined,
-      alias: alias || undefined,
-      cbu: cbu || undefined,
-      descripcionCompra: descripcion || undefined,
+      direccion,
+      activo: true,
     });
 
     invite.used = true;
     await em.flush();
 
     const jwtToken = jwt.sign(
-      { userId: user.id, role: 'vendedor' },
+      { userId: tienda.id, role: 'tiendaRetiro' },
       process.env.JWT_SECRET || 'default_secret',
       { expiresIn: '7d' }
     );
 
     res.status(201).json({
-      message: 'Cuenta de vendedor creada',
+      message: 'Cuenta de tienda creada',
       token: jwtToken,
-      role: 'vendedor',
+      role: 'tiendaRetiro',
       data: {
-        id: user.id,
-        name: user.username,
-        email: user.email,
+        id: tienda.id,
+        name: tienda.nombre,
+        email: tienda.email,
         is_email_verified: true,
         is_phone_verified: true,
-        vendedorId: vendedor.id,
       },
     });
   } catch (e: any) {

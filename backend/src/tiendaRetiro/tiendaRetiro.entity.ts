@@ -23,4 +23,10 @@ export class TiendaRetiro extends BaseEntity {
 
   @Property({ type: 'string', nullable: true })
   ciudad?: string;
+
+  @Property({ type: 'string', nullable: true })
+  telefono?: string;
+
+  @Property({ type: 'text', nullable: true })
+  descripcionCompra?: string;
 }

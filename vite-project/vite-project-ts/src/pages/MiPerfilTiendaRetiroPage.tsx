@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { fetchApi } from '../services/api';
 
 export default function MiPerfilTiendaRetiroPage() {
   const { user } = useUser();
+  const navigate = useNavigate();
 
   const [tienda, setTienda]     = useState<any>(null);
   const [loading, setLoading]   = useState(true);
@@ -27,6 +29,38 @@ export default function MiPerfilTiendaRetiroPage() {
   const [horarioSaving, setHorarioSaving]   = useState(false);
   const [horarioMsg, setHorarioMsg]         = useState<string | null>(null);
 
+  // Publicaciones
+  const [publicaciones, setPublicaciones] = useState<any[]>([])
+  const [pubLoading, setPubLoading]       = useState(false)
+  const [showPubForm, setShowPubForm]     = useState(false)
+  const [editingPub, setEditingPub]       = useState<any | null>(null)
+  const [pubForm, setPubForm]             = useState({
+    name: '', price: '', rarity: '', setName: '', description: '', stock: '1', estado: 'disponible',
+  })
+  const [pubSaving, setPubSaving]   = useState(false)
+  const [pubMsg, setPubMsg]         = useState<string | null>(null)
+  const [pubError, setPubError]     = useState<string | null>(null)
+
+  // Descripción de compra
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft]     = useState('');
+  const [descSaving, setDescSaving]   = useState(false);
+  const [descMsg, setDescMsg]         = useState<string | null>(null);
+
+  // Filtros publicaciones
+  const [searchName, setSearchName]         = useState('');
+  const [filterEstado, setFilterEstado]     = useState<'all' | 'disponible' | 'pausado'>('all');
+  const [filterMinPrice, setFilterMinPrice] = useState('');
+  const [filterMaxPrice, setFilterMaxPrice] = useState('');
+  const [filterRareza, setFilterRareza]     = useState('');
+  const [filterSet, setFilterSet]           = useState('');
+
+  // Ventas directas
+  const [ventas, setVentas]               = useState<any[]>([])
+  const [ventasLoading, setVentasLoading] = useState(false)
+  const [finalizando, setFinalizando]     = useState<number | null>(null)
+  const [ventaMsg, setVentaMsg]           = useState<string | null>(null)
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -45,6 +79,21 @@ export default function MiPerfilTiendaRetiroPage() {
           activo:    t?.activo    ?? true,
         });
         setHorarioDraft(t?.horario ?? '');
+        setDescDraft(t?.descripcionCompra ?? '');
+
+        // Cargar publicaciones y ventas directas en paralelo
+        setPubLoading(true)
+        setVentasLoading(true)
+        const [pubRes, ventasRes] = await Promise.all([
+          fetchApi(`/api/tiendas/${user.id}/publicaciones`),
+          fetchApi(`/api/tiendas/${user.id}/ventas-directas`),
+        ])
+        const pubJson    = await pubRes.json()
+        const ventasJson = await ventasRes.json()
+        setPublicaciones(pubJson.data ?? [])
+        setVentas(ventasJson.data ?? [])
+        setPubLoading(false)
+        setVentasLoading(false)
       } catch (err) {
         console.error('Error loading tienda profile:', err);
       } finally {
@@ -108,6 +157,155 @@ export default function MiPerfilTiendaRetiroPage() {
     } finally {
       setHorarioSaving(false);
     }
+  };
+
+  const saveDesc = async () => {
+    if (!user?.id) return;
+    setDescSaving(true);
+    setDescMsg(null);
+    try {
+      const res = await fetchApi(`/api/tiendas/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descripcionCompra: descDraft }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      setTienda((prev: any) => ({ ...prev, descripcionCompra: descDraft }));
+      setEditingDesc(false);
+      setDescMsg('Descripción guardada.');
+    } catch {
+      setDescMsg('Error al guardar.');
+    } finally {
+      setDescSaving(false);
+    }
+  };
+
+  const resetPubForm = () => {
+    setPubForm({ name: '', price: '', rarity: '', setName: '', description: '', stock: '1', estado: 'disponible' })
+    setEditingPub(null)
+    setShowPubForm(false)
+    setPubMsg(null)
+    setPubError(null)
+  }
+
+  const handlePubChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setPubForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSavePub = async () => {
+    if (!user?.id) return
+    setPubSaving(true)
+    setPubMsg(null)
+    setPubError(null)
+    try {
+      const body = {
+        name:        pubForm.name,
+        price:       Number(pubForm.price),
+        rarity:      pubForm.rarity || undefined,
+        setName:     pubForm.setName || undefined,
+        description: pubForm.description,
+        stock:       Number(pubForm.stock),
+        estado:      pubForm.estado,
+      }
+      if (editingPub) {
+        const res = await fetchApi(`/api/tiendas/${user.id}/publicaciones/${editingPub.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) throw new Error((await res.json()).message)
+        setPublicaciones(prev => prev.map(p => p.id === editingPub.id ? { ...p, ...body } : p))
+      } else {
+        const res = await fetchApi(`/api/tiendas/${user.id}/publicaciones`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.message)
+        setPublicaciones(prev => [json.data, ...prev])
+      }
+      setPubMsg(editingPub ? 'Publicación actualizada.' : 'Publicación creada.')
+      resetPubForm()
+    } catch (err: any) {
+      setPubError(err.message || 'Error al guardar.')
+    } finally {
+      setPubSaving(false)
+    }
+  }
+
+  const handleEditPub = (pub: any) => {
+    const item = pub.items?.[0]
+    setPubForm({
+      name:        pub.name        ?? '',
+      price:       pub.price       ?? '',
+      rarity:      pub.rarity      ?? '',
+      setName:     pub.setName     ?? '',
+      description: item?.description ?? '',
+      stock:       String(item?.stock ?? 1),
+      estado:      item?.estado    ?? 'disponible',
+    })
+    setEditingPub(pub)
+    setShowPubForm(true)
+    setPubMsg(null)
+    setPubError(null)
+  }
+
+  const handleDeletePub = async (cartaId: number) => {
+    if (!user?.id) return
+    if (!confirm('¿Eliminar esta publicación?')) return
+    try {
+      const res = await fetchApi(`/api/tiendas/${user.id}/publicaciones/${cartaId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).message)
+      setPublicaciones(prev => prev.filter(p => p.id !== cartaId))
+    } catch (err: any) {
+      alert(err.message || 'Error al eliminar')
+    }
+  }
+
+  const handleFinalizarVenta = async (compraId: number) => {
+    if (!user?.id) return
+    if (!confirm('¿Confirmás que el comprador pagó y retiró el pedido?')) return
+    setFinalizando(compraId)
+    setVentaMsg(null)
+    try {
+      const res = await fetchApi(`/api/tiendas/${user.id}/ventas/${compraId}/finalizar-directo`, { method: 'PATCH' })
+      if (!res.ok) throw new Error((await res.json()).message)
+      setVentas(prev => prev.map(v => v.id === compraId ? { ...v, estado: 'finalizado' } : v))
+      setVentaMsg(`Orden #${compraId} finalizada.`)
+    } catch (err: any) {
+      alert(err.message || 'Error al finalizar')
+    } finally {
+      setFinalizando(null)
+    }
+  }
+
+  const rarezasUnicas = [...new Set(publicaciones.map((p: any) => p.rarity).filter(Boolean))];
+  const setsUnicos    = [...new Set(publicaciones.map((p: any) => p.setName).filter(Boolean))];
+
+  const publicacionesFiltradas = publicaciones.filter((p: any) => {
+    const precio = p.price ? parseFloat(String(p.price).replace(/[^0-9.]/g, '')) : 0;
+    const min = filterMinPrice !== '' ? parseFloat(filterMinPrice) : -Infinity;
+    const max = filterMaxPrice !== '' ? parseFloat(filterMaxPrice) : Infinity;
+    const item = p.items?.[0];
+    return (
+      (searchName === '' || p.name?.toLowerCase().includes(searchName.toLowerCase())) &&
+      (filterEstado === 'all' || item?.estado === filterEstado) &&
+      precio >= min && precio <= max &&
+      (filterRareza === '' || p.rarity === filterRareza) &&
+      (filterSet === '' || p.setName === filterSet)
+    );
+  });
+
+  const hayFiltrosActivos = searchName !== '' || filterEstado !== 'all' ||
+    filterMinPrice !== '' || filterMaxPrice !== '' ||
+    filterRareza !== '' || filterSet !== '';
+
+  const limpiarFiltros = () => {
+    setSearchName(''); setFilterEstado('all');
+    setFilterMinPrice(''); setFilterMaxPrice('');
+    setFilterRareza(''); setFilterSet('');
   };
 
   if (loading) {
@@ -320,13 +518,294 @@ export default function MiPerfilTiendaRetiroPage() {
           </div>
         </div>
 
-        {/* ── MIS PUBLICACIONES (placeholder) ── */}
+        {/* ── DESCRIPCIÓN DE COMPRA ── */}
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-5">Mis Publicaciones</h2>
-          <div className="text-center py-12">
-            <div className="text-5xl mb-3 opacity-30">🃏</div>
-            <p className="text-gray-400">Próximamente: publicaciones de la tienda.</p>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-800">Descripción de compra</h2>
+            {!editingDesc && (
+              <button
+                onClick={() => { setEditingDesc(true); setDescMsg(null); }}
+                className="text-xs text-orange-500 hover:text-orange-600 border border-orange-200 hover:border-orange-300 px-3 py-1.5 rounded-full transition"
+              >
+                ✏ Editar
+              </button>
+            )}
           </div>
+
+          <p className="text-xs text-gray-400 mb-3">
+            Información que verán los compradores sobre tus lugares y días de retiro.
+          </p>
+
+          {descMsg && (
+            <div className="mb-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{descMsg}</div>
+          )}
+
+          {editingDesc ? (
+            <>
+              <textarea
+                value={descDraft}
+                onChange={e => setDescDraft(e.target.value)}
+                rows={4}
+                disabled={descSaving}
+                placeholder={`Ej: Podés retirar tu pedido en la tienda de Lunes a Viernes de 10 a 20hs.`}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 transition resize-none disabled:opacity-60"
+              />
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={saveDesc}
+                  disabled={descSaving}
+                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition"
+                >
+                  {descSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button
+                  onClick={() => { setEditingDesc(false); setDescDraft(tienda?.descripcionCompra || ''); setDescMsg(null); }}
+                  className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-1.5 rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className={`text-sm leading-relaxed whitespace-pre-wrap ${tienda?.descripcionCompra ? 'text-gray-700' : 'text-gray-400 italic'}`}>
+              {tienda?.descripcionCompra || 'Todavía no agregaste información de retiro para tus compradores.'}
+            </p>
+          )}
+        </div>
+
+        {/* ── MIS PUBLICACIONES ── */}
+        <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-gray-800">Mis Publicaciones</h2>
+              <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-medium">
+                {publicacionesFiltradas.length}{hayFiltrosActivos ? ` de ${publicaciones.length}` : ''}
+              </span>
+            </div>
+            <button
+              onClick={() => navigate('/publicar')}
+              className="bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition shadow-sm shadow-orange-200"
+            >
+              + Nueva
+            </button>
+          </div>
+
+          {pubMsg && (
+            <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{pubMsg}</div>
+          )}
+
+          {/* Formulario inline solo para editar */}
+          {showPubForm && editingPub && (
+            <div className="mb-6 p-4 bg-amber-50 border border-orange-100 rounded-xl">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Editar publicación</h3>
+              {pubError && (
+                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{pubError}</div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { name: 'name',    label: 'Nombre de la carta *', type: 'text'   },
+                  { name: 'price',   label: 'Precio ($) *',         type: 'number' },
+                  { name: 'stock',   label: 'Stock *',              type: 'number' },
+                  { name: 'rarity',  label: 'Rareza',               type: 'text'   },
+                  { name: 'setName', label: 'Set',                  type: 'text'   },
+                ].map(f => (
+                  <div key={f.name}>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+                    <input
+                      type={f.type}
+                      name={f.name}
+                      value={(pubForm as any)[f.name]}
+                      onChange={handlePubChange}
+                      disabled={pubSaving}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 transition disabled:opacity-60"
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+                  <select
+                    name="estado"
+                    value={pubForm.estado}
+                    onChange={handlePubChange}
+                    disabled={pubSaving}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 transition disabled:opacity-60"
+                  >
+                    <option value="disponible">Disponible</option>
+                    <option value="pausado">Pausado</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                  <textarea
+                    name="description"
+                    value={pubForm.description}
+                    onChange={handlePubChange}
+                    disabled={pubSaving}
+                    rows={2}
+                    placeholder="Estado de la carta, condición, etc."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 transition disabled:opacity-60 resize-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={handleSavePub}
+                  disabled={pubSaving}
+                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition"
+                >
+                  {pubSaving ? 'Guardando...' : 'Actualizar'}
+                </button>
+                <button
+                  onClick={resetPubForm}
+                  className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-sm font-medium px-5 py-2 rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros */}
+          <div className="space-y-3 mb-4">
+            <input
+              type="text"
+              placeholder="Buscar por nombre..."
+              value={searchName}
+              onChange={e => setSearchName(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 transition"
+            />
+
+            <div className="flex flex-wrap gap-2 items-center">
+              {(['all', 'disponible', 'pausado'] as const).map(estado => (
+                <button
+                  key={estado}
+                  onClick={() => setFilterEstado(estado)}
+                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition ${
+                    filterEstado === estado
+                      ? 'bg-orange-500 border-orange-500 text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300'
+                  }`}
+                >
+                  {estado === 'all' ? 'Todas' : estado.charAt(0).toUpperCase() + estado.slice(1)}
+                </button>
+              ))}
+
+              <div className="flex items-center gap-1 ml-auto">
+                <input
+                  type="number"
+                  placeholder="$ min"
+                  value={filterMinPrice}
+                  onChange={e => setFilterMinPrice(e.target.value)}
+                  className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-orange-400 transition"
+                />
+                <span className="text-gray-400 text-xs">—</span>
+                <input
+                  type="number"
+                  placeholder="$ max"
+                  value={filterMaxPrice}
+                  onChange={e => setFilterMaxPrice(e.target.value)}
+                  className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-orange-400 transition"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 flex-wrap items-center">
+              <select
+                value={filterRareza}
+                onChange={e => setFilterRareza(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-orange-400 transition bg-white"
+              >
+                <option value="">Rareza: todas</option>
+                {rarezasUnicas.map((r: string) => <option key={r} value={r}>{r}</option>)}
+              </select>
+
+              <select
+                value={filterSet}
+                onChange={e => setFilterSet(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-orange-400 transition bg-white"
+              >
+                <option value="">Set: todos</option>
+                {setsUnicos.map((s: string) => <option key={s} value={s}>{s}</option>)}
+              </select>
+
+              {hayFiltrosActivos && (
+                <button
+                  onClick={limpiarFiltros}
+                  className="text-xs text-orange-500 hover:text-orange-600 border border-orange-200 px-3 py-1.5 rounded-full transition"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Grilla */}
+          {pubLoading ? (
+            <p className="text-sm text-gray-400">Cargando...</p>
+          ) : publicaciones.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-5xl mb-3 opacity-40">🃏</div>
+              <p className="text-gray-400">No tenés publicaciones activas.</p>
+              <button
+                onClick={() => navigate('/publicar')}
+                className="mt-4 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-5 py-2 rounded-lg transition"
+              >
+                Publicar primera carta
+              </button>
+            </div>
+          ) : publicacionesFiltradas.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-3 opacity-40">🔍</div>
+              <p className="text-gray-400">No hay publicaciones que coincidan con los filtros.</p>
+            </div>
+          ) : (
+            <div className="max-h-[600px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4">
+                {publicacionesFiltradas.map((pub: any) => {
+                  const item = pub.items?.[0];
+                  return (
+                    <div
+                      key={pub.id}
+                      className="bg-amber-50 border border-orange-100 hover:border-orange-300 rounded-xl p-3 transition-all group cursor-pointer hover:shadow-md"
+                      onClick={() => handleEditPub(pub)}
+                    >
+                      <div className="relative rounded-lg overflow-hidden mb-3 bg-white border border-orange-100" style={{ aspectRatio: '3/4' }}>
+                        <img
+                          src={pub.image || '/placeholder-image.png'}
+                          alt={pub.name}
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-image.png'; }}
+                        />
+                      </div>
+                      <p className="text-gray-800 text-sm font-semibold truncate leading-tight">{pub.name}</p>
+                      <p className="text-orange-500 font-bold text-sm mt-0.5">${pub.price}</p>
+                      <span className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full font-medium ${
+                        item?.estado === 'disponible'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {item?.estado ?? '—'}
+                      </span>
+                      <div className="flex gap-1.5 mt-2.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleEditPub(pub); }}
+                          className="flex-1 bg-white hover:bg-orange-500 border border-orange-200 hover:border-orange-500 text-gray-600 hover:text-white text-xs font-medium py-1.5 rounded-lg transition-all"
+                        >
+                          ✏ Editar
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeletePub(pub.id); }}
+                          className="bg-white hover:bg-red-50 border border-red-200 text-red-400 hover:text-red-600 text-xs px-2 py-1.5 rounded-lg transition-all"
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── VALORACIONES (placeholder) ── */}
@@ -338,13 +817,65 @@ export default function MiPerfilTiendaRetiroPage() {
           </div>
         </div>
 
-        {/* ── MIS VENTAS (placeholder) ── */}
+        {/* ── MIS VENTAS (ventas directas) ── */}
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-800 mb-5">Mis Ventas</h2>
-          <div className="text-center py-12">
-            <div className="text-5xl mb-3 opacity-30">🏪</div>
-            <p className="text-gray-400">Próximamente: ventas de las publicaciones de esta tienda.</p>
-          </div>
+          {ventaMsg && (
+            <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{ventaMsg}</div>
+          )}
+          {ventasLoading ? (
+            <p className="text-sm text-gray-400">Cargando...</p>
+          ) : ventas.length === 0 ? (
+            <div className="text-center py-10">
+              <div className="text-4xl mb-2 opacity-30">🏪</div>
+              <p className="text-gray-400 text-sm">No tenés ventas directas aún.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {ventas.map((venta: any) => (
+                <div key={venta.id} className="p-4 border border-gray-100 rounded-xl hover:border-orange-200 transition">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">Orden #{venta.id}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {venta.nombre} · {venta.email}
+                        {venta.telefono && ` · ${venta.telefono}`}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(venta.createdAt).toLocaleDateString('es-AR')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium border ${
+                        venta.estado === 'finalizado'
+                          ? 'bg-green-100 text-green-700 border-green-200'
+                          : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                      }`}>
+                        {venta.estado === 'finalizado' ? 'Finalizado' : 'Pendiente'}
+                      </span>
+                      {venta.estado === 'pendiente' && (
+                        <button
+                          onClick={() => handleFinalizarVenta(venta.id)}
+                          disabled={finalizando === venta.id}
+                          className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold px-3 py-1 rounded-lg transition"
+                        >
+                          {finalizando === venta.id ? '...' : 'Finalizar'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    {(venta.items ?? []).map((it: any, i: number) => (
+                      <p key={i} className="text-xs text-gray-600">
+                        {it.cartaNombre} × {it.cantidad} — ${it.precio}
+                      </p>
+                    ))}
+                    <p className="text-sm font-semibold text-gray-800 mt-1">Total: ${venta.total}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

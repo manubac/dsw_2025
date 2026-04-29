@@ -154,6 +154,7 @@ async function add(req: AuthRequest, res: Response) {
 
     // Agrupar items por vendedor
     const vendorMap = new Map<number, { itemCartas: ItemCarta[]; items: any[] }>();
+    const tiendaMap = new Map<number, { tienda: TiendaRetiro; itemCartas: ItemCarta[]; items: any[] }>();
 
     for (const reqItem of input.items) {
       const requestedQty = reqItem.quantity || 1;
@@ -197,7 +198,7 @@ async function add(req: AuthRequest, res: Response) {
         const carta = await em.findOne(
           Carta,
           { id: reqItem.cartaId },
-          { populate: ['items', 'items.uploaderVendedor', 'uploader'] }
+          { populate: ['items', 'items.uploaderVendedor', 'items.uploaderTienda', 'uploader', 'uploaderTienda'] }
         );
 
         if (!carta) {
@@ -215,19 +216,36 @@ async function add(req: AuthRequest, res: Response) {
         availableItem.stock -= requestedQty;
         if (availableItem.stock < 0) availableItem.stock = 0;
 
-        const vendorId = availableItem.uploaderVendedor?.id ?? carta.uploader?.id ?? 0;
+        // Detectar si es item de tienda
+        const tiendaUploader = (availableItem as any).uploaderTienda ?? (carta as any).uploaderTienda;
 
-        if (!vendorMap.has(vendorId)) {
-          vendorMap.set(vendorId, { itemCartas: [], items: [] });
+        if (tiendaUploader?.id) {
+          const tiendaId = tiendaUploader.id as number;
+          if (!tiendaMap.has(tiendaId)) {
+            tiendaMap.set(tiendaId, { tienda: tiendaUploader as TiendaRetiro, itemCartas: [], items: [] });
+          }
+          const tGroup = tiendaMap.get(tiendaId)!;
+          tGroup.itemCartas.push(availableItem);
+          tGroup.items.push({
+            cartaId:  reqItem.cartaId,
+            quantity: reqItem.quantity,
+            price:    reqItem.price,
+            title:    reqItem.title,
+          });
+        } else {
+          const vendorId = availableItem.uploaderVendedor?.id ?? carta.uploader?.id ?? 0;
+          if (!vendorMap.has(vendorId)) {
+            vendorMap.set(vendorId, { itemCartas: [], items: [] });
+          }
+          const group = vendorMap.get(vendorId)!;
+          group.itemCartas.push(availableItem);
+          group.items.push({
+            cartaId:  reqItem.cartaId,
+            quantity: reqItem.quantity,
+            price:    reqItem.price,
+            title:    reqItem.title,
+          });
         }
-        const group = vendorMap.get(vendorId)!;
-        group.itemCartas.push(availableItem);
-        group.items.push({
-          cartaId: reqItem.cartaId,
-          quantity: reqItem.quantity,
-          price: reqItem.price,
-          title: reqItem.title,
-        });
       }
     }
 
@@ -260,6 +278,30 @@ async function add(req: AuthRequest, res: Response) {
         tiendaRetiro: tiendaRetiro ?? undefined,
         metodoPago: input.metodoPago,
         items: group.items,
+      });
+
+      compras.push(compra);
+    }
+
+    // Crear una Compra por cada tienda (venta directa)
+    for (const [, tGroup] of tiendaMap) {
+      const tiendaTotal = tGroup.items.reduce(
+        (sum, i) => sum + (Number(i.price) || 0) * (i.quantity || 1),
+        0
+      );
+
+      const compra = em.create(Compra, {
+        ...(compradorUser   ? { comprador: compradorUser }   : {}),
+        ...(compradorTienda ? { compradorTienda }            : {}),
+        itemCartas:   tGroup.itemCartas,
+        total:        tiendaTotal,
+        estado:       'pendiente',
+        nombre:       input.nombre,
+        email:        input.email,
+        telefono:     input.telefono,
+        tiendaRetiro: tGroup.tienda,
+        metodoPago:   input.metodoPago,
+        items:        tGroup.items,
       });
 
       compras.push(compra);

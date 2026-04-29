@@ -212,7 +212,7 @@ export function StoreRegistrationPage() {
           name: completeData.data.name,
           email: completeData.data.email,
           password: '',
-          role: 'vendedor',
+          role: 'tiendaRetiro',
           is_email_verified: true,
           is_phone_verified: true,
         },

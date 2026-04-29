@@ -53,7 +53,12 @@
       "Bash(pnpm run *)",
       "Read(//c/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/**)",
       "Read(//c/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/**)",
-      "Bash(bash \"C:/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/volen/dsw_2025\")"
+      "Bash(bash \"C:/Users/volen/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/volen/dsw_2025\")",
+      "Bash(PGPASSWORD=post1234 psql -U postgres -d heroclash_dsw -c \"\\\\dt tienda*\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/users/login -H \"Content-Type: application/json\" -d '{\"email\":\"nicovolentiera@gmail.com\",\"password\":\"123456\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/tiendas -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s http://localhost:3000/api/tiendas)"
     ]
   }
 }

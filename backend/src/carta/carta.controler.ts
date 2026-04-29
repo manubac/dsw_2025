@@ -49,7 +49,7 @@ function sanitizeCartaInput(req: Request, res: Response, next: NextFunction) {
 // Obtener todas las cartas
 async function findAll(req: Request, res: Response) {
   try {
-    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.cartas", "items.intermediarios.direccion", "uploader"] });
+    const cartas = await em.find(Carta, {}, { populate: ["cartaClass", "items", "items.cartas", "items.intermediarios.direccion", "uploader", "uploaderTienda"] });
 
     // Bulk-fetch set abbreviations (TCGdex slug → official abbr, e.g. "sv3pt5" → "MEW")
     const setCodes = [...new Set(
@@ -120,6 +120,17 @@ async function findAll(req: Request, res: Response) {
                 nombre: (carta.uploader as any).nombre,
                 rating: ratings.count > 0 ? ratings.sum / ratings.count : 0,
                 reviewsCount: ratings.count,
+            };
+        }
+
+        if ((carta as any).uploaderTienda) {
+            const t = (carta as any).uploaderTienda;
+            cartaFormateada.uploaderTienda = {
+                id: t.id,
+                nombre: t.nombre,
+                direccion: t.direccion,
+                horario: t.horario ?? null,
+                ciudad: t.ciudad ?? null,
             };
         }
 

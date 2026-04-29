@@ -6,6 +6,8 @@ import { Compra } from "../compra/compra.entity.js";
 import { sendEmail } from "../shared/mailer.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { Carta } from "../carta/carta.entity.js";
+import { ItemCarta } from "../carta/itemCarta.entity.js";
 
 const em = orm.em;
 
@@ -18,6 +20,28 @@ export function sanitizeTiendaRetiroInput(req: Request, res: Response, next: Nex
     horario: req.body.horario,
     ciudad: req.body.ciudad,
     activo: req.body.activo,
+    descripcionCompra: req.body.descripcionCompra,
+  };
+  Object.keys(req.body.sanitizedInput).forEach((key) => {
+    if (req.body.sanitizedInput[key] === undefined) {
+      delete req.body.sanitizedInput[key];
+    }
+  });
+  next();
+}
+
+export function sanitizePublicacionTiendaInput(req: Request, res: Response, next: NextFunction) {
+  req.body.sanitizedInput = {
+    name:        req.body.name,
+    price:       req.body.price,
+    rarity:      req.body.rarity,
+    setName:     req.body.setName,
+    setCode:     req.body.setCode,
+    cardNumber:  req.body.cardNumber,
+    lang:        req.body.lang,
+    description: req.body.description,
+    stock:       req.body.stock,
+    estado:      req.body.estado,
   };
   Object.keys(req.body.sanitizedInput).forEach((key) => {
     if (req.body.sanitizedInput[key] === undefined) {
@@ -107,12 +131,17 @@ export async function getVentas(req: Request, res: Response) {
       Compra,
       { tiendaRetiro: { id } },
       {
-        populate: ["comprador", "itemCartas", "itemCartas.uploaderVendedor"],
+        populate: ["comprador", "itemCartas", "itemCartas.uploaderVendedor", "itemCartas.uploaderTienda"],
         orderBy: { createdAt: "DESC" },
       }
     );
 
-    const data = compras.map((compra) => {
+    // Solo flujo 3 actores: items tienen uploaderVendedor
+    const comprasFiltradas = compras.filter((c) =>
+      c.itemCartas.getItems().some((ic) => (ic as any).uploaderVendedor?.id != null)
+    );
+
+    const data = comprasFiltradas.map((compra) => {
       const vendedoresMap = new Map<number, { nombre: string; alias: string | null; cbu: string | null }>();
       for (const itemCarta of compra.itemCartas) {
         const v = (itemCarta as any).uploaderVendedor;
@@ -123,18 +152,18 @@ export async function getVentas(req: Request, res: Response) {
 
       const items = (compra.items ?? []).map((i) => ({
         cartaNombre: i.title ?? `Carta #${i.cartaId}`,
-        cantidad: i.quantity,
-        precio: i.price ?? 0,
+        cantidad:    i.quantity,
+        precio:      i.price ?? 0,
       }));
 
       return {
-        id: compra.id,
-        estado: compra.estado,
-        total: compra.total,
+        id:        compra.id,
+        estado:    compra.estado,
+        total:     compra.total,
         createdAt: compra.createdAt,
         comprador: {
           nombre: (compra.comprador as any)?.username || compra.nombre || "Comprador",
-          email: (compra.comprador as any)?.email || compra.email || "",
+          email:  (compra.comprador as any)?.email    || compra.email  || "",
         },
         vendedores: Array.from(vendedoresMap.values()),
         items,
@@ -246,6 +275,185 @@ export async function finalizarCompra(req: Request, res: Response) {
         html
       );
     }
+
+    res.json({ message: 'Compra finalizada', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function getPublicaciones(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const cartas = await orm.em.find(
+      Carta,
+      { uploaderTienda: { id } },
+      { populate: ['items'], orderBy: { id: 'DESC' } }
+    );
+    res.json({ data: cartas });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function addPublicacion(req: Request, res: Response) {
+  try {
+    const tiendaId = Number(req.params.id);
+    const input = req.body.sanitizedInput;
+
+    if (!input.name || input.price === undefined || input.stock === undefined) {
+      return res.status(400).json({ message: 'name, price y stock son obligatorios' });
+    }
+
+    const tienda = await orm.em.findOne(TiendaRetiro, { id: tiendaId });
+    if (!tienda) return res.status(404).json({ message: 'Tienda no encontrada' });
+
+    const itemCarta = orm.em.create(ItemCarta, {
+      name:          input.name,
+      description:   input.description ?? '',
+      stock:         Number(input.stock),
+      estado:        input.estado ?? 'disponible',
+      uploaderTienda: tienda,
+    });
+
+    const carta = orm.em.create(Carta, {
+      name:           input.name,
+      price:          String(input.price),
+      rarity:         input.rarity,
+      setName:        input.setName,
+      setCode:        input.setCode,
+      cardNumber:     input.cardNumber,
+      lang:           input.lang,
+      uploaderTienda: tienda,
+      viewCount:      0,
+    });
+    carta.items.add(itemCarta);
+
+    await orm.em.flush();
+    res.status(201).json({ message: 'Publicación creada', data: carta });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function updatePublicacion(req: Request, res: Response) {
+  try {
+    const tiendaId = Number(req.params.id);
+    const cartaId  = Number(req.params.cartaId);
+    const input    = req.body.sanitizedInput;
+
+    const carta = await orm.em.findOne(
+      Carta,
+      { id: cartaId, uploaderTienda: { id: tiendaId } },
+      { populate: ['items'] }
+    );
+    if (!carta) return res.status(404).json({ message: 'Publicación no encontrada' });
+
+    if (input.name       !== undefined) carta.name      = input.name;
+    if (input.price      !== undefined) carta.price     = String(input.price);
+    if (input.rarity     !== undefined) carta.rarity    = input.rarity;
+    if (input.setName    !== undefined) carta.setName   = input.setName;
+    if (input.setCode    !== undefined) carta.setCode   = input.setCode;
+    if (input.cardNumber !== undefined) carta.cardNumber = input.cardNumber;
+
+    const item = carta.items.getItems()[0];
+    if (item) {
+      if (input.description !== undefined) item.description = input.description;
+      if (input.stock       !== undefined) item.stock       = Number(input.stock);
+      if (input.estado      !== undefined) item.estado      = input.estado;
+      if (input.name        !== undefined) item.name        = input.name;
+    }
+
+    await orm.em.flush();
+    res.json({ message: 'Publicación actualizada', data: carta });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function removePublicacion(req: Request, res: Response) {
+  try {
+    const tiendaId = Number(req.params.id);
+    const cartaId  = Number(req.params.cartaId);
+
+    const carta = await orm.em.findOne(
+      Carta,
+      { id: cartaId, uploaderTienda: { id: tiendaId } },
+      { populate: ['items', 'items.compras'] }
+    );
+    if (!carta) return res.status(404).json({ message: 'Publicación no encontrada' });
+
+    const hasActive = carta.items.getItems().some((ic) =>
+      ic.compras.getItems().some((c) => c.estado === 'pendiente')
+    );
+    if (hasActive) {
+      return res.status(400).json({ message: 'No se puede eliminar una publicación con compras pendientes' });
+    }
+
+    await orm.em.removeAndFlush(carta);
+    res.json({ message: 'Publicación eliminada' });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function getVentasDirectas(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const compras = await orm.em.find(
+      Compra,
+      { tiendaRetiro: { id } },
+      {
+        populate: ['comprador', 'itemCartas', 'itemCartas.uploaderTienda'],
+        orderBy: { createdAt: 'DESC' },
+      }
+    );
+
+    const directas = compras.filter((c) =>
+      c.itemCartas.getItems().some((ic) => (ic as any).uploaderTienda?.id === id)
+    );
+
+    const data = directas.map((compra) => ({
+      id:        compra.id,
+      estado:    compra.estado,
+      total:     compra.total,
+      createdAt: compra.createdAt,
+      nombre:    (compra.comprador as any)?.username || compra.nombre || 'Comprador',
+      email:     (compra.comprador as any)?.email    || compra.email  || '',
+      telefono:  compra.telefono ?? '',
+      items:     (compra.items ?? []).map((i) => ({
+        cartaNombre: i.title ?? `Carta #${i.cartaId}`,
+        cantidad:    i.quantity,
+        precio:      i.price ?? 0,
+      })),
+    }));
+
+    res.json({ data });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function finalizarDirecto(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const tiendaId = Number(req.params.id);
+
+    const compra = await orm.em.findOne(
+      Compra,
+      { id: compraId, tiendaRetiro: { id: tiendaId } },
+      { populate: ['comprador'] }
+    );
+
+    if (!compra) {
+      return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
+    }
+    if (compra.estado !== 'pendiente') {
+      return res.status(400).json({ message: 'La compra no está en estado pendiente' });
+    }
+
+    compra.estado = 'finalizado';
+    await orm.em.flush();
 
     res.json({ message: 'Compra finalizada', data: compra });
   } catch (e: any) {

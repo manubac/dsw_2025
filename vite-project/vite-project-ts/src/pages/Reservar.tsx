@@ -36,14 +36,28 @@ export function Reservar() {
   >({})
 
   // Agrupar items del carrito por vendedor (calculado antes del useEffect para usarlo en la validación)
+  interface UploaderTienda {
+    id: number
+    nombre: string
+    direccion: string
+    horario?: string | null
+  }
+
   const itemsPorVendedor: Record<string, { vendedorNombre: string; items: any[] }> = {}
+  const itemsPorTienda:   Record<string, { tienda: UploaderTienda; items: any[] }> = {}
+
   for (const item of cart) {
-    const key = String(item.uploader?.id ?? 'sin-vendedor')
-    const nombre = item.uploader?.nombre ?? 'Vendedor desconocido'
-    if (!itemsPorVendedor[key]) {
-      itemsPorVendedor[key] = { vendedorNombre: nombre, items: [] }
+    if (item.uploaderTienda?.id) {
+      const key    = String(item.uploaderTienda.id)
+      const tienda = item.uploaderTienda as UploaderTienda
+      if (!itemsPorTienda[key]) itemsPorTienda[key] = { tienda, items: [] }
+      itemsPorTienda[key].items.push(item)
+    } else {
+      const key    = String(item.uploader?.id ?? 'sin-vendedor')
+      const nombre = item.uploader?.nombre ?? 'Vendedor desconocido'
+      if (!itemsPorVendedor[key]) itemsPorVendedor[key] = { vendedorNombre: nombre, items: [] }
+      itemsPorVendedor[key].items.push(item)
     }
-    itemsPorVendedor[key].items.push(item)
   }
 
   useEffect(() => {
@@ -160,6 +174,9 @@ export function Reservar() {
   }
 
   if (reservaConfirmada) {
+    const tieneItemsTienda   = Object.keys(itemsPorTienda).length > 0
+    const tieneItemsVendedor = Object.keys(itemsPorVendedor).length > 0
+
     return (
       <div className="checkout-success">
         <div className="success-icon">✅</div>
@@ -168,18 +185,24 @@ export function Reservar() {
           <p className="text-sm text-gray-500 mb-1">
             {compraIds.length === 1
               ? `Orden #${compraIds[0]}`
-              : `Órdenes: ${compraIds.map(id => `#${id}`).join(', ')}`}
+              : `Órdenes: ${compraIds.map((id) => `#${id}`).join(', ')}`}
           </p>
         )}
         {compraIds.length > 1 && (
           <p className="text-sm text-amber-700 mb-2">
-            Se generó una orden por cada vendedor.
+            Se generó una orden por cada vendedor / tienda.
           </p>
         )}
-        <p>
-          Tu reserva fue registrada. Desde <strong>Mis Compras</strong> podés chatear
-          con el vendedor para acordar el punto de encuentro.
-        </p>
+        {tieneItemsTienda && (
+          <p style={{ marginBottom: '0.5rem' }}>
+            🏪 Tus cartas de tienda están listas. Acercate a retirarlas y pagá en el local.
+          </p>
+        )}
+        {tieneItemsVendedor && (
+          <p>
+            Desde <strong>Mis Compras</strong> podés chatear con el vendedor para acordar el encuentro.
+          </p>
+        )}
         <button
           onClick={() => navigate('/purchases')}
           className="continue-shopping-btn"
@@ -346,6 +369,42 @@ export function Reservar() {
               )
             })}
 
+            {/* Bloque fijo de retiro para items de tienda */}
+            {Object.entries(itemsPorTienda).map(([tiendaKey, grupo]) => (
+              <div className="form-section" key={`tienda-${tiendaKey}`}>
+                <h3>
+                  Retiro — <span style={{ color: '#f97316' }}>{grupo.tienda.nombre}</span>
+                </h3>
+                <div
+                  style={{
+                    display:      'flex',
+                    alignItems:   'flex-start',
+                    gap:          '0.75rem',
+                    padding:      '0.75rem 1rem',
+                    border:       '2px solid #f97316',
+                    borderRadius: '0.5rem',
+                    background:   '#fff7ed',
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📍</span>
+                  <div>
+                    <p style={{ fontWeight: 600, margin: 0 }}>{grupo.tienda.nombre}</p>
+                    <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
+                      {grupo.tienda.direccion}
+                    </p>
+                    {grupo.tienda.horario && (
+                      <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
+                        🕐 {grupo.tienda.horario}
+                      </p>
+                    )}
+                    <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '0.4rem 0 0', fontWeight: 500 }}>
+                      Pagás y retirás en el local al momento de buscar tu pedido.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {error && (
               <p style={{ color: 'red', marginBottom: '1rem' }}>{error}</p>
             )}
@@ -375,6 +434,34 @@ export function Reservar() {
                   }}
                 >
                   Vendedor: {grupo.vendedorNombre}
+                </p>
+                {grupo.items.map((item: any) => (
+                  <div key={item.id} className="order-item">
+                    <img src={item.thumbnail} alt={item.title} className="item-image" />
+                    <div className="item-details">
+                      <h4>{item.title}</h4>
+                      <p>Cantidad: {item.quantity}</p>
+                      <p className="item-price">${(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {Object.entries(itemsPorTienda).map(([key, grupo]) => (
+              <div key={`tienda-sum-${key}`} style={{ marginBottom: '1rem' }}>
+                <p
+                  style={{
+                    fontSize:       '0.75rem',
+                    fontWeight:     600,
+                    textTransform:  'uppercase',
+                    letterSpacing:  '0.05em',
+                    color:          '#6b7280',
+                    marginBottom:   '0.5rem',
+                    borderBottom:   '1px solid #e5e7eb',
+                    paddingBottom:  '0.25rem',
+                  }}
+                >
+                  Tienda: {grupo.tienda.nombre}
                 </p>
                 {grupo.items.map((item: any) => (
                   <div key={item.id} className="order-item">
