@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
 import { UserRegistration } from "./pages/UserRegistration";
+import { StoreRegistrationPage } from './pages/StoreRegistrationPage';
 import { CartProvider } from "./context/cart";
 import { FiltersProvider } from "./context/filters";
 import { UserProvider, useUser } from "./context/user";
@@ -122,6 +123,7 @@ function App() {
 
                 {/* Autenticación */}
                 <Route path="register" element={<UserRegistration />} />
+                <Route path="register-store" element={<StoreRegistrationPage />} />
                 <Route path="login" element={<LoginPage />} />
                 <Route path="forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="reset-password" element={<ResetPasswordPage />} />
