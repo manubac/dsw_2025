@@ -2,18 +2,26 @@ import { useState, useEffect } from 'react'
 import { useUser } from '../context/user'
 import { api } from '../services/api'
 
-type Step = 'IDLE' | 'EMAIL_GATE' | 'PHONE_INPUT' | 'OTP_INPUT' | 'SUCCESS'
+type Step = 'IDLE' | 'EMAIL_GATE' | 'PHONE_INPUT' | 'OTP_INPUT' | 'PAYMENT_INFO' | 'SUCCESS'
 
 const PHONE_REGEX = /^\+54 9 \d{4} \d{4}$/
+const CBU_REGEX   = /^\d{22}$/
+const ALIAS_REGEX = /^[a-zA-Z0-9.]{6,20}$/
 
 export default function SellerOnboarding() {
   const { user, upgradeToSeller } = useUser()
-  const [step, setStep] = useState<Step>('IDLE')
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [step, setStep]           = useState<Step>('IDLE')
+  const [phone, setPhone]         = useState('')
+  const [code, setCode]           = useState('')
+  const [cbu, setCbu]             = useState('')
+  const [alias, setAlias]         = useState('')
+  const [error, setError]         = useState('')
+  const [loading, setLoading]     = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(60)
+
+  const [pendingVendedorId, setPendingVendedorId] = useState<number | null>(null)
+  const [pendingToken, setPendingToken]             = useState<string>('')
+  const [pendingData, setPendingData]               = useState<any>(null)
 
   useEffect(() => {
     if (step !== 'OTP_INPUT' || secondsLeft === 0) return
@@ -21,7 +29,8 @@ export default function SellerOnboarding() {
     return () => clearTimeout(id)
   }, [step, secondsLeft])
 
-  if (!user || user.role !== 'user') return null
+  if (!user) return null
+  if (user.role !== 'user' && step !== 'PAYMENT_INFO' && step !== 'SUCCESS') return null
 
   function handleWantToSell() {
     if (!user!.is_email_verified) {
@@ -71,10 +80,38 @@ export default function SellerOnboarding() {
     setLoading(true)
     try {
       const res = await api.post('/api/seller/verify-otp', { phone, code })
-      upgradeToSeller(res.data.token, res.data.data)
-      setStep('SUCCESS')
+      setPendingVendedorId(res.data.data.id)
+      setPendingToken(res.data.token)
+      setPendingData(res.data.data)
+      setStep('PAYMENT_INFO')
     } catch (e: any) {
       setError(e.response?.data?.message || 'Código incorrecto o expirado')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleSavePaymentInfo() {
+    if (!CBU_REGEX.test(cbu)) {
+      setError('El CBU debe tener exactamente 22 dígitos numéricos')
+      return
+    }
+    if (!ALIAS_REGEX.test(alias)) {
+      setError('El alias debe tener entre 6 y 20 caracteres (letras, números y puntos)')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      await api.patch(
+        `/api/vendedores/${pendingVendedorId}`,
+        { cbu, alias },
+        { headers: { Authorization: `Bearer ${pendingToken}` } }
+      )
+      upgradeToSeller(pendingToken, { ...pendingData, cbu, alias })
+      setStep('SUCCESS')
+    } catch (e: any) {
+      setError(e.response?.data?.message || 'Error al guardar datos de pago')
     } finally {
       setLoading(false)
     }
@@ -160,6 +197,54 @@ export default function SellerOnboarding() {
               {secondsLeft > 0 ? `Reenviar en ${secondsLeft}s` : 'Reenviar código'}
             </button>
           </div>
+        </div>
+      )}
+
+      {step === 'PAYMENT_INFO' && (
+        <div className="space-y-3">
+          <p className="text-sm text-green-700 font-medium">
+            ¡Teléfono verificado! Ingresá tus datos de cobro para completar el registro.
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">CBU (22 dígitos)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={22}
+              value={cbu}
+              onChange={e => { setCbu(e.target.value.replace(/\D/g, '')); setError('') }}
+              placeholder="0000000000000000000000"
+              className={`w-full border rounded px-3 py-2 text-sm ${
+                cbu && !CBU_REGEX.test(cbu) ? 'border-red-400' : 'border-gray-300'
+              }`}
+            />
+            {cbu && !CBU_REGEX.test(cbu) && (
+              <p className="text-xs text-red-500 mt-1">El CBU debe tener exactamente 22 dígitos</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Alias (6–20 caracteres)</label>
+            <input
+              type="text"
+              value={alias}
+              onChange={e => { setAlias(e.target.value); setError('') }}
+              placeholder="mi.alias.pago"
+              className={`w-full border rounded px-3 py-2 text-sm ${
+                alias && !ALIAS_REGEX.test(alias) ? 'border-red-400' : 'border-gray-300'
+              }`}
+            />
+            {alias && !ALIAS_REGEX.test(alias) && (
+              <p className="text-xs text-red-500 mt-1">Solo letras, números y puntos (6–20 caracteres)</p>
+            )}
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button
+            onClick={handleSavePaymentInfo}
+            disabled={loading || !CBU_REGEX.test(cbu) || !ALIAS_REGEX.test(alias)}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition"
+          >
+            {loading ? 'Guardando...' : 'Guardar y continuar'}
+          </button>
         </div>
       )}
 
