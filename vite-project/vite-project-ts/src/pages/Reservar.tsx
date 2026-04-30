@@ -367,11 +367,6 @@ export function Reservar() {
                                   <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
                                     {tienda.direccion}
                                   </p>
-                                  {tienda.horario && (
-                                    <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
-                                      🕐 {tienda.horario}
-                                    </p>
-                                  )}
                                 </div>
                               </label>
                             ))}
@@ -411,11 +406,6 @@ export function Reservar() {
                     <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
                       {grupo.tienda.direccion}
                     </p>
-                    {grupo.tienda.horario && (
-                      <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
-                        🕐 {grupo.tienda.horario}
-                      </p>
-                    )}
                     <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '0.4rem 0 0', fontWeight: 500 }}>
                       Pagás y retirás en el local al momento de buscar tu pedido.
                     </p>

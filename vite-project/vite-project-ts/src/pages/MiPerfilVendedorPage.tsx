@@ -7,7 +7,6 @@ interface TiendaRetiro {
   id: number;
   nombre: string;
   direccion: string;
-  horario?: string;
 }
 
 interface Carta {
@@ -723,9 +722,6 @@ export default function MiPerfilVendedorPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-800">📍 {tienda.nombre}</p>
                       <p className="text-xs text-gray-500 mt-0.5">{tienda.direccion}</p>
-                      {tienda.horario && (
-                        <p className="text-xs text-gray-400 mt-0.5">🕐 {tienda.horario}</p>
-                      )}
                     </div>
                   </label>
                 );

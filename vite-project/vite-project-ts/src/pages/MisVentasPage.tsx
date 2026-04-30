@@ -166,9 +166,6 @@ export default function MisVentasPage() {
                     </h4>
                     <p className="font-bold text-orange-900">{venta.tiendaRetiro.nombre}</p>
                     <p className="text-sm text-orange-700">{venta.tiendaRetiro.direccion}</p>
-                    {venta.tiendaRetiro.horario && (
-                      <p className="text-xs text-orange-600 mt-1">🕐 {venta.tiendaRetiro.horario}</p>
-                    )}
                     {miAlias && (
                       <p className="text-sm text-orange-800 mt-2 font-medium">
                         💸 Tu alias: <span className="font-mono font-bold">{miAlias}</span>

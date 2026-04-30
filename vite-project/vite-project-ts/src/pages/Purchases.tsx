@@ -183,11 +183,6 @@ export function Purchases() {
                   <p style={{ fontSize: '0.85rem', color: '#78350f', margin: '0.15rem 0 0' }}>
                     {comp.tiendaRetiro.direccion}
                   </p>
-                  {comp.tiendaRetiro.horario && (
-                    <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '0.1rem 0 0' }}>
-                      🕐 {comp.tiendaRetiro.horario}
-                    </p>
-                  )}
 
                   {/* Alias/CBU — siempre visible */}
                   {(() => {
