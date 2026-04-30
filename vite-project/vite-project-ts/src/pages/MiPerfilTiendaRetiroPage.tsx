@@ -4,6 +4,7 @@ import { useUser } from '../context/user';
 import { fetchApi } from '../services/api';
 import { Chat } from '../components/Chat';
 import { ReviewModal } from '../components/ReviewModal';
+import { HorarioGrid, HorarioSemanal, HORARIO_DEFAULT } from '../components/HorarioGrid';
 
 export default function MiPerfilTiendaRetiroPage() {
   const { user } = useUser();
@@ -17,7 +18,7 @@ export default function MiPerfilTiendaRetiroPage() {
     nombre:    '',
     email:     '',
     direccion: '',
-    horario:   '',
+    horario:   HORARIO_DEFAULT as HorarioSemanal,
     ciudad:    '',
     activo:    true,
   });
@@ -27,7 +28,7 @@ export default function MiPerfilTiendaRetiroPage() {
 
   // Edición rápida de horario
   const [editingHorario, setEditingHorario] = useState(false);
-  const [horarioDraft, setHorarioDraft]     = useState('');
+  const [horarioDraft, setHorarioDraft]     = useState<HorarioSemanal>(HORARIO_DEFAULT);
   const [horarioSaving, setHorarioSaving]   = useState(false);
   const [horarioMsg, setHorarioMsg]         = useState<string | null>(null);
 
@@ -87,11 +88,11 @@ export default function MiPerfilTiendaRetiroPage() {
           nombre:    t?.nombre    ?? '',
           email:     t?.email     ?? '',
           direccion: t?.direccion ?? '',
-          horario:   t?.horario   ?? '',
+          horario:   t?.horario   ?? HORARIO_DEFAULT,
           ciudad:    t?.ciudad    ?? '',
           activo:    t?.activo    ?? true,
         });
-        setHorarioDraft(t?.horario ?? '');
+        setHorarioDraft(t?.horario ?? HORARIO_DEFAULT);
         setDescDraft(t?.descripcionCompra ?? '');
 
         // Cargar publicaciones, ventas directas, compras y reviews en paralelo
@@ -447,7 +448,6 @@ export default function MiPerfilTiendaRetiroPage() {
                     { name: 'nombre',    label: 'Nombre de la tienda', type: 'text'  },
                     { name: 'email',     label: 'Email',               type: 'email' },
                     { name: 'direccion', label: 'Dirección',           type: 'text'  },
-                    { name: 'horario',   label: 'Horario',             type: 'text'  },
                     { name: 'ciudad',    label: 'Ciudad',              type: 'text'  },
                   ] as const).map(field => (
                     <div key={field.name}>
@@ -518,41 +518,47 @@ export default function MiPerfilTiendaRetiroPage() {
               )}
 
               {editingHorario ? (
-                <div className="flex gap-2 items-center flex-wrap">
-                  <input
-                    type="text"
+                <div className="space-y-3">
+                  <HorarioGrid
                     value={horarioDraft}
-                    onChange={e => setHorarioDraft(e.target.value)}
+                    onChange={setHorarioDraft}
                     disabled={horarioSaving}
-                    placeholder="Ej: Lun-Vie 10-20hs, Sáb 10-14hs"
-                    className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-orange-400 transition disabled:opacity-60"
                   />
-                  <button
-                    onClick={saveHorario}
-                    disabled={horarioSaving}
-                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition"
-                  >
-                    {horarioSaving ? 'Guardando...' : 'Guardar'}
-                  </button>
-                  <button
-                    onClick={() => { setEditingHorario(false); setHorarioDraft(tienda.horario || ''); setHorarioMsg(null); }}
-                    className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-3 py-1.5 rounded-lg transition"
-                  >
-                    Cancelar
-                  </button>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={saveHorario}
+                      disabled={horarioSaving}
+                      className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition"
+                    >
+                      {horarioSaving ? 'Guardando...' : 'Guardar'}
+                    </button>
+                    <button
+                      onClick={() => { setEditingHorario(false); setHorarioDraft(tienda.horario ?? HORARIO_DEFAULT); setHorarioMsg(null); }}
+                      className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-3 py-1.5 rounded-lg transition"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">
-                    {tienda.horario
-                      ? `🕐 ${tienda.horario}`
-                      : <span className="text-gray-400 italic text-xs">Sin horario cargado</span>}
-                  </span>
+                <div className="space-y-1">
+                  {tienda.horario
+                    ? Object.entries(tienda.horario as HorarioSemanal).map(([dia, h]) => (
+                        <div key={dia} className="flex gap-2 text-xs text-gray-700">
+                          <span className="capitalize w-20 font-medium">{dia}</span>
+                          {(h as any).cerrado
+                            ? <span className="text-gray-400 italic">Cerrado</span>
+                            : <span>{(h as any).abre} – {(h as any).cierra}</span>
+                          }
+                        </div>
+                      ))
+                    : <span className="text-gray-400 italic text-xs">Sin horario cargado</span>
+                  }
                   <button
                     onClick={() => { setEditingHorario(true); setHorarioMsg(null); }}
-                    className="text-xs text-orange-500 hover:text-orange-600 border border-orange-200 px-2 py-1 rounded-full transition"
+                    className="mt-2 text-xs text-orange-600 hover:underline block"
                   >
-                    ✏ Editar
+                    Editar horario
                   </button>
                 </div>
               )}
