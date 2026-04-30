@@ -92,11 +92,10 @@ export default function MisVentasPage() {
     );
   };
 
-  const handleEntregarTienda = async (compraId: number) => {
+  const handleFinalizar = async (compraId: number) => {
     try {
-      if (!confirm('¿Confirmás que dejaste el pedido en la tienda?')) return;
-      await api.patch(`/api/vendedores/${user?.id}/ventas/${compraId}/entregar-tienda`);
-      alert('Pedido marcado como entregado a tienda. El comprador fue notificado por email.');
+      if (!confirm('¿Confirmás que la entrega fue completada?')) return;
+      await api.patch(`/api/vendedores/${user?.id}/ventas/${compraId}/finalizar`);
       await fetchVentas();
     } catch (err: any) {
       alert('Error: ' + (err.response?.data?.message || err.message));
@@ -134,17 +133,16 @@ export default function MisVentasPage() {
                 <strong className="text-lg">Pedido #{venta.id}</strong>
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 text-sm rounded-full font-medium ${
-                    venta.estado === 'finalizado' ? 'bg-green-100 text-green-800'
-                    : venta.estado === 'en_tienda' ? 'bg-blue-100 text-blue-800'
-                    : venta.estado === 'entregado_a_tienda' ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-orange-100 text-orange-700'
+                    venta.estado === 'finalizado'          ? 'bg-green-100 text-green-800'
+                    : venta.estado === 'en_tienda'         ? 'bg-blue-100 text-blue-800'
+                    : venta.estado === 'listo_para_retirar' ? 'bg-orange-100 text-orange-800'
+                    : 'bg-gray-100 text-gray-600'
                   }`}>
-                    {venta.estado === 'ENVIADO_A_INTERMEDIARIO' ? 'Enviado a Intermediario'
-                      : venta.estado === 'ENTREGADO' ? 'Entregado'
-                      : venta.estado === 'entregado_a_tienda' ? 'Notificado a tienda ✓'
-                      : venta.estado === 'en_tienda' ? 'En tienda ✓'
-                      : venta.estado === 'finalizado' ? 'Finalizado ✓'
-                      : (venta.envio?.estado || venta.estado)}
+                    {venta.estado === 'finalizado'             ? 'Finalizado ✓'
+                      : venta.estado === 'en_tienda'           ? 'Llegó al local ✓'
+                      : venta.estado === 'listo_para_retirar'  ? 'Listo para retirar'
+                      : venta.estado === 'ENVIADO_A_INTERMEDIARIO' ? 'Enviado a Intermediario'
+                      : 'Pendiente'}
                   </span>
                   <button
                     onClick={() => setChatAbierto(chatAbierto === venta.id ? null : venta.id)}
@@ -223,12 +221,13 @@ export default function MisVentasPage() {
                   </ul>
                 </div>
 
-                {venta.tiendaRetiro && venta.estado === 'pendiente' && (
+                {/* Botón finalizar — flujos 3 y 4 (sin tienda de retiro, o comprador es tienda) */}
+                {venta.estado === 'pendiente' && (!venta.tiendaRetiro || venta.esTiendaCompradora) && (
                   <button
-                    className="w-full mt-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                    onClick={() => handleEntregarTienda(venta.id)}
+                    className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    onClick={() => handleFinalizar(venta.id)}
                   >
-                    Entregar a tienda
+                    Marcar como finalizado
                   </button>
                 )}
 
