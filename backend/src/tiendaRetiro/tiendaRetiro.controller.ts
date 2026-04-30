@@ -162,6 +162,7 @@ export async function getVentas(req: Request, res: Response) {
         total:     compra.total,
         createdAt: compra.createdAt,
         comprador: {
+          id:     (compra.comprador as any)?.id || null,
           nombre: (compra.comprador as any)?.username || compra.nombre || "Comprador",
           email:  (compra.comprador as any)?.email    || compra.email  || "",
         },
