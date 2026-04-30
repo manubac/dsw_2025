@@ -34,7 +34,7 @@ tiendaRouter.patch("/:id/ventas/:compraId/en-tienda", authenticate, authorizeRol
 tiendaRouter.patch("/:id/ventas/:compraId/finalizar", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, finalizarCompra);
 
 // Publicaciones propias de la tienda
-tiendaRouter.get("/:id/publicaciones", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, getPublicaciones);
+tiendaRouter.get("/:id/publicaciones", getPublicaciones);
 tiendaRouter.post("/:id/publicaciones", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, sanitizePublicacionTiendaInput, addPublicacion);
 tiendaRouter.patch("/:id/publicaciones/:cartaId", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, sanitizePublicacionTiendaInput, updatePublicacion);
 tiendaRouter.delete("/:id/publicaciones/:cartaId", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, removePublicacion);
