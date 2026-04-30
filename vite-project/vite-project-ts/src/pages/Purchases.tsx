@@ -137,19 +137,18 @@ export function Purchases() {
 
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  comp.estado === 'finalizado' || comp.estado === 'retirado'
+                  comp.estado === 'finalizado'
                     ? 'bg-green-100 text-green-800'
                     : comp.estado === 'en_tienda'
                     ? 'bg-blue-100 text-blue-800'
-                    : comp.estado === 'entregado_a_tienda'
-                    ? 'bg-yellow-100 text-yellow-800'
+                    : comp.estado === 'listo_para_retirar'
+                    ? 'bg-orange-100 text-orange-700'
                     : 'bg-gray-100 text-gray-700'
                 }`}>
-                  {comp.estado === 'finalizado' ? 'Finalizado'
-                    : comp.estado === 'retirado' ? 'Retirado'
-                    : comp.estado === 'en_tienda' ? 'En tienda'
-                    : comp.estado === 'entregado_a_tienda' ? 'Esperando tienda'
-                    : comp.estado}
+                  {comp.estado === 'finalizado'            ? 'Finalizado ✓'
+                    : comp.estado === 'en_tienda'          ? 'Llegó al local 📦'
+                    : comp.estado === 'listo_para_retirar' ? 'Listo para retirar 🟠'
+                    : 'Pendiente'}
                 </span>
 
                 {comp.envio && (
@@ -177,15 +176,7 @@ export function Purchases() {
               </p>
 
               {comp.tiendaRetiro ? (
-                <div
-                  style={{
-                    background: '#fff7ed',
-                    border: '1px solid #fed7aa',
-                    borderRadius: '0.5rem',
-                    padding: '0.6rem 0.9rem',
-                    marginBottom: '0.5rem',
-                  }}
-                >
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '0.5rem', padding: '0.6rem 0.9rem', marginBottom: '0.5rem' }}>
                   <p style={{ fontWeight: 600, margin: 0, color: '#92400e' }}>
                     📍 Retiro en tienda: {comp.tiendaRetiro.nombre}
                   </p>
@@ -197,39 +188,33 @@ export function Purchases() {
                       🕐 {comp.tiendaRetiro.horario}
                     </p>
                   )}
-                  {comp.estado === 'entregado_a_tienda' && (
-                    <p style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#92400e' }}>
-                      ⏳ El vendedor entregó el pedido — esperando confirmación de la tienda.
+
+                  {/* Alias/CBU — siempre visible */}
+                  {(() => {
+                    const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor?.alias || ic.uploaderVendedor?.cbu)?.uploaderVendedor
+                                  ?? comp.itemCartas?.find((ic: any) => ic.uploaderTienda?.alias || ic.uploaderTienda?.cbu)?.uploaderTienda;
+                    return (vendedor?.alias || vendedor?.cbu) ? (
+                      <div style={{ marginTop: '0.5rem', background: '#fef3c7', borderRadius: '0.35rem', padding: '0.5rem 0.75rem', border: '1px solid #fcd34d' }}>
+                        <p style={{ fontWeight: 600, margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
+                          💸 Datos de pago al vendedor
+                        </p>
+                        {vendedor.alias && <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#78350f' }}><strong>Alias:</strong> {vendedor.alias}</p>}
+                        {vendedor.cbu   && <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: '#78350f' }}><strong>CBU:</strong> {vendedor.cbu}</p>}
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {comp.estado === 'en_tienda' && (
+                    <p style={{ marginTop: '0.5rem', fontWeight: 600, color: '#1d4ed8', fontSize: '0.85rem' }}>
+                      ✅ ¡Tu carta llegó al local! Podés ir a buscarla.
                     </p>
                   )}
 
-                  {comp.estado === 'en_tienda' && (() => {
-                    const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor?.alias || ic.uploaderVendedor?.cbu)?.uploaderVendedor;
-                    return (
-                      <>
-                        <p style={{ marginTop: '0.5rem', fontWeight: 600, color: '#1d4ed8', fontSize: '0.85rem' }}>
-                          ✅ ¡Tu pedido ya está en la tienda! Podés ir a buscarlo.
-                        </p>
-                        {(vendedor?.alias || vendedor?.cbu) && (
-                          <div style={{ marginTop: '0.6rem', background: '#fef3c7', borderRadius: '0.35rem', padding: '0.5rem 0.75rem', border: '1px solid #fcd34d' }}>
-                            <p style={{ fontWeight: 600, margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
-                              💸 Transferí antes de retirar y mostrá el comprobante en la tienda
-                            </p>
-                            {vendedor.alias && (
-                              <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
-                                <strong>Alias:</strong> {vendedor.alias}
-                              </p>
-                            )}
-                            {vendedor.cbu && (
-                              <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: '#78350f' }}>
-                                <strong>CBU:</strong> {vendedor.cbu}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                  {comp.estado === 'listo_para_retirar' && (
+                    <p style={{ marginTop: '0.5rem', fontWeight: 600, color: '#c2410c', fontSize: '0.85rem' }}>
+                      🟠 Tu carta está lista para retirar. Presentate en la tienda con el número de orden.
+                    </p>
+                  )}
 
                   {comp.estado === 'finalizado' && (() => {
                     const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
@@ -244,17 +229,22 @@ export function Purchases() {
                       </div>
                     );
                   })()}
-
-                  {comp.estado === 'retirado' && (
-                    <p style={{ marginTop: '0.5rem', color: '#15803d', fontWeight: 600 }}>
-                      ✓ Retirado
-                    </p>
-                  )}
                 </div>
               ) : (
-                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                  💬 Entrega a coordinar con el vendedor via chat
-                </p>
+                <div>
+                  <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                    💬 Entrega a coordinar con el vendedor via chat
+                  </p>
+                  {comp.estado === 'finalizado' && (() => {
+                    const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
+                    return vendedor ? (
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <p style={{ fontSize: '0.82rem', color: '#374151', marginBottom: '0.4rem' }}>¿Cómo fue la experiencia?</p>
+                        {renderReviewButton(comp.id, 'vendedor', vendedor.id, vendedor.nombre, { background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.4rem', padding: '0.4rem 0.6rem', fontWeight: 500, fontSize: '0.82rem', cursor: 'pointer', color: '#15803d' }, `★ Valorar vendedor: ${vendedor.nombre}`)}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
               )}
 
               <div className="mt-2">
