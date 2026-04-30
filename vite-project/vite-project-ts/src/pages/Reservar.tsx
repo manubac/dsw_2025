@@ -104,13 +104,16 @@ export function Reservar() {
     setLoading(true)
     setError(null)
 
-    // Validar que cada vendedor tenga una selección
     const vendedorKeys = Object.keys(itemsPorVendedor)
-    for (const key of vendedorKeys) {
-      if (!tiendasPorVendedor[key] || tiendasPorVendedor[key].modo === null) {
-        setError('Seleccioná una tienda de retiro o "coordinar via chat" para cada vendedor.')
-        setLoading(false)
-        return
+
+    // Validar que cada vendedor tenga una selección (solo si el comprador no es tiendaRetiro)
+    if (user?.role !== 'tiendaRetiro') {
+      for (const key of vendedorKeys) {
+        if (!tiendasPorVendedor[key] || tiendasPorVendedor[key].modo === null) {
+          setError('Seleccioná una tienda de retiro o "coordinar via chat" para cada vendedor.')
+          setLoading(false)
+          return
+        }
       }
     }
 
@@ -119,6 +122,14 @@ export function Reservar() {
     for (const key of vendedorKeys) {
       const modo = tiendasPorVendedor[key]?.modo
       tiendaRetiroPorVendedor[key] = (modo !== null && modo !== 'chat') ? Number(modo) : null
+    }
+
+    // Si el comprador es una tiendaRetiro, ella misma es el punto de retiro para todos los vendedores
+    let tiendaRetiroPorVendedorFinal = tiendaRetiroPorVendedor;
+    if (user?.role === 'tiendaRetiro') {
+      tiendaRetiroPorVendedorFinal = Object.fromEntries(
+        vendedorKeys.map(vendedorId => [vendedorId, user.id])
+      );
     }
 
     try {
@@ -140,7 +151,7 @@ export function Reservar() {
           telefono: formData.telefono,
           metodoPago: 'efectivo',
           total: subtotal,
-          tiendaRetiroPorVendedor,
+          tiendaRetiroPorVendedor: tiendaRetiroPorVendedorFinal,
           items,
         }),
       })
@@ -291,79 +302,87 @@ export function Reservar() {
                     Retiro — <span style={{ color: '#f97316' }}>{grupo.vendedorNombre}</span>
                   </h3>
 
-                  {/* Opción chat */}
-                  <label
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setModoVendedor(vendedorId, modo === 'chat' ? null : 'chat')
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${modo === 'chat' ? '#f97316' : '#e5e7eb'}`,
-                      borderRadius: '0.5rem',
-                      cursor: 'pointer',
-                      background: modo === 'chat' ? '#fff7ed' : '#fff',
-                      marginBottom: '0.75rem',
-                    }}
-                  >
-                    <input type="radio" checked={modo === 'chat'} onChange={() => {}} />
-                    <div>
-                      <p style={{ fontWeight: 600, margin: 0 }}>💬 Coordinar via chat con el vendedor</p>
-                      <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
-                        El vendedor te contactará para acordar el punto de encuentro.
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Tiendas habilitadas por este vendedor */}
-                  {tiendas.length > 0 && (
+                  {user?.role !== 'tiendaRetiro' ? (
                     <>
-                      <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#6b7280', margin: '0 0 0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        — o elegí una tienda de retiro —
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                        {tiendas.map(tienda => (
-                          <label
-                            key={tienda.id}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              setModoVendedor(vendedorId, modo === tienda.id ? null : tienda.id)
-                            }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              gap: '0.75rem',
-                              padding: '0.75rem 1rem',
-                              border: `2px solid ${modo === tienda.id ? '#f97316' : '#e5e7eb'}`,
-                              borderRadius: '0.5rem',
-                              cursor: 'pointer',
-                              background: modo === tienda.id ? '#fff7ed' : '#fff',
-                            }}
-                          >
-                            <input
-                              type="radio"
-                              checked={modo === tienda.id}
-                              onChange={() => {}}
-                              style={{ marginTop: '0.25rem', flexShrink: 0 }}
-                            />
-                            <div>
-                              <p style={{ fontWeight: 600, margin: 0 }}>📍 {tienda.nombre}</p>
-                              <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
-                                {tienda.direccion}
-                              </p>
-                              {tienda.horario && (
-                                <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
-                                  🕐 {tienda.horario}
-                                </p>
-                              )}
-                            </div>
-                          </label>
-                        ))}
-                      </div>
+                      {/* Opción chat */}
+                      <label
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setModoVendedor(vendedorId, modo === 'chat' ? null : 'chat')
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '0.75rem 1rem',
+                          border: `2px solid ${modo === 'chat' ? '#f97316' : '#e5e7eb'}`,
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          background: modo === 'chat' ? '#fff7ed' : '#fff',
+                          marginBottom: '0.75rem',
+                        }}
+                      >
+                        <input type="radio" checked={modo === 'chat'} onChange={() => {}} />
+                        <div>
+                          <p style={{ fontWeight: 600, margin: 0 }}>💬 Coordinar via chat con el vendedor</p>
+                          <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
+                            El vendedor te contactará para acordar el punto de encuentro.
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Tiendas habilitadas por este vendedor */}
+                      {tiendas.length > 0 && (
+                        <>
+                          <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#6b7280', margin: '0 0 0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            — o elegí una tienda de retiro —
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            {tiendas.map(tienda => (
+                              <label
+                                key={tienda.id}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  setModoVendedor(vendedorId, modo === tienda.id ? null : tienda.id)
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '0.75rem',
+                                  padding: '0.75rem 1rem',
+                                  border: `2px solid ${modo === tienda.id ? '#f97316' : '#e5e7eb'}`,
+                                  borderRadius: '0.5rem',
+                                  cursor: 'pointer',
+                                  background: modo === tienda.id ? '#fff7ed' : '#fff',
+                                }}
+                              >
+                                <input
+                                  type="radio"
+                                  checked={modo === tienda.id}
+                                  onChange={() => {}}
+                                  style={{ marginTop: '0.25rem', flexShrink: 0 }}
+                                />
+                                <div>
+                                  <p style={{ fontWeight: 600, margin: 0 }}>📍 {tienda.nombre}</p>
+                                  <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0.1rem 0 0' }}>
+                                    {tienda.direccion}
+                                  </p>
+                                  {tienda.horario && (
+                                    <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.1rem 0 0' }}>
+                                      🕐 {tienda.horario}
+                                    </p>
+                                  )}
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </>
+                  ) : (
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '0.5rem', padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#1e40af' }}>
+                      📍 El retiro será en tu tienda automáticamente.
+                    </div>
                   )}
                 </div>
               )
