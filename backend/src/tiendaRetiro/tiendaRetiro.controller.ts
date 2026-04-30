@@ -184,13 +184,13 @@ export async function marcarEnTienda(req: Request, res: Response) {
     const compra = await orm.em.findOne(
       Compra,
       { id: compraId, tiendaRetiro: { id: tiendaId } },
-      { populate: ['comprador', 'tiendaRetiro'] }
+      { populate: ['comprador', 'tiendaRetiro', 'itemCartas', 'itemCartas.uploaderVendedor'] }
     );
 
     if (!compra) return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
 
-    if (compra.estado !== 'entregado_a_tienda') {
-      return res.status(400).json({ message: 'La compra no está en estado entregado_a_tienda' });
+    if (compra.estado !== 'pendiente') {
+      return res.status(400).json({ message: 'La compra no está en estado pendiente' });
     }
 
     compra.estado = 'en_tienda';
@@ -200,19 +200,24 @@ export async function marcarEnTienda(req: Request, res: Response) {
     const destinatario = (compra.comprador as any)?.email || compra.email;
     const nombreComprador = (compra.comprador as any)?.username || compra.nombre || 'comprador';
 
+    const vendedor = compra.itemCartas.getItems().find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor as any;
+    const aliasInfo = vendedor?.alias ? `\n<p><strong>Alias para pagar:</strong> ${vendedor.alias}</p>` : '';
+    const cbuInfo   = vendedor?.cbu   ? `<p><strong>CBU:</strong> ${vendedor.cbu}</p>` : '';
+
     if (destinatario && tienda) {
       const html = `
-        <h2>¡Buenas noticias, ${nombreComprador}!</h2>
-        <p>Tu pedido <strong>#${compra.id}</strong> ya está en la tienda y podés ir a buscarlo:</p>
+        <h2>¡Tu carta llegó al local, ${nombreComprador}!</h2>
+        <p>La orden <strong>#${compra.id}</strong> está disponible en:</p>
         <p><strong>${tienda.nombre}</strong><br/>
         ${tienda.direccion}<br/>
         ${tienda.horario ? `🕐 ${tienda.horario}` : ''}</p>
-        <p>No olvides transferir al alias del vendedor antes de retirar y mostrar el comprobante en la tienda.</p>
+        ${aliasInfo}${cbuInfo}
+        <p>No olvides transferir al vendedor antes de retirar y mostrá el comprobante en la tienda.</p>
       `;
       sendEmail(
         destinatario,
-        `Tu pedido #${compra.id} ya está en tienda`,
-        `Tu pedido #${compra.id} está listo para retirar en ${tienda.nombre}`,
+        `Tu carta #${compra.id} llegó al local`,
+        `Tu carta llegó a ${tienda.nombre}`,
         html
       );
     }
@@ -243,40 +248,86 @@ export async function finalizarCompra(req: Request, res: Response) {
     compra.estado = 'finalizado';
     await orm.em.flush();
 
+    res.json({ message: 'Compra finalizada', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function marcarListoParaRetirar(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const tiendaId = Number(req.params.id);
+
+    const compra = await orm.em.findOne(
+      Compra,
+      { id: compraId, tiendaRetiro: { id: tiendaId } },
+      { populate: ['comprador', 'tiendaRetiro', 'itemCartas', 'itemCartas.uploaderTienda'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
+
+    const esDirect = compra.itemCartas.getItems().some((ic: any) => ic.uploaderTienda?.id === tiendaId);
+    if (!esDirect) return res.status(400).json({ message: 'Esta compra no es una venta directa de la tienda' });
+
+    if (compra.estado !== 'pendiente') {
+      return res.status(400).json({ message: 'La compra no está en estado pendiente' });
+    }
+
+    compra.estado = 'listo_para_retirar';
+    await orm.em.flush();
+
     const tienda = compra.tiendaRetiro;
-    const destinatarioComprador = (compra.comprador as any)?.email || compra.email;
+    const destinatario = (compra.comprador as any)?.email || compra.email;
     const nombreComprador = (compra.comprador as any)?.username || compra.nombre || 'comprador';
 
-    if (destinatarioComprador) {
+    if (destinatario && tienda) {
       const html = `
-        <h2>¡Tu compra fue finalizada, ${nombreComprador}!</h2>
-        <p>La orden <strong>#${compra.id}</strong> quedó completada${tienda ? ` en ${tienda.nombre}` : ''}.</p>
-        <p>Podés dejar tu valoración del vendedor y la tienda desde <strong>"Mis Compras"</strong>.</p>
+        <h2>¡Tu carta está lista para retirar, ${nombreComprador}!</h2>
+        <p>La orden <strong>#${compra.id}</strong> ya está disponible en:</p>
+        <p><strong>${tienda.nombre}</strong><br/>
+        ${tienda.direccion}<br/>
+        ${tienda.horario ? `🕐 ${tienda.horario}` : ''}</p>
+        <p>Cuando vayas a retirarla, llevá el número de orden y completá el pago en la tienda.</p>
       `;
       sendEmail(
-        destinatarioComprador,
-        `Tu compra #${compra.id} fue finalizada`,
-        `Tu compra #${compra.id} fue finalizada`,
+        destinatario,
+        `Tu carta #${compra.id} está lista para retirar`,
+        `Tu carta está lista en ${tienda.nombre}`,
         html
       );
     }
 
-    const vendedor = (compra.itemCartas.getItems()[0] as any)?.uploaderVendedor;
-    if (vendedor?.email) {
-      const html = `
-        <h2>Tu venta fue finalizada</h2>
-        <p>La orden <strong>#${compra.id}</strong> quedó completada${tienda ? ` en ${tienda.nombre}` : ''}.</p>
-        <p>Podés dejar tu valoración del comprador y la tienda desde <strong>"Mis Ventas"</strong>.</p>
-      `;
-      sendEmail(
-        vendedor.email,
-        `Tu venta #${compra.id} fue finalizada`,
-        `Tu venta #${compra.id} fue finalizada`,
-        html
-      );
+    res.json({ message: 'Compra marcada como lista para retirar', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function finalizarVentaDirecta(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const tiendaId = Number(req.params.id);
+
+    const compra = await orm.em.findOne(
+      Compra,
+      { id: compraId, tiendaRetiro: { id: tiendaId } },
+      { populate: ['comprador', 'itemCartas', 'itemCartas.uploaderTienda'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
+
+    const esDirect = compra.itemCartas.getItems().some((ic: any) => ic.uploaderTienda?.id === tiendaId);
+    if (!esDirect) return res.status(400).json({ message: 'Esta compra no es una venta directa de la tienda' });
+
+    if (compra.estado !== 'listo_para_retirar') {
+      return res.status(400).json({ message: 'La compra no está en estado listo_para_retirar' });
     }
 
-    res.json({ message: 'Compra finalizada', data: compra });
+    compra.estado = 'finalizado';
+    await orm.em.flush();
+
+    res.json({ message: 'Venta directa finalizada', data: compra });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }
@@ -434,29 +485,3 @@ export async function getVentasDirectas(req: Request, res: Response) {
   }
 }
 
-export async function finalizarDirecto(req: Request, res: Response) {
-  try {
-    const compraId = Number(req.params.compraId);
-    const tiendaId = Number(req.params.id);
-
-    const compra = await orm.em.findOne(
-      Compra,
-      { id: compraId, tiendaRetiro: { id: tiendaId } },
-      { populate: ['comprador'] }
-    );
-
-    if (!compra) {
-      return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
-    }
-    if (compra.estado !== 'pendiente') {
-      return res.status(400).json({ message: 'La compra no está en estado pendiente' });
-    }
-
-    compra.estado = 'finalizado';
-    await orm.em.flush();
-
-    res.json({ message: 'Compra finalizada', data: compra });
-  } catch (e: any) {
-    res.status(500).json({ message: e.message });
-  }
-}

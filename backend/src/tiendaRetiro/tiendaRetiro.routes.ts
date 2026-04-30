@@ -15,7 +15,8 @@ import {
   updatePublicacion,
   removePublicacion,
   getVentasDirectas,
-  finalizarDirecto,
+  marcarListoParaRetirar,
+  finalizarVentaDirecta,
 } from "./tiendaRetiro.controller.js";
 import { authenticate, authorizeRoles, authorizeSelf } from "../shared/middleware/auth.js";
 
@@ -38,4 +39,5 @@ tiendaRouter.delete("/:id/publicaciones/:cartaId", authenticate, authorizeRoles(
 
 // Ventas directas (2 actores: tienda vende directamente)
 tiendaRouter.get("/:id/ventas-directas", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, getVentasDirectas);
-tiendaRouter.patch("/:id/ventas/:compraId/finalizar-directo", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, finalizarDirecto);
+tiendaRouter.patch("/:id/ventas/:compraId/listo-para-retirar", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, marcarListoParaRetirar);
+tiendaRouter.patch("/:id/ventas/:compraId/finalizar-directo", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, finalizarVentaDirecta);
