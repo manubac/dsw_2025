@@ -8,8 +8,9 @@ export const api = axios.create({
   baseURL: API_URL,
 })
 
-// Adjunta el JWT de localStorage a cada petición automáticamente
+// Adjunta el JWT de localStorage si la request no trae Authorization propio
 api.interceptors.request.use((config) => {
+  if (config.headers?.['Authorization']) return config
   const stored = localStorage.getItem('user')
   if (stored) {
     const user = JSON.parse(stored)

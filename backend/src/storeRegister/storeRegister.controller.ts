@@ -15,6 +15,7 @@ export function isHardcodedCode(code: string): boolean {
 }
 
 const DIAS_SEMANA = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'] as const;
+const TIME_REGEX = /^\d{2}:\d{2}$/;
 
 export function isValidHorario(horario: unknown): horario is HorarioSemanal {
   if (!horario || typeof horario !== 'object') return false;
@@ -23,7 +24,9 @@ export function isValidHorario(horario: unknown): horario is HorarioSemanal {
     const entry = h[dia];
     if (!entry || typeof entry !== 'object') return false;
     const { abre, cierra, cerrado } = entry as Record<string, unknown>;
-    return typeof abre === 'string' && typeof cierra === 'string' && typeof cerrado === 'boolean';
+    if (typeof abre !== 'string' || typeof cierra !== 'string' || typeof cerrado !== 'boolean') return false;
+    if (!cerrado && (!TIME_REGEX.test(abre) || !TIME_REGEX.test(cierra))) return false;
+    return true;
   });
 }
 

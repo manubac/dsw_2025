@@ -73,4 +73,14 @@ describe('isValidHorario', () => {
     const h = { ...horarioValido, lunes: { abre: '09:00', cierra: '18:00', cerrado: 'no' } };
     expect(isValidHorario(h)).toBe(false);
   });
+
+  it('rechaza día abierto con formato de hora inválido', () => {
+    const h = { ...horarioValido, lunes: { abre: 'not-a-time', cierra: '18:00', cerrado: false } };
+    expect(isValidHorario(h)).toBe(false);
+  });
+
+  it('acepta día cerrado con abre/cierra en cualquier formato (no se validan si cerrado=true)', () => {
+    const h = { ...horarioValido, domingo: { abre: '', cierra: '', cerrado: true } };
+    expect(isValidHorario(h)).toBe(true);
+  });
 });

@@ -44,7 +44,7 @@ interface Tienda {
   direccion: string;
   activo: boolean;
   horario: HorarioSemanal;
-  descripcion?: string;
+  descripcionCompra?: string;
 }
 
 interface Review {
@@ -167,8 +167,7 @@ export function TiendaProfile() {
 
             <div className="flex items-center gap-2 mt-2">
               <div className="text-yellow-400 text-lg tracking-wider">
-                {'★'.repeat(Math.round(average))}
-                {'☆'.repeat(5 - Math.round(average))}
+                {(stars => <>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</>)(Math.min(5, Math.max(0, Math.round(average))))}
               </div>
               <span className="text-gray-600 font-medium">
                 ({average.toFixed(1)}) • {reviews.length} valoraciones
@@ -200,10 +199,10 @@ export function TiendaProfile() {
                 {tienda.direccion}
               </div>
             )}
-            {tienda.descripcion && (
+            {tienda.descripcionCompra && (
               <div className="sm:col-span-2">
                 <span className="font-semibold text-gray-500">Descripción:</span>{' '}
-                <span className="whitespace-pre-wrap">{tienda.descripcion}</span>
+                <span className="whitespace-pre-wrap">{tienda.descripcionCompra}</span>
               </div>
             )}
           </div>
