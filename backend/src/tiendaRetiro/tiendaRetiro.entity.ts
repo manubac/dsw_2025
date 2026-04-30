@@ -1,6 +1,22 @@
 import { Entity, Property } from "@mikro-orm/core";
 import { BaseEntity } from "../shared/db/baseEntity.js";
 
+export type HorarioDia = {
+  abre: string;
+  cierra: string;
+  cerrado: boolean;
+};
+
+export type HorarioSemanal = {
+  lunes:     HorarioDia;
+  martes:    HorarioDia;
+  miercoles: HorarioDia;
+  jueves:    HorarioDia;
+  viernes:   HorarioDia;
+  sabado:    HorarioDia;
+  domingo:   HorarioDia;
+};
+
 @Entity()
 export class TiendaRetiro extends BaseEntity {
   @Property({ type: 'string' })
@@ -9,8 +25,8 @@ export class TiendaRetiro extends BaseEntity {
   @Property({ type: 'string' })
   direccion!: string;
 
-  @Property({ type: 'string', nullable: true })
-  horario?: string;
+  @Property({ type: 'json', nullable: false })
+  horario!: HorarioSemanal;
 
   @Property({ type: 'boolean', default: true })
   activo!: boolean;
