@@ -442,29 +442,4 @@ async function remove(req: AuthRequest, res: Response) {
   }
 }
 
-async function retirar(req: AuthRequest, res: Response) {
-  try {
-    const id = Number(req.params.id);
-
-    const compra = await em.findOne(
-      Compra,
-      { id, ...compradorWhereClause(req) },
-      { populate: ['comprador', 'compradorTienda'] }
-    );
-
-    if (!compra) return res.status(404).json({ message: 'Compra no encontrada o acceso denegado' });
-
-    if (compra.estado !== 'entregado_a_tienda') {
-      return res.status(400).json({ message: 'El pedido aún no fue entregado a la tienda' });
-    }
-
-    compra.estado = 'retirado';
-    await em.flush();
-
-    res.json({ message: 'Pedido marcado como retirado', data: compra });
-  } catch (e: any) {
-    res.status(500).json({ message: e.message });
-  }
-}
-
-export { sanitizeCompraInput, findAll, findOne, add, update, remove, createPreference, retirar };
+export { sanitizeCompraInput, findAll, findOne, add, update, remove, createPreference };
