@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { fetchApi } from '../services/api';
+import { Chat } from '../components/Chat';
+import { ReviewModal } from '../components/ReviewModal';
 
 export default function MiPerfilTiendaRetiroPage() {
   const { user } = useUser();
@@ -61,6 +63,17 @@ export default function MiPerfilTiendaRetiroPage() {
   const [finalizando, setFinalizando]     = useState<number | null>(null)
   const [ventaMsg, setVentaMsg]           = useState<string | null>(null)
 
+  // Tab activo del panel
+  const [activeTab, setActiveTab] = useState<'publicaciones' | 'ventas' | 'compras'>('publicaciones');
+
+  // Mis Compras (tienda comprando)
+  const [misCompras, setMisCompras]         = useState<any[]>([]);
+  const [comprasLoading, setComprasLoading] = useState(false);
+  const [chatAbierto, setChatAbierto]       = useState<number | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewTarget, setReviewTarget]     = useState<{ id: number; name: string; type: 'vendedor' | 'tiendaRetiro' | 'user'; compraId: number } | null>(null);
+  const [reviewedMap, setReviewedMap]       = useState<Record<string, number>>({});
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -81,19 +94,31 @@ export default function MiPerfilTiendaRetiroPage() {
         setHorarioDraft(t?.horario ?? '');
         setDescDraft(t?.descripcionCompra ?? '');
 
-        // Cargar publicaciones y ventas directas en paralelo
+        // Cargar publicaciones, ventas directas, compras y reviews en paralelo
         setPubLoading(true)
         setVentasLoading(true)
-        const [pubRes, ventasRes] = await Promise.all([
+        setComprasLoading(true)
+        const [pubRes, ventasRes, comprasRes, misReviewsRes] = await Promise.all([
           fetchApi(`/api/tiendas/${user.id}/publicaciones`),
           fetchApi(`/api/tiendas/${user.id}/ventas-directas`),
+          fetchApi('/api/compras'),
+          fetchApi('/api/valoraciones/mias'),
         ])
-        const pubJson    = await pubRes.json()
-        const ventasJson = await ventasRes.json()
+        const pubJson     = await pubRes.json()
+        const ventasJson  = await ventasRes.json()
+        const comprasJson = await comprasRes.json()
+        const reviewsJson = await misReviewsRes.json()
         setPublicaciones(pubJson.data ?? [])
         setVentas(ventasJson.data ?? [])
+        setMisCompras(comprasJson.data ?? [])
+        const map: Record<string, number> = {};
+        for (const v of (reviewsJson.data || [])) {
+          if (v.compra?.id != null) map[`${v.compra.id}_${v.tipoObjeto}_${v.objetoId}`] = v.puntuacion;
+        }
+        setReviewedMap(map)
         setPubLoading(false)
         setVentasLoading(false)
+        setComprasLoading(false)
       } catch (err) {
         console.error('Error loading tienda profile:', err);
       } finally {
@@ -264,22 +289,39 @@ export default function MiPerfilTiendaRetiroPage() {
     }
   }
 
-  const handleFinalizarVenta = async (compraId: number) => {
-    if (!user?.id) return
-    if (!confirm('¿Confirmás que el comprador pagó y retiró el pedido?')) return
-    setFinalizando(compraId)
-    setVentaMsg(null)
+  const handleMarcarListo = async (compraId: number) => {
+    if (!user?.id) return;
+    if (!confirm('¿Confirmás que la carta está lista para que el comprador la retire?')) return;
+    setFinalizando(compraId);
+    setVentaMsg(null);
     try {
-      const res = await fetchApi(`/api/tiendas/${user.id}/ventas/${compraId}/finalizar-directo`, { method: 'PATCH' })
-      if (!res.ok) throw new Error((await res.json()).message)
-      setVentas(prev => prev.map(v => v.id === compraId ? { ...v, estado: 'finalizado' } : v))
-      setVentaMsg(`Orden #${compraId} finalizada.`)
+      const res = await fetchApi(`/api/tiendas/${user.id}/ventas-directas/${compraId}/listo`, { method: 'PATCH' });
+      if (!res.ok) throw new Error((await res.json()).message);
+      setVentas(prev => prev.map(v => v.id === compraId ? { ...v, estado: 'listo_para_retirar' } : v));
+      setVentaMsg(`Orden #${compraId} marcada como lista para retirar.`);
     } catch (err: any) {
-      alert(err.message || 'Error al finalizar')
+      alert(err.message || 'Error al actualizar');
     } finally {
-      setFinalizando(null)
+      setFinalizando(null);
     }
-  }
+  };
+
+  const handleFinalizarVenta = async (compraId: number) => {
+    if (!user?.id) return;
+    if (!confirm('¿Confirmás que el comprador pagó y retiró el pedido?')) return;
+    setFinalizando(compraId);
+    setVentaMsg(null);
+    try {
+      const res = await fetchApi(`/api/tiendas/${user.id}/ventas-directas/${compraId}/finalizar`, { method: 'PATCH' });
+      if (!res.ok) throw new Error((await res.json()).message);
+      setVentas(prev => prev.map(v => v.id === compraId ? { ...v, estado: 'finalizado' } : v));
+      setVentaMsg(`Orden #${compraId} finalizada.`);
+    } catch (err: any) {
+      alert(err.message || 'Error al finalizar');
+    } finally {
+      setFinalizando(null);
+    }
+  };
 
   const rarezasUnicas = [...new Set(publicaciones.map((p: any) => p.rarity).filter(Boolean))];
   const setsUnicos    = [...new Set(publicaciones.map((p: any) => p.setName).filter(Boolean))];
@@ -573,7 +615,27 @@ export default function MiPerfilTiendaRetiroPage() {
           )}
         </div>
 
+        {/* ── TAB SELECTOR ── */}
+        <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-4">
+          <div className="flex gap-2">
+            {(['publicaciones', 'ventas', 'compras'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  activeTab === tab
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {tab === 'publicaciones' ? 'Publicaciones' : tab === 'ventas' ? 'Mis Ventas' : 'Mis Compras'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* ── MIS PUBLICACIONES ── */}
+        {activeTab === 'publicaciones' && (<>
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -816,8 +878,10 @@ export default function MiPerfilTiendaRetiroPage() {
             <p>Próximamente: valoraciones de compradores.</p>
           </div>
         </div>
+        </>)}
 
         {/* ── MIS VENTAS (ventas directas) ── */}
+        {activeTab === 'ventas' && (
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-800 mb-5">Mis Ventas</h2>
           {ventaMsg && (
@@ -847,19 +911,41 @@ export default function MiPerfilTiendaRetiroPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium border ${
-                        venta.estado === 'finalizado'
-                          ? 'bg-green-100 text-green-700 border-green-200'
-                          : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                        venta.estado === 'finalizado'           ? 'bg-green-100 text-green-700 border-green-200'
+                        : venta.estado === 'listo_para_retirar' ? 'bg-orange-100 text-orange-700 border-orange-200'
+                        : 'bg-yellow-100 text-yellow-800 border-yellow-200'
                       }`}>
-                        {venta.estado === 'finalizado' ? 'Finalizado' : 'Pendiente'}
+                        {venta.estado === 'finalizado'            ? 'Finalizado'
+                          : venta.estado === 'listo_para_retirar' ? 'Listo para retirar'
+                          : 'Pendiente'}
                       </span>
                       {venta.estado === 'pendiente' && (
+                        <button
+                          onClick={() => handleMarcarListo(venta.id)}
+                          disabled={finalizando === venta.id}
+                          className="text-xs bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold px-3 py-1 rounded-lg transition"
+                        >
+                          {finalizando === venta.id ? '...' : 'Listo para retirar'}
+                        </button>
+                      )}
+                      {venta.estado === 'listo_para_retirar' && (
                         <button
                           onClick={() => handleFinalizarVenta(venta.id)}
                           disabled={finalizando === venta.id}
                           className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold px-3 py-1 rounded-lg transition"
                         >
                           {finalizando === venta.id ? '...' : 'Finalizar'}
+                        </button>
+                      )}
+                      {venta.estado === 'finalizado' && (
+                        <button
+                          className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1 rounded-lg transition"
+                          onClick={() => {
+                            setReviewTarget({ id: venta.compradorId ?? 0, name: venta.nombre, type: 'user', compraId: venta.id });
+                            setReviewModalOpen(true);
+                          }}
+                        >
+                          ★ Valorar comprador
                         </button>
                       )}
                     </div>
@@ -877,6 +963,117 @@ export default function MiPerfilTiendaRetiroPage() {
             </div>
           )}
         </div>
+        )}
+
+        {/* ── MIS COMPRAS (tienda comprando) ── */}
+        {activeTab === 'compras' && (
+          <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-5">Mis Compras</h2>
+            {comprasLoading ? (
+              <p className="text-sm text-gray-400">Cargando...</p>
+            ) : misCompras.length === 0 ? (
+              <div className="text-center py-10">
+                <div className="text-4xl mb-2 opacity-30">🛒</div>
+                <p className="text-gray-400 text-sm">No tenés compras realizadas aún.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {misCompras.map((comp: any) => (
+                  <div key={comp.id} className="border border-gray-100 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-gray-800">Orden #{comp.id}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                          comp.estado === 'finalizado'           ? 'bg-green-100 text-green-700'
+                          : comp.estado === 'en_tienda'          ? 'bg-blue-100 text-blue-700'
+                          : comp.estado === 'listo_para_retirar' ? 'bg-orange-100 text-orange-700'
+                          : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {comp.estado === 'finalizado'            ? 'Finalizado ✓'
+                            : comp.estado === 'en_tienda'          ? 'Llegó al local 📦'
+                            : comp.estado === 'listo_para_retirar' ? 'Listo para retirar 🟠'
+                            : 'Pendiente'}
+                        </span>
+                        <button
+                          onClick={() => setChatAbierto(chatAbierto === comp.id ? null : comp.id)}
+                          className="bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded-full text-xs transition"
+                        >
+                          {chatAbierto === comp.id ? 'Cerrar chat' : '💬 Chat'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-600"><strong>Total:</strong> ${Number(comp.total || 0).toFixed(2)}</p>
+
+                    {comp.tiendaRetiro && (
+                      <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                        <p className="font-semibold text-amber-800">📍 {comp.tiendaRetiro.nombre}</p>
+                        <p className="text-amber-700">{comp.tiendaRetiro.direccion}</p>
+                      </div>
+                    )}
+
+                    {(comp.items || []).length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold text-gray-500 mb-1">Ítems:</p>
+                        {(comp.items || []).map((it: any, idx: number) => (
+                          <p key={idx} className="text-xs text-gray-600">
+                            {it.title || `Carta #${it.cartaId}`} × {it.quantity} — ${Number(it.price || 0).toFixed(2)}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {comp.estado === 'finalizado' && (
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-xs text-gray-500 mb-2">¿Cómo fue la experiencia?</p>
+                        {(() => {
+                          const vendedor = comp.itemCartas?.find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor;
+                          const key = `${comp.id}_vendedor_${vendedor?.id}`;
+                          if (!vendedor) return null;
+                          return reviewedMap[key] != null ? (
+                            <p className="text-xs text-gray-400">★ Vendedor ya valorado</p>
+                          ) : (
+                            <button
+                              className="text-xs bg-green-50 hover:bg-green-100 text-green-700 font-medium px-3 py-1 rounded-lg transition"
+                              onClick={() => {
+                                setReviewTarget({ id: vendedor.id, name: vendedor.nombre, type: 'vendedor', compraId: comp.id });
+                                setReviewModalOpen(true);
+                              }}
+                            >
+                              ★ Valorar vendedor: {vendedor.nombre}
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {chatAbierto === comp.id && (
+                      <div className="mt-3 pt-3 border-t">
+                        <Chat compraId={comp.id} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {reviewTarget && (
+          <ReviewModal
+            isOpen={reviewModalOpen}
+            onClose={() => setReviewModalOpen(false)}
+            targetId={reviewTarget.id}
+            targetType={reviewTarget.type}
+            targetName={reviewTarget.name}
+            compraId={reviewTarget.compraId}
+            onSuccess={(puntuacion) => {
+              const key = `${reviewTarget.compraId}_${reviewTarget.type}_${reviewTarget.id}`;
+              setReviewedMap(prev => ({ ...prev, [key]: puntuacion }));
+              setReviewModalOpen(false);
+            }}
+          />
+        )}
 
       </div>
     </div>

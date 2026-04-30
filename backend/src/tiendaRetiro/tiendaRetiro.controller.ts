@@ -466,13 +466,14 @@ export async function getVentasDirectas(req: Request, res: Response) {
     );
 
     const data = directas.map((compra) => ({
-      id:        compra.id,
-      estado:    compra.estado,
-      total:     compra.total,
-      createdAt: compra.createdAt,
-      nombre:    (compra.comprador as any)?.username || compra.nombre || 'Comprador',
-      email:     (compra.comprador as any)?.email    || compra.email  || '',
-      telefono:  compra.telefono ?? '',
+      id:          compra.id,
+      estado:      compra.estado,
+      total:       compra.total,
+      createdAt:   compra.createdAt,
+      compradorId: (compra.comprador as any)?.id || null,
+      nombre:      (compra.comprador as any)?.username || compra.nombre || 'Comprador',
+      email:       (compra.comprador as any)?.email    || compra.email  || '',
+      telefono:    compra.telefono ?? '',
       items:     (compra.items ?? []).map((i) => ({
         cartaNombre: i.title ?? `Carta #${i.cartaId}`,
         cantidad:    i.quantity,
