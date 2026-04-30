@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useUser } from '../context/user'
 import { api } from '../services/api'
+
+interface PendingSellerData {
+  id: number
+  nombre: string
+  telefono: string
+  [key: string]: unknown
+}
 
 type Step = 'IDLE' | 'EMAIL_GATE' | 'PHONE_INPUT' | 'OTP_INPUT' | 'PAYMENT_INFO' | 'SUCCESS'
 
@@ -21,7 +29,7 @@ export default function SellerOnboarding() {
 
   const [pendingVendedorId, setPendingVendedorId] = useState<number | null>(null)
   const [pendingToken, setPendingToken]             = useState<string>('')
-  const [pendingData, setPendingData]               = useState<any>(null)
+  const [pendingData, setPendingData]               = useState<PendingSellerData | null>(null)
 
   useEffect(() => {
     if (step !== 'OTP_INPUT' || secondsLeft === 0) return
@@ -253,12 +261,12 @@ export default function SellerOnboarding() {
           <p className="text-green-700 font-medium">
             ¡Perfil de vendedor activado! Ya podés publicar cartas.
           </p>
-          <a
-            href="/publicar"
+          <Link
+            to="/publicar"
             className="inline-block px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
           >
             Ir a publicar
-          </a>
+          </Link>
         </div>
       )}
     </div>
