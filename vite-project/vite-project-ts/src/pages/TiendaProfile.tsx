@@ -35,6 +35,26 @@ interface Carta {
   items: ItemCarta[];
 }
 
+interface Tienda {
+  id: number;
+  nombre: string;
+  email: string;
+  telefono?: string;
+  ciudad?: string;
+  direccion: string;
+  activo: boolean;
+  horario: HorarioSemanal;
+  descripcion?: string;
+}
+
+interface Review {
+  id: number;
+  puntuacion: number;
+  comentario?: string;
+  createdAt?: string;
+  usuario?: { nombre: string };
+}
+
 const DIAS_LABELS: Record<string, string> = {
   lunes: 'Lunes',
   martes: 'Martes',
@@ -51,8 +71,8 @@ export function TiendaProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [tienda, setTienda] = useState<any>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [tienda, setTienda] = useState<Tienda | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [average, setAverage] = useState(0);
   const [publicaciones, setPublicaciones] = useState<Carta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,28 +85,34 @@ export function TiendaProfile() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-
         const tiendaRes = await api.get(`/api/tiendas/${id}`);
         setTienda(tiendaRes.data.data);
+      } catch {
+        setLoading(false);
+        return;
+      }
 
-        const reviewsRes = await api.get(`/api/valoraciones/tiendaRetiro/${id}`);
+      try {
+        const [reviewsRes, avgRes, pubRes] = await Promise.all([
+          api.get(`/api/valoraciones/tiendaRetiro/${id}`),
+          api.get(`/api/valoraciones/tiendaRetiro/${id}/average`),
+          api.get(`/api/tiendas/${id}/publicaciones`),
+        ]);
+
         const reviewsData = Array.isArray(reviewsRes.data)
           ? reviewsRes.data
           : reviewsRes.data.data || [];
         setReviews(reviewsData);
-
-        const avgRes = await api.get(`/api/valoraciones/tiendaRetiro/${id}/average`);
         setAverage(Number(avgRes.data.average) || 0);
 
-        const pubRes = await api.get(`/api/tiendas/${id}/publicaciones`);
         const pubData = Array.isArray(pubRes.data)
           ? pubRes.data
           : pubRes.data.data || [];
         setPublicaciones(pubData);
-      } catch (error) {
-        console.error('Error fetching tienda profile:', error);
+      } catch {
+        console.error('Error fetching secondary tienda data');
       } finally {
         setLoading(false);
       }
