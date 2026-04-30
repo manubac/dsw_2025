@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { fetchApi } from '../services/api';
+import { HorarioGrid, HorarioSemanal, HORARIO_DEFAULT } from '../components/HorarioGrid';
 
 // ── CityPicker (same as UserRegistration.tsx) ──────────────────────────────
 interface GeorefMunicipio {
@@ -100,6 +101,7 @@ interface FormData {
   alias: string;
   cbu: string;
   descripcion: string;
+  horario: HorarioSemanal;
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
@@ -113,7 +115,7 @@ export function StoreRegistrationPage() {
   const [form, setForm] = useState<FormData>({
     nombreTienda: '', email: '', confirmEmail: '', password: '',
     confirmPassword: '', telefono: '', ciudad: '', provincia: '',
-    direccion: '', piso: '', departamento: '', alias: '', cbu: '', descripcion: '',
+    direccion: '', piso: '', departamento: '', alias: '', cbu: '', descripcion: '', horario: HORARIO_DEFAULT,
   });
   const [emailCode, setEmailCode] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
@@ -201,6 +203,7 @@ export function StoreRegistrationPage() {
           alias: form.alias,
           cbu: form.cbu,
           descripcion: form.descripcion,
+          horario: form.horario,
         }),
       });
       const completeData = await completeRes.json();
@@ -375,6 +378,17 @@ export function StoreRegistrationPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Descripción <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <textarea value={form.descripcion} onChange={set('descripcion')} disabled={loading} rows={3} placeholder="Describí tu tienda..." className={`${inputCls} resize-none`} />
+              </div>
+
+              {/* Horarios */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Horarios de atención <span className="text-red-500">*</span>
+                </label>
+                <HorarioGrid
+                  value={form.horario}
+                  onChange={horario => setForm(prev => ({ ...prev, horario }))}
+                />
               </div>
 
               {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>}
