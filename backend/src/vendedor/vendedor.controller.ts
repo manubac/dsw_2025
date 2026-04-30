@@ -105,7 +105,7 @@ async function getVentas(req: Request, res: Response) {
                 uploaderVendedor: { id },
             }
         }, {
-             populate: ['itemCartas', 'itemCartas.cartas', 'itemCartas.uploaderVendedor', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion', 'tiendaRetiro']
+             populate: ['itemCartas', 'itemCartas.cartas', 'itemCartas.uploaderVendedor', 'comprador', 'envio', 'envio.intermediario', 'envio.intermediario.direccion', 'tiendaRetiro', 'compradorTienda']
         });
 
         const result = compras.map(c => {
@@ -119,6 +119,7 @@ async function getVentas(req: Request, res: Response) {
                  fecha: c.createdAt,
                  total: c.total,
                  estado: c.estado,
+                 esTiendaCompradora: !!(c as any).compradorTienda,
                  comprador: {
                      id: c.comprador?.id,
                      nombre: c.comprador?.username || c.nombre || "Usuario",
@@ -181,7 +182,7 @@ async function markSent(req: Request, res: Response) {
    }
 }
 
-async function entregarTienda(req: Request, res: Response) {
+async function finalizarVenta(req: Request, res: Response) {
   try {
     const compraId = Number(req.params.compraId);
     const vendedorId = Number(req.params.id);
@@ -189,7 +190,7 @@ async function entregarTienda(req: Request, res: Response) {
     const compra = await em.findOne(
       Compra,
       { id: compraId },
-      { populate: ['itemCartas', 'itemCartas.cartas', 'itemCartas.uploaderVendedor', 'comprador', 'tiendaRetiro'] }
+      { populate: ['itemCartas', 'itemCartas.uploaderVendedor', 'tiendaRetiro', 'compradorTienda'] }
     );
 
     if (!compra) return res.status(404).json({ message: 'Compra no encontrada' });
@@ -197,36 +198,22 @@ async function entregarTienda(req: Request, res: Response) {
     const isVendor = compra.itemCartas.getItems().some(item =>
       item.uploaderVendedor?.id === vendedorId
     );
-    if (!isVendor) return res.status(403).json({ message: 'No eres vendedor en esta compra' });
+    if (!isVendor) return res.status(403).json({ message: 'No sos vendedor en esta compra' });
+
+    // Flujo 1: tiene tienda de retiro Y el comprador NO es una tienda → la tienda gestiona el estado
+    const tieneRetiroTercero = compra.tiendaRetiro && !(compra as any).compradorTienda;
+    if (tieneRetiroTercero) {
+      return res.status(400).json({ message: 'Esta compra tiene tienda de retiro — el estado lo gestiona la tienda' });
+    }
 
     if (compra.estado !== 'pendiente') {
       return res.status(400).json({ message: 'La compra no está en estado pendiente' });
     }
 
-    compra.estado = 'entregado_a_tienda';
+    compra.estado = 'finalizado';
     await em.flush();
 
-    const tienda = compra.tiendaRetiro;
-    const nombreVendedor = compra.itemCartas.getItems()[0]?.uploaderVendedor?.nombre
-      || `Vendedor #${vendedorId}`;
-    const nombreComprador = compra.comprador?.username || compra.nombre || 'comprador';
-
-    if (tienda?.email) {
-      const html = `
-        <h2>Nuevo pedido en camino a tu tienda</h2>
-        <p>El vendedor indica que el pedido <strong>#${compra.id}</strong> está en camino a tu tienda.</p>
-        <p><strong>Comprador:</strong> ${nombreComprador}</p>
-        <p>Cuando lo recibas, marcalo como <strong>"En tienda"</strong> desde tu panel para notificar al comprador.</p>
-      `;
-      sendEmail(
-        tienda.email,
-        `Pedido #${compra.id} en camino a tu tienda`,
-        `El pedido #${compra.id} está en camino`,
-        html
-      );
-    }
-
-    res.json({ message: 'Pedido marcado como entregado a tienda', data: compra });
+    res.json({ message: 'Venta finalizada', data: compra });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }
@@ -258,4 +245,4 @@ async function updateTiendasRetiro(req: Request, res: Response) {
   }
 }
 
-export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, entregarTienda, getTiendasRetiro, updateTiendasRetiro };
+export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, finalizarVenta, getTiendasRetiro, updateTiendasRetiro };
