@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { orm } from '../shared/db/orm.js';
 import { StoreInvite } from './storeInvite.entity.js';
 import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
+import { HorarioSemanal } from '../tiendaRetiro/tiendaRetiro.entity.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -11,6 +12,19 @@ export function isValidPhone(phone: string): boolean {
 
 export function isHardcodedCode(code: string): boolean {
   return code === '123456';
+}
+
+const DIAS_SEMANA = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'] as const;
+
+export function isValidHorario(horario: unknown): horario is HorarioSemanal {
+  if (!horario || typeof horario !== 'object') return false;
+  const h = horario as Record<string, unknown>;
+  return DIAS_SEMANA.every(dia => {
+    const entry = h[dia];
+    if (!entry || typeof entry !== 'object') return false;
+    const { abre, cierra, cerrado } = entry as Record<string, unknown>;
+    return typeof abre === 'string' && typeof cierra === 'string' && typeof cerrado === 'boolean';
+  });
 }
 
 async function getValidInvite(token: string, em: ReturnType<typeof orm.em.fork>) {
@@ -64,7 +78,7 @@ export async function completeRegistration(req: Request, res: Response) {
   try {
     const {
       token, nombreTienda, email, password, telefono,
-      ciudad, direccion,
+      ciudad, direccion, horario,
     } = req.body;
 
     const em = orm.em.fork();
@@ -76,6 +90,12 @@ export async function completeRegistration(req: Request, res: Response) {
 
     if (!nombreTienda || !email || !password || !telefono || !direccion) {
       return res.status(400).json({ message: 'Faltan campos obligatorios' });
+    }
+    if (!horario) {
+      return res.status(400).json({ message: 'El horario es obligatorio' });
+    }
+    if (!isValidHorario(horario)) {
+      return res.status(400).json({ message: 'Formato de horario inválido' });
     }
     if (!isValidPhone(telefono)) {
       return res.status(400).json({ message: 'Formato de teléfono inválido. Usá +54 9 XXXX XXXX' });
@@ -96,6 +116,7 @@ export async function completeRegistration(req: Request, res: Response) {
       ciudad: ciudad || undefined,
       direccion,
       activo: true,
+      horario,
     });
 
     invite.used = true;

@@ -36,3 +36,41 @@ describe('isHardcodedCode', () => {
     expect(isHardcodedCode('000000')).toBe(false);
   });
 });
+
+import { isValidHorario } from '../storeRegister.controller.js';
+
+const DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+
+const horarioValido = Object.fromEntries(
+  DIAS.map(d => [d, { abre: '09:00', cierra: '18:00', cerrado: false }])
+);
+
+describe('isValidHorario', () => {
+  it('acepta horario con los 7 días completos', () => {
+    expect(isValidHorario(horarioValido)).toBe(true);
+  });
+
+  it('acepta día cerrado', () => {
+    const h = { ...horarioValido, domingo: { abre: '00:00', cierra: '00:00', cerrado: true } };
+    expect(isValidHorario(h)).toBe(true);
+  });
+
+  it('rechaza null', () => {
+    expect(isValidHorario(null)).toBe(false);
+  });
+
+  it('rechaza objeto sin todos los días', () => {
+    const { domingo: _d, ...sinDomingo } = horarioValido as any;
+    expect(isValidHorario(sinDomingo)).toBe(false);
+  });
+
+  it('rechaza día con campo faltante', () => {
+    const h = { ...horarioValido, lunes: { abre: '09:00', cierra: '18:00' } };
+    expect(isValidHorario(h)).toBe(false);
+  });
+
+  it('rechaza día con cerrado no booleano', () => {
+    const h = { ...horarioValido, lunes: { abre: '09:00', cierra: '18:00', cerrado: 'no' } };
+    expect(isValidHorario(h)).toBe(false);
+  });
+});
