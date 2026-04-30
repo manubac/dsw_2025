@@ -27,6 +27,8 @@ tiendaRouter.post("/", sanitizeTiendaRetiroInput, add);
 tiendaRouter.post("/login", login);
 tiendaRouter.get("/:id", findOne);
 tiendaRouter.patch("/:id", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, sanitizeTiendaRetiroInput, update);
+
+// Flujo 1: vendedor + tienda de retiro (3 actores)
 tiendaRouter.get("/:id/ventas", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, getVentas);
 tiendaRouter.patch("/:id/ventas/:compraId/en-tienda", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, marcarEnTienda);
 tiendaRouter.patch("/:id/ventas/:compraId/finalizar", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, finalizarCompra);
@@ -37,7 +39,7 @@ tiendaRouter.post("/:id/publicaciones", authenticate, authorizeRoles("tiendaReti
 tiendaRouter.patch("/:id/publicaciones/:cartaId", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, sanitizePublicacionTiendaInput, updatePublicacion);
 tiendaRouter.delete("/:id/publicaciones/:cartaId", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, removePublicacion);
 
-// Ventas directas (2 actores: tienda vende directamente)
+// Flujo 2: tienda vende directamente (2 actores)
 tiendaRouter.get("/:id/ventas-directas", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, getVentasDirectas);
-tiendaRouter.patch("/:id/ventas/:compraId/listo-para-retirar", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, marcarListoParaRetirar);
-tiendaRouter.patch("/:id/ventas/:compraId/finalizar-directo", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, finalizarVentaDirecta);
+tiendaRouter.patch("/:id/ventas-directas/:compraId/listo", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, marcarListoParaRetirar);
+tiendaRouter.patch("/:id/ventas-directas/:compraId/finalizar", authenticate, authorizeRoles("tiendaRetiro"), authorizeSelf, finalizarVentaDirecta);
