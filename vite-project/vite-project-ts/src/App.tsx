@@ -25,6 +25,7 @@ import MisVentasPage from "./pages/MisVentasPage";
 import MiPerfilVendedorPage from "./pages/MiPerfilVendedorPage";
 import MiPerfilUsuarioPage from "./pages/MiPerfilUsuarioPage";
 import { VendedorProfile } from "./pages/VendedorProfile";
+import { TiendaProfile } from "./pages/TiendaProfile";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { PagoExitoso } from "./pages/pagoExitoso";
@@ -136,6 +137,9 @@ function App() {
 
                 {/* Perfil Público de Vendedor */}
                 <Route path="vendedor/:id" element={<VendedorProfile />} />
+
+                {/* Perfil Público de Tienda de Retiro */}
+                <Route path="tienda/:id" element={<TiendaProfile />} />
 
                 {/* Perfil protegido */}
                 <Route
