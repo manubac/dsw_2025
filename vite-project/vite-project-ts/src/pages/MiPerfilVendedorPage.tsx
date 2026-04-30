@@ -436,6 +436,35 @@ export default function MiPerfilVendedorPage() {
           </div>
         </div>
 
+        {/* ── QUICK ACCESS ── */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => navigate('/wishlist')}
+            className="bg-white border border-orange-100 hover:border-orange-300 rounded-xl shadow-sm p-5 flex items-center gap-4 group transition-all hover:shadow-md text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform flex-shrink-0">
+              ♥
+            </div>
+            <div>
+              <p className="text-gray-800 font-semibold text-sm">Mis Favoritos</p>
+              <p className="text-gray-400 text-xs mt-0.5">Cartas guardadas</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/purchases')}
+            className="bg-white border border-orange-100 hover:border-orange-300 rounded-xl shadow-sm p-5 flex items-center gap-4 group transition-all hover:shadow-md text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform flex-shrink-0">
+              🛍
+            </div>
+            <div>
+              <p className="text-gray-800 font-semibold text-sm">Mis Compras</p>
+              <p className="text-gray-400 text-xs mt-0.5">Historial de pedidos</p>
+            </div>
+          </button>
+        </div>
+
         {/* ── DESCRIPCIÓN DE COMPRA ── */}
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-3">
