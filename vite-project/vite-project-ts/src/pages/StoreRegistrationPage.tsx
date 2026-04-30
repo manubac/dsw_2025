@@ -255,9 +255,9 @@ export function StoreRegistrationPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">¡Cuenta creada!</h1>
-          <p className="text-gray-500 text-sm mb-6">Tu cuenta de vendedor fue creada exitosamente.</p>
+          <p className="text-gray-500 text-sm mb-6">Tu cuenta de tienda fue creada exitosamente.</p>
           <button
-            onClick={() => navigate('/mi-perfil')}
+            onClick={() => navigate('/tienda-retiro/perfil')}
             className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition text-sm"
           >
             Ir a mi perfil

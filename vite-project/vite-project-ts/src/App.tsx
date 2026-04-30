@@ -69,6 +69,10 @@ function VendedorRoute({ children }: { children: JSX.Element }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.role === "tiendaRetiro") {
+    return <Navigate to="/tienda-retiro/perfil" replace />;
+  }
+
   if (user.role !== "vendedor") {
     return <Navigate to="/" replace />;
   }

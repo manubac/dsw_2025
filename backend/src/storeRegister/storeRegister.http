@@ -1,34 +1,46 @@
-### Generate invite
+@token = 4b3fcc16-fdea-4a53-9e01-3b99369014a1
+
+### Generar nuevo invite (actualiza @token con el resultado)
 POST http://localhost:3000/api/admin/store-invite
 x-admin-key: admin123
 
-### Validate token (replace TOKEN with value from previous response)
-GET http://localhost:3000/api/store-register/validate?token=TOKEN
+###
 
-### Verify email (wrong code — expect 400)
+### Validar token
+GET http://localhost:3000/api/store-register/validate?token={{token}}
+
+###
+
+### Verificar email (código incorrecto — espera 400)
 POST http://localhost:3000/api/store-register/verify-email
 Content-Type: application/json
 
-{ "token": "TOKEN", "code": "999999" }
+{ "token": "{{token}}", "code": "999999" }
 
-### Verify email (correct code)
+###
+
+### Verificar email (código correcto)
 POST http://localhost:3000/api/store-register/verify-email
 Content-Type: application/json
 
-{ "token": "TOKEN", "code": "123456" }
+{ "token": "{{token}}", "code": "123456" }
 
-### Verify phone (correct code)
+###
+
+### Verificar teléfono (código correcto)
 POST http://localhost:3000/api/store-register/verify-phone
 Content-Type: application/json
 
-{ "token": "TOKEN", "code": "123456" }
+{ "token": "{{token}}", "code": "123456" }
 
-### Complete registration
+###
+
+### Completar registro
 POST http://localhost:3000/api/store-register/complete
 Content-Type: application/json
 
 {
-  "token": "TOKEN",
+  "token": "{{token}}",
   "nombreTienda": "Tienda Test",
   "email": "tienda@test.com",
   "password": "test123",
