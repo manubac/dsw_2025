@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { CancelacionStats } from '../components/CancelacionStats';
 
 
 export function VendedorProfile() {
@@ -110,6 +111,9 @@ export function VendedorProfile() {
           </div>
         </div>
       </div>
+
+      {/* CANCELACIÓN STATS */}
+      <CancelacionStats actorTipo="vendedor" actorId={Number(id)} />
 
       {/* DESCRIPCIÓN DE COMPRA */}
       {vendedor.descripcionCompra && (

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { fetchApi } from '../services/api';
+import { CancelacionStats } from '../components/CancelacionStats';
 import { Chat } from '../components/Chat';
 import { ReviewModal } from '../components/ReviewModal';
 import { HorarioGrid, HorarioSemanal, HORARIO_DEFAULT } from '../components/HorarioGrid';
@@ -21,6 +22,8 @@ export default function MiPerfilTiendaRetiroPage() {
     horario:   HORARIO_DEFAULT as HorarioSemanal,
     ciudad:    '',
     activo:    true,
+    alias:     '',
+    cbu:       '',
   });
   const [saving, setSaving]       = useState(false);
   const [saveMsg, setSaveMsg]     = useState<string | null>(null);
@@ -91,6 +94,8 @@ export default function MiPerfilTiendaRetiroPage() {
           horario:   t?.horario   ?? HORARIO_DEFAULT,
           ciudad:    t?.ciudad    ?? '',
           activo:    t?.activo    ?? true,
+          alias:     t?.alias     ?? '',
+          cbu:       t?.cbu       ?? '',
         });
         setHorarioDraft(t?.horario ?? HORARIO_DEFAULT);
         setDescDraft(t?.descripcionCompra ?? '');
@@ -449,6 +454,8 @@ export default function MiPerfilTiendaRetiroPage() {
                     { name: 'email',     label: 'Email',               type: 'email' },
                     { name: 'direccion', label: 'Dirección',           type: 'text'  },
                     { name: 'ciudad',    label: 'Ciudad',              type: 'text'  },
+                    { name: 'alias',     label: 'Alias (pago)',        type: 'text'  },
+                    { name: 'cbu',       label: 'CBU',                 type: 'text'  },
                   ] as const).map(field => (
                     <div key={field.name}>
                       <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
@@ -498,6 +505,9 @@ export default function MiPerfilTiendaRetiroPage() {
             )}
           </div>
         </div>
+
+        {/* ── CANCELACIÓN STATS ── */}
+        <CancelacionStats actorTipo="tiendaRetiro" actorId={user!.id} />
 
         {/* ── MI TIENDA DE RETIRO ── */}
         <div className="bg-white border border-orange-100 rounded-xl shadow-sm p-6">
@@ -956,6 +966,13 @@ export default function MiPerfilTiendaRetiroPage() {
                       )}
                     </div>
                   </div>
+                  {(venta.alias || venta.cbu) && (
+                    <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-yellow-800 mb-1">💸 Tus datos de cobro</p>
+                      {venta.alias && <p className="text-xs text-yellow-700"><strong>Alias:</strong> {venta.alias}</p>}
+                      {venta.cbu   && <p className="text-xs text-yellow-700"><strong>CBU:</strong> {venta.cbu}</p>}
+                    </div>
+                  )}
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     {(venta.items ?? []).map((it: any, i: number) => (
                       <p key={i} className="text-xs text-gray-600">
@@ -1055,7 +1072,7 @@ export default function MiPerfilTiendaRetiroPage() {
 
                     {chatAbierto === comp.id && (
                       <div className="mt-3 pt-3 border-t">
-                        <Chat compraId={comp.id} />
+                        <Chat compraId={comp.id} locked={comp.estado === 'finalizado' || comp.estado === 'cancelado'} />
                       </div>
                     )}
                   </div>

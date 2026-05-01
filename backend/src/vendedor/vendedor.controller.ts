@@ -120,6 +120,9 @@ async function getVentas(req: Request, res: Response) {
                  total: c.total,
                  estado: c.estado,
                  esTiendaCompradora: !!(c as any).compradorTienda,
+                 motivoCancelacion: c.motivoCancelacion ?? null,
+                 canceladoPorRol: c.canceladoPorRol ?? null,
+                 estadoAntesCancelacion: c.estadoAntesCancelacion ?? null,
                  comprador: {
                      id: c.comprador?.id,
                      nombre: c.comprador?.username || c.nombre || "Usuario",
@@ -219,6 +222,41 @@ async function finalizarVenta(req: Request, res: Response) {
   }
 }
 
+async function marcarPagoConfirmado(req: Request, res: Response) {
+  try {
+    const compraId = Number(req.params.compraId);
+    const vendedorId = Number(req.params.id);
+
+    const compra = await em.findOne(
+      Compra,
+      { id: compraId },
+      { populate: ['itemCartas', 'itemCartas.uploaderVendedor', 'tiendaRetiro', 'comprador'] }
+    );
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada' });
+
+    const isVendor = compra.itemCartas.getItems().some(item =>
+      item.uploaderVendedor?.id === vendedorId
+    );
+    if (!isVendor) return res.status(403).json({ message: 'No sos vendedor en esta compra' });
+
+    if (!compra.tiendaRetiro) {
+      return res.status(400).json({ message: 'Esta compra no tiene tienda de retiro intermediaria' });
+    }
+
+    if (compra.estado !== 'en_tienda') {
+      return res.status(400).json({ message: 'La compra debe estar en estado en_tienda para confirmar el pago' });
+    }
+
+    compra.estado = 'pago_confirmado';
+    await em.flush();
+
+    res.json({ message: 'Pago confirmado exitosamente', data: compra });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}
+
 async function getTiendasRetiro(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
@@ -245,4 +283,4 @@ async function updateTiendasRetiro(req: Request, res: Response) {
   }
 }
 
-export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, finalizarVenta, getTiendasRetiro, updateTiendasRetiro };
+export { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, finalizarVenta, marcarPagoConfirmado, getTiendasRetiro, updateTiendasRetiro };

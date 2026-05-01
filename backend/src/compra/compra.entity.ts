@@ -48,4 +48,22 @@ export class Compra extends BaseEntity {
 
   @Property({ type: 'json', nullable: true })
   items?: { cartaId: number; quantity: number; price?: number; title?: string }[];
+
+  @Property({ type: 'string', nullable: true })
+  canceladoPorRol?: 'comprador' | 'vendedor' | 'tienda';
+
+  @Property({ type: 'number', nullable: true })
+  canceladoPorId?: number;
+
+  @Property({ type: 'string', nullable: true })
+  canceladoPorActorTipo?: string;
+
+  @Property({ type: 'string', nullable: true })
+  motivoCancelacion?: string;
+
+  @Property({ type: 'date', nullable: true })
+  fechaCancelacion?: Date;
+
+  @Property({ type: 'string', nullable: true })
+  estadoAntesCancelacion?: string;
 }

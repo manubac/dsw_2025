@@ -11,6 +11,7 @@ import { Envio } from "../envio/envio.entity.js";
 import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 import { Preference } from "mercadopago";
 import mpClient from '../shared/mercadopago.js'
+import { Valoracion } from "../valoracion/valoracion.entity.js";
 
 // Resuelve el User comprador para vendedores (tienen un User vinculado) y users normales.
 // Devuelve null para tiendas de retiro, que usan compradorTienda en su lugar.
@@ -73,6 +74,19 @@ function sanitizeCompraInput(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+const MOTIVOS_VALIDOS = [
+  'sin_stock', 'error_precio', 'producto_daniado', 'no_respondio',
+  'cambio_decision', 'sospecha_fraude', 'problema_tienda', 'otro',
+] as const;
+
+function sanitizeCancelacionInput(req: Request, res: Response, next: NextFunction) {
+  req.body.sanitizedInput = { motivo: req.body.motivo };
+  Object.keys(req.body.sanitizedInput).forEach((key) => {
+    if (req.body.sanitizedInput[key] === undefined) delete req.body.sanitizedInput[key];
+  });
+  next();
+}
+
 // Obtener todas las compras
 async function findAll(req: AuthRequest, res: Response) {
   try {
@@ -85,6 +99,7 @@ async function findAll(req: AuthRequest, res: Response) {
             "itemCartas",
             "itemCartas.cartas",
             "itemCartas.uploaderVendedor",
+            "itemCartas.uploaderTienda",
             "direccionEntrega",
             "envio",
             "tiendaRetiro",
@@ -442,4 +457,158 @@ async function remove(req: AuthRequest, res: Response) {
   }
 }
 
-export { sanitizeCompraInput, findAll, findOne, add, update, remove, createPreference };
+async function cancelarCompra(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const { motivo } = req.body.sanitizedInput;
+
+    if (!motivo || !MOTIVOS_VALIDOS.includes(motivo as any)) {
+      return res.status(400).json({ message: 'Motivo de cancelación inválido o faltante' });
+    }
+
+    const emFork = orm.em.fork();
+    const compra = await emFork.findOne(Compra, { id }, {
+      populate: [
+        'comprador', 'compradorTienda',
+        'itemCartas', 'itemCartas.uploaderVendedor', 'itemCartas.uploaderTienda',
+        'tiendaRetiro',
+      ],
+    });
+
+    if (!compra) return res.status(404).json({ message: 'Compra no encontrada' });
+
+    if (compra.estado === 'finalizado' || compra.estado === 'cancelado') {
+      return res.status(400).json({ message: `No se puede cancelar una compra en estado "${compra.estado}"` });
+    }
+
+    let canceladoPorRol: 'comprador' | 'vendedor' | 'tienda' | null = null;
+    let canceladoPorId: number | null = null;
+    let canceladoPorActorTipo: string | null = null;
+
+    if (req.actorRole === 'user') {
+      const user = req.actor as User;
+      if (compra.comprador?.id === user.id) {
+        canceladoPorRol = 'comprador';
+        canceladoPorId = user.id ?? null;
+        canceladoPorActorTipo = 'user';
+      }
+    } else if (req.actorRole === 'vendedor') {
+      const vendedor = req.actor as Vendedor;
+      const vendedorUserId = (vendedor.user as any)?.id;
+      if (vendedorUserId && compra.comprador?.id === vendedorUserId) {
+        canceladoPorRol = 'comprador';
+        canceladoPorId = vendedor.id ?? null;
+        canceladoPorActorTipo = 'vendedor';
+      } else if (compra.itemCartas.getItems().some(ic => (ic as any).uploaderVendedor?.id === vendedor.id)) {
+        canceladoPorRol = 'vendedor';
+        canceladoPorId = vendedor.id ?? null;
+        canceladoPorActorTipo = 'vendedor';
+      }
+    } else if (req.actorRole === 'tiendaRetiro') {
+      const tienda = req.actor as TiendaRetiro;
+      if (compra.compradorTienda?.id === tienda.id) {
+        canceladoPorRol = 'comprador';
+        canceladoPorId = tienda.id ?? null;
+        canceladoPorActorTipo = 'tiendaRetiro';
+      } else if (
+        compra.tiendaRetiro?.id === tienda.id ||
+        compra.itemCartas.getItems().some(ic => (ic as any).uploaderTienda?.id === tienda.id)
+      ) {
+        canceladoPorRol = 'tienda';
+        canceladoPorId = tienda.id ?? null;
+        canceladoPorActorTipo = 'tiendaRetiro';
+      }
+    }
+
+    if (!canceladoPorRol || canceladoPorId === null) {
+      return res.status(403).json({ message: 'No tenés acceso para cancelar esta compra' });
+    }
+
+    compra.estadoAntesCancelacion = compra.estado;
+    compra.estado = 'cancelado';
+    compra.canceladoPorRol = canceladoPorRol;
+    compra.canceladoPorId = canceladoPorId;
+    compra.canceladoPorActorTipo = canceladoPorActorTipo!;
+    compra.motivoCancelacion = motivo;
+    compra.fechaCancelacion = new Date();
+
+    await emFork.flush();
+    res.json({ message: 'Compra cancelada exitosamente', data: compra });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+async function getCancelacionStats(req: Request, res: Response) {
+  try {
+    const { actorTipo, actorId: actorIdStr } = req.query as { actorTipo: string; actorId: string };
+    const actorId = Number(actorIdStr);
+
+    if (!actorTipo || !actorId) {
+      return res.status(400).json({ message: 'actorTipo y actorId son obligatorios' });
+    }
+
+    const emFork = orm.em.fork();
+
+    const cancelaciones = await emFork.find(Compra, {
+      estado: 'cancelado',
+      canceladoPorId: actorId,
+      canceladoPorActorTipo: actorTipo,
+    });
+
+    const comoComprador = cancelaciones.filter(c => c.canceladoPorRol === 'comprador').length;
+    const comoVendedor  = cancelaciones.filter(c => c.canceladoPorRol === 'vendedor').length;
+    const comoTienda    = cancelaciones.filter(c => c.canceladoPorRol === 'tienda').length;
+
+    let totalOperaciones = 0;
+
+    if (actorTipo === 'vendedor') {
+      const asSellerCount = await emFork.count(Compra, { itemCartas: { uploaderVendedor: { id: actorId } } });
+      const vendedor = await emFork.findOne(Vendedor, { id: actorId }, { populate: ['user'] });
+      const asBuyerCount = vendedor?.user
+        ? await emFork.count(Compra, { comprador: { id: (vendedor.user as any).id } })
+        : 0;
+      totalOperaciones = asSellerCount + asBuyerCount;
+    } else if (actorTipo === 'user') {
+      totalOperaciones = await emFork.count(Compra, { comprador: { id: actorId } });
+    } else if (actorTipo === 'tiendaRetiro') {
+      const asSellerCount = await emFork.count(Compra, { itemCartas: { uploaderTienda: { id: actorId } } });
+      const asIntermCount = await emFork.count(Compra, { tiendaRetiro: { id: actorId } });
+      const asBuyerCount  = await emFork.count(Compra, { compradorTienda: { id: actorId } });
+      totalOperaciones = asSellerCount + asIntermCount + asBuyerCount;
+    }
+
+    const totalCancelaciones = cancelaciones.length;
+    const porcentajeCancelacion = totalOperaciones > 0
+      ? Math.round((totalCancelaciones / totalOperaciones) * 1000) / 10
+      : 0;
+
+    const tipoObjetoRating = `cancelacion_${actorTipo}`;
+    const valoraciones = await emFork.find(Valoracion, { tipoObjeto: tipoObjetoRating, objetoId: actorId });
+    const ratingCancelaciones = valoraciones.length > 0
+      ? Math.round(valoraciones.reduce((s, v) => s + v.puntuacion, 0) / valoraciones.length * 10) / 10
+      : null;
+
+    const badge = porcentajeCancelacion >= 10 ? 'red'
+      : porcentajeCancelacion >= 5 ? 'yellow'
+      : 'none';
+
+    res.json({
+      data: {
+        totalOperaciones,
+        totalCancelaciones,
+        porcentajeCancelacion,
+        comoComprador,
+        comoVendedor,
+        comoTienda,
+        ratingCancelaciones,
+        totalRatingsCancelacion: valoraciones.length,
+        badge,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export { sanitizeCompraInput, sanitizeCancelacionInput, findAll, findOne, add, update, remove, createPreference, cancelarCompra, getCancelacionStats };

@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { CancelacionStats } from '../components/CancelacionStats';
 
 interface HorarioDia {
   abre: string;
@@ -175,6 +176,9 @@ export function TiendaProfile() {
             </div>
           </div>
         </div>
+
+        {/* CANCELACIÓN STATS */}
+        <CancelacionStats actorTipo="tiendaRetiro" actorId={Number(id)} />
 
         {/* INFO PANEL */}
         <div className="bg-white border border-blue-200 rounded-2xl p-6 shadow-sm mb-8">

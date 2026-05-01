@@ -14,9 +14,10 @@ interface Mensaje {
 
 interface ChatProps {
   compraId: number
+  locked?: boolean
 }
 
-export function Chat({ compraId }: ChatProps) {
+export function Chat({ compraId, locked = false }: ChatProps) {
   const { user } = useUser()
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [texto, setTexto] = useState('')
@@ -75,8 +76,15 @@ export function Chat({ compraId }: ChatProps) {
 
   return (
     <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
-      <div className="bg-orange-50 px-4 py-2 border-b border-gray-200">
-        <h4 className="text-sm font-semibold text-orange-700">Chat — Acordar punto de encuentro</h4>
+      <div className={`px-4 py-2 border-b border-gray-200 flex items-center justify-between ${locked ? 'bg-gray-50' : 'bg-orange-50'}`}>
+        <h4 className={`text-sm font-semibold ${locked ? 'text-gray-400' : 'text-orange-700'}`}>
+          Chat — Acordar punto de encuentro
+        </h4>
+        {locked && (
+          <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+            🔒 Cerrado
+          </span>
+        )}
       </div>
 
       <div ref={containerRef} className="h-52 overflow-y-auto p-3 space-y-2 bg-white">
@@ -110,22 +118,29 @@ export function Chat({ compraId }: ChatProps) {
         })}
       </div>
 
-      <form onSubmit={handleSend} className="flex gap-2 p-3 bg-gray-50 border-t border-gray-200">
-        <input
-          type="text"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder="Escribí un mensaje..."
-          className="flex-1 border border-gray-300 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-orange-400"
-        />
-        <button
-          type="submit"
-          disabled={enviando || !texto.trim()}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-full text-sm disabled:opacity-40 transition"
-        >
-          Enviar
-        </button>
-      </form>
+      {locked ? (
+        <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-400">
+          <span>🔒</span>
+          <span>El chat está cerrado porque la orden fue finalizada.</span>
+        </div>
+      ) : (
+        <form onSubmit={handleSend} className="flex gap-2 p-3 bg-gray-50 border-t border-gray-200">
+          <input
+            type="text"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Escribí un mensaje..."
+            className="flex-1 border border-gray-300 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-orange-400"
+          />
+          <button
+            type="submit"
+            disabled={enviando || !texto.trim()}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-full text-sm disabled:opacity-40 transition"
+          >
+            Enviar
+          </button>
+        </form>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, finalizarVenta, getTiendasRetiro, updateTiendasRetiro } from './vendedor.controller.js';
+import { sanitiseVendedorInput, findAll, findOne, add, update, remove, login, logout, getVentas, markSent, finalizarVenta, marcarPagoConfirmado, getTiendasRetiro, updateTiendasRetiro } from './vendedor.controller.js';
 import { authenticate, authorizeRoles, authorizeSelf } from '../shared/middleware/auth.js';
 
 export const vendedorRouter = Router();
@@ -17,6 +17,7 @@ vendedorRouter.post('/logout', authenticate, logout);
 vendedorRouter.get('/:id/ventas', authenticate, authorizeRoles('vendedor'), authorizeSelf, getVentas);
 vendedorRouter.post('/:id/ventas/:compraId/enviar', authenticate, authorizeRoles('vendedor'), authorizeSelf, markSent);
 vendedorRouter.patch('/:id/ventas/:compraId/finalizar', authenticate, authorizeRoles('vendedor'), authorizeSelf, finalizarVenta);
+vendedorRouter.patch('/:id/ventas/:compraId/pago-confirmado', authenticate, authorizeRoles('vendedor'), authorizeSelf, marcarPagoConfirmado);
 
 // Tiendas de retiro del vendedor
 vendedorRouter.get('/:id/tiendas', getTiendasRetiro);

@@ -20,6 +20,8 @@ export function sanitizeTiendaRetiroInput(req: Request, res: Response, next: Nex
     horario: req.body.horario,
     ciudad: req.body.ciudad,
     activo: req.body.activo,
+    alias: req.body.alias,
+    cbu: req.body.cbu,
     descripcionCompra: req.body.descripcionCompra,
   };
   Object.keys(req.body.sanitizedInput).forEach((key) => {
@@ -142,11 +144,11 @@ export async function getVentas(req: Request, res: Response) {
     );
 
     const data = comprasFiltradas.map((compra) => {
-      const vendedoresMap = new Map<number, { nombre: string; alias: string | null; cbu: string | null }>();
+      const vendedoresMap = new Map<number, { id: number; nombre: string; alias: string | null; cbu: string | null }>();
       for (const itemCarta of compra.itemCartas) {
         const v = (itemCarta as any).uploaderVendedor;
         if (v && !vendedoresMap.has(v.id)) {
-          vendedoresMap.set(v.id, { nombre: v.nombre, alias: v.alias ?? null, cbu: v.cbu ?? null });
+          vendedoresMap.set(v.id, { id: v.id, nombre: v.nombre, alias: v.alias ?? null, cbu: v.cbu ?? null });
         }
       }
 
@@ -161,6 +163,9 @@ export async function getVentas(req: Request, res: Response) {
         estado:    compra.estado,
         total:     compra.total,
         createdAt: compra.createdAt,
+        motivoCancelacion: compra.motivoCancelacion ?? null,
+        canceladoPorRol: compra.canceladoPorRol ?? null,
+        estadoAntesCancelacion: compra.estadoAntesCancelacion ?? null,
         comprador: {
           id:     (compra.comprador as any)?.id || null,
           nombre: (compra.comprador as any)?.username || compra.nombre || "Comprador",
@@ -202,8 +207,8 @@ export async function marcarEnTienda(req: Request, res: Response) {
     const nombreComprador = (compra.comprador as any)?.username || compra.nombre || 'comprador';
 
     const vendedor = compra.itemCartas.getItems().find((ic: any) => ic.uploaderVendedor)?.uploaderVendedor as any;
-    const aliasInfo = vendedor?.alias ? `\n<p><strong>Alias para pagar:</strong> ${vendedor.alias}</p>` : '';
-    const cbuInfo   = vendedor?.cbu   ? `<p><strong>CBU:</strong> ${vendedor.cbu}</p>` : '';
+    const aliasInfo = vendedor?.alias ? `<p><strong>Alias:</strong> <span style="font-family:monospace">${vendedor.alias}</span></p>` : '';
+    const cbuInfo   = vendedor?.cbu   ? `<p><strong>CBU:</strong> <span style="font-family:monospace">${vendedor.cbu}</span></p>` : '';
 
     if (destinatario && tienda) {
       const html = `
@@ -212,8 +217,14 @@ export async function marcarEnTienda(req: Request, res: Response) {
         <p><strong>${tienda.nombre}</strong><br/>
         ${tienda.direccion}<br/>
         ${tienda.horario ? `🕐 ${tienda.horario}` : ''}</p>
-        ${aliasInfo}${cbuInfo}
-        <p>No olvides transferir al vendedor antes de retirar y mostrá el comprobante en la tienda.</p>
+        <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:12px;margin:12px 0;">
+          <p style="font-weight:600;margin:0 0 8px;">⚠️ Para retirar tu carta, primero realizá el pago al vendedor:</p>
+          ${aliasInfo}${cbuInfo}
+          <p style="margin:8px 0 0;color:#78350f;font-size:0.9em;">
+            Una vez que el vendedor confirme el pago en la plataforma, podrás retirar en la tienda.<br/>
+            <strong>No es necesario mostrar comprobante físico</strong> — el vendedor lo confirma digitalmente.
+          </p>
+        </div>
       `;
       sendEmail(
         destinatario,
@@ -242,8 +253,8 @@ export async function finalizarCompra(req: Request, res: Response) {
 
     if (!compra) return res.status(404).json({ message: 'Compra no encontrada o no pertenece a esta tienda' });
 
-    if (compra.estado !== 'en_tienda') {
-      return res.status(400).json({ message: 'La compra no está en estado en_tienda' });
+    if (compra.estado !== 'pago_confirmado') {
+      return res.status(400).json({ message: 'El vendedor aún no confirmó el pago. No se puede finalizar hasta que el comprador pague y el vendedor lo confirme.' });
     }
 
     compra.estado = 'finalizado';
@@ -465,15 +476,22 @@ export async function getVentasDirectas(req: Request, res: Response) {
       c.itemCartas.getItems().some((ic) => (ic as any).uploaderTienda?.id === id)
     );
 
+    const tienda = await orm.em.findOne(TiendaRetiro, { id });
+
     const data = directas.map((compra) => ({
       id:          compra.id,
       estado:      compra.estado,
       total:       compra.total,
       createdAt:   compra.createdAt,
+      motivoCancelacion: compra.motivoCancelacion ?? null,
+      canceladoPorRol: compra.canceladoPorRol ?? null,
+      estadoAntesCancelacion: compra.estadoAntesCancelacion ?? null,
       compradorId: (compra.comprador as any)?.id || null,
       nombre:      (compra.comprador as any)?.username || compra.nombre || 'Comprador',
       email:       (compra.comprador as any)?.email    || compra.email  || '',
       telefono:    compra.telefono ?? '',
+      alias:       tienda?.alias ?? null,
+      cbu:         tienda?.cbu   ?? null,
       items:     (compra.items ?? []).map((i) => ({
         cartaNombre: i.title ?? `Carta #${i.cartaId}`,
         cantidad:    i.quantity,

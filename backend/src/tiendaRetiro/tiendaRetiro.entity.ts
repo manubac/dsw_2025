@@ -43,6 +43,12 @@ export class TiendaRetiro extends BaseEntity {
   @Property({ type: 'string', nullable: true })
   telefono?: string;
 
+  @Property({ type: 'string', nullable: true })
+  alias?: string;
+
+  @Property({ type: 'string', nullable: true })
+  cbu?: string;
+
   @Property({ type: 'text', nullable: true })
   descripcionCompra?: string;
 }

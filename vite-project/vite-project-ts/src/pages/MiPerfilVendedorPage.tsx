@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { api, fetchApi } from '../services/api';
+import { CancelacionStats } from '../components/CancelacionStats';
 
 interface TiendaRetiro {
   id: number;
@@ -434,6 +435,9 @@ export default function MiPerfilVendedorPage() {
             )}
           </div>
         </div>
+
+        {/* ── CANCELACIÓN STATS ── */}
+        <CancelacionStats actorTipo="vendedor" actorId={user!.id} />
 
         {/* ── QUICK ACCESS ── */}
         <div className="grid grid-cols-2 gap-4">
