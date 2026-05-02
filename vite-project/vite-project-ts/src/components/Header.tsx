@@ -3,7 +3,8 @@ import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
-import { X, Bell, MessageSquare } from "lucide-react";
+import { X, MessageSquare } from "lucide-react";
+import { OrdersDropdown } from "./OrdersDropdown";
 import { fetchApi } from "../services/api";
 import { MdSearch } from "react-icons/md";
 
@@ -343,12 +344,7 @@ export function Header() {
         <div className="flex items-center gap-4">
           {user && (
             <>
-              <button
-                className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
-                title="Notificaciones"
-              >
-                <Bell size={20} />
-              </button>
+              <OrdersDropdown />
               <button
                 onClick={() => navigate('/chats')}
                 className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
