@@ -311,21 +311,6 @@ export default function MisVentasPage() {
           </div>
 
           {/* State info boxes */}
-          {selectedVenta.estado === 'pendiente' && selectedVenta.tiendaRetiro && (
-            <div className="rounded-2xl border-2 border-[#1e6fa8] bg-gradient-to-br from-[#e8f2f8] to-[#f0f7fd] p-5 mb-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-11 h-11 rounded-full bg-[#1e6fa8] flex items-center justify-center text-white text-xl shadow-md">🚀</div>
-                <div>
-                  <p className="font-bold text-[#1a3a52] text-base">Acción requerida</p>
-                  <p className="text-xs text-[#3a6a8a] mt-0.5">Llevá el pedido a {selectedVenta.tiendaRetiro.nombre}</p>
-                </div>
-              </div>
-              <button onClick={() => handleMarkSent(selectedVenta.id)} disabled={actionLoading === selectedVenta.id}
-                className="w-full bg-[#1e6fa8] hover:bg-[#155e8a] text-white text-sm font-bold px-4 py-3 rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-[#1e6fa8]/30 disabled:opacity-50">
-                {actionLoading === selectedVenta.id ? 'Procesando...' : <><span>Confirmar entrega a tienda</span><span>→</span></>}
-              </button>
-            </div>
-          )}
           {selectedVenta.estado === 'en_tienda' && (
             <div className="rounded-2xl border-2 border-[#1e6fa8] bg-gradient-to-br from-[#e8f2f8] to-[#f0f7fd] p-5 mb-4">
               <div className="flex items-center gap-3 mb-3">
