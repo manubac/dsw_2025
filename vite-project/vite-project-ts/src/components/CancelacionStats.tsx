@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
 interface StatsData {
+  totalCompras: number;
+  totalVentas: number;
   totalOperaciones: number;
+  comprasCanceladas: number;
+  ventasCanceladas: number;
   totalCancelaciones: number;
   porcentajeCancelacion: number;
   comoComprador: number;
@@ -22,6 +26,7 @@ interface CancelacionStatsProps {
 export function CancelacionStats({ actorTipo, actorId, compact = false }: CancelacionStatsProps) {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     api
@@ -31,7 +36,7 @@ export function CancelacionStats({ actorTipo, actorId, compact = false }: Cancel
       .finally(() => setLoading(false));
   }, [actorTipo, actorId]);
 
-  if (loading || !stats || stats.totalCancelaciones === 0) return null;
+  if (loading || !stats) return null;
 
   const badgeClasses =
     stats.badge === 'red'
@@ -49,6 +54,7 @@ export function CancelacionStats({ actorTipo, actorId, compact = false }: Cancel
       : '';
 
   if (compact) {
+    if (stats.totalCancelaciones === 0) return null;
     return (
       <div
         className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${badgeClasses}`}
@@ -62,83 +68,78 @@ export function CancelacionStats({ actorTipo, actorId, compact = false }: Cancel
     );
   }
 
-  const numColor =
+  const cancelColor =
     stats.badge === 'red'
-      ? 'text-red-700'
+      ? 'text-red-600'
       : stats.badge === 'yellow'
-      ? 'text-yellow-700'
+      ? 'text-yellow-600'
       : 'text-gray-800';
 
-  const numBg =
-    stats.badge === 'red'
-      ? 'bg-red-50 border-red-200'
-      : stats.badge === 'yellow'
-      ? 'bg-yellow-50 border-yellow-200'
-      : 'bg-gray-50 border-gray-200';
-
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-gray-700">Historial de cancelaciones</h4>
-        {stats.badge !== 'none' && badgeLabel && (
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeClasses}`}>
-            {badgeIcon} {badgeLabel}
-          </span>
-        )}
-      </div>
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      {/* Toggle header */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-green-700 hover:bg-green-50 transition-colors border-b border-gray-100"
+      >
+        {expanded ? 'MOSTRAR MENOS ▲' : 'MÁS INFORMACIÓN ▼'}
+      </button>
 
-      {/* Main numbers */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
-          <p className="text-2xl font-extrabold text-gray-800">{stats.totalOperaciones}</p>
-          <p className="text-xs text-gray-500 mt-0.5">operaciones</p>
-        </div>
-        <div className={`border rounded-xl p-3 text-center ${numBg}`}>
-          <p className={`text-2xl font-extrabold ${numColor}`}>{stats.totalCancelaciones}</p>
-          <p className="text-xs text-gray-500 mt-0.5">cancelaciones</p>
-        </div>
-        <div className={`border rounded-xl p-3 text-center ${numBg}`}>
-          <p className={`text-2xl font-extrabold ${numColor}`}>{stats.porcentajeCancelacion}%</p>
-          <p className="text-xs text-gray-500 mt-0.5">tasa</p>
-        </div>
-      </div>
+      {expanded && (
+        <>
+          {/* Badge de cancelaciones (solo si aplica) */}
+          {stats.badge !== 'none' && badgeLabel && (
+            <div className="flex justify-end px-5 pt-3">
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeClasses}`}>
+                {badgeIcon} {badgeLabel}
+              </span>
+            </div>
+          )}
 
-      {/* Breakdown */}
-      <div className="space-y-2 mb-4">
-        {stats.comoComprador > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Canceló como comprador</span>
-            <span className="font-semibold text-gray-800">{stats.comoComprador}</span>
-          </div>
-        )}
-        {stats.comoVendedor > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Canceló como vendedor</span>
-            <span className="font-semibold text-gray-800">{stats.comoVendedor}</span>
-          </div>
-        )}
-        {stats.comoTienda > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Canceló como tienda</span>
-            <span className="font-semibold text-gray-800">{stats.comoTienda}</span>
-          </div>
-        )}
-      </div>
+          {/* Grid 2 columnas estilo Cardmarket */}
+          <div className="grid grid-cols-2 divide-x divide-gray-100 px-0">
+            {/* Columna izquierda */}
+            <div className="divide-y divide-gray-100">
+              <div className="flex items-center justify-between px-5 py-2.5">
+                <span className="text-sm font-semibold text-gray-700">Compras</span>
+                <span className="text-sm font-bold text-gray-800">{stats.totalCompras}</span>
+              </div>
+              <div className="flex items-center justify-between px-5 py-2.5">
+                <span className="text-sm font-semibold text-gray-700">Compras canceladas</span>
+                <span className={`text-sm font-bold ${stats.comprasCanceladas > 0 ? cancelColor : 'text-gray-800'}`}>
+                  {stats.comprasCanceladas}
+                </span>
+              </div>
+              {stats.ratingCancelaciones !== null && (
+                <div className="flex items-center justify-between px-5 py-2.5">
+                  <span className="text-sm font-semibold text-gray-700">Rating cancelaciones</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-orange-400 text-sm">
+                      {'★'.repeat(Math.round(stats.ratingCancelaciones))}
+                      {'☆'.repeat(5 - Math.round(stats.ratingCancelaciones))}
+                    </span>
+                    <span className="text-sm font-bold text-gray-800">{stats.ratingCancelaciones}</span>
+                    <span className="text-xs text-gray-400">({stats.totalRatingsCancelacion})</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-      {/* Cancellation rating */}
-      {stats.ratingCancelaciones !== null && (
-        <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-          <span className="text-sm text-gray-600">Rating de gestión de cancelaciones</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-orange-400 text-base">
-              {'★'.repeat(Math.round(stats.ratingCancelaciones))}
-              {'☆'.repeat(5 - Math.round(stats.ratingCancelaciones))}
-            </span>
-            <span className="text-sm font-bold text-gray-800">{stats.ratingCancelaciones}</span>
-            <span className="text-xs text-gray-400">({stats.totalRatingsCancelacion})</span>
+            {/* Columna derecha */}
+            <div className="divide-y divide-gray-100">
+              <div className="flex items-center justify-between px-5 py-2.5">
+                <span className="text-sm font-semibold text-gray-700">Ventas</span>
+                <span className="text-sm font-bold text-gray-800">{stats.totalVentas}</span>
+              </div>
+              <div className="flex items-center justify-between px-5 py-2.5">
+                <span className="text-sm font-semibold text-gray-700">Ventas canceladas</span>
+                <span className={`text-sm font-bold ${stats.ventasCanceladas > 0 ? cancelColor : 'text-gray-800'}`}>
+                  {stats.ventasCanceladas}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

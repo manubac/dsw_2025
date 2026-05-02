@@ -560,24 +560,27 @@ async function getCancelacionStats(req: Request, res: Response) {
     const comoVendedor  = cancelaciones.filter(c => c.canceladoPorRol === 'vendedor').length;
     const comoTienda    = cancelaciones.filter(c => c.canceladoPorRol === 'tienda').length;
 
-    let totalOperaciones = 0;
+    let totalCompras = 0;
+    let totalVentas = 0;
 
     if (actorTipo === 'vendedor') {
-      const asSellerCount = await emFork.count(Compra, { itemCartas: { uploaderVendedor: { id: actorId } } });
+      totalVentas = await emFork.count(Compra, { itemCartas: { uploaderVendedor: { id: actorId } } });
       const vendedor = await emFork.findOne(Vendedor, { id: actorId }, { populate: ['user'] });
-      const asBuyerCount = vendedor?.user
+      totalCompras = vendedor?.user
         ? await emFork.count(Compra, { comprador: { id: (vendedor.user as any).id } })
         : 0;
-      totalOperaciones = asSellerCount + asBuyerCount;
     } else if (actorTipo === 'user') {
-      totalOperaciones = await emFork.count(Compra, { comprador: { id: actorId } });
+      totalCompras = await emFork.count(Compra, { comprador: { id: actorId } });
     } else if (actorTipo === 'tiendaRetiro') {
       const asSellerCount = await emFork.count(Compra, { itemCartas: { uploaderTienda: { id: actorId } } });
       const asIntermCount = await emFork.count(Compra, { tiendaRetiro: { id: actorId } });
-      const asBuyerCount  = await emFork.count(Compra, { compradorTienda: { id: actorId } });
-      totalOperaciones = asSellerCount + asIntermCount + asBuyerCount;
+      totalVentas = asSellerCount + asIntermCount;
+      totalCompras = await emFork.count(Compra, { compradorTienda: { id: actorId } });
     }
 
+    const totalOperaciones = totalCompras + totalVentas;
+    const comprasCanceladas = comoComprador;
+    const ventasCanceladas = comoVendedor + comoTienda;
     const totalCancelaciones = cancelaciones.length;
     const porcentajeCancelacion = totalOperaciones > 0
       ? Math.round((totalCancelaciones / totalOperaciones) * 1000) / 10
@@ -595,7 +598,11 @@ async function getCancelacionStats(req: Request, res: Response) {
 
     res.json({
       data: {
+        totalCompras,
+        totalVentas,
         totalOperaciones,
+        comprasCanceladas,
+        ventasCanceladas,
         totalCancelaciones,
         porcentajeCancelacion,
         comoComprador,

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { io as socketIO } from 'socket.io-client'
 import { useUser } from '../context/user'
 import { fetchApi } from '../services/api'
+import { ExternalLink } from 'lucide-react'
 
 interface Mensaje {
   id: number
@@ -15,9 +16,11 @@ interface Mensaje {
 interface ChatProps {
   compraId: number
   locked?: boolean
+  onOpenInPage?: () => void
+  counterpartName?: string
 }
 
-export function Chat({ compraId, locked = false }: ChatProps) {
+export function Chat({ compraId, locked = false, onOpenInPage, counterpartName }: ChatProps) {
   const { user } = useUser()
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [texto, setTexto] = useState('')
@@ -58,7 +61,6 @@ export function Chat({ compraId, locked = false }: ChatProps) {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!texto.trim() || enviando) return
-
     setEnviando(true)
     try {
       await fetchApi(`/api/mensajes/${compraId}`, {
@@ -75,21 +77,35 @@ export function Chat({ compraId, locked = false }: ChatProps) {
   }
 
   return (
-    <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
-      <div className={`px-4 py-2 border-b border-gray-200 flex items-center justify-between ${locked ? 'bg-gray-50' : 'bg-orange-50'}`}>
-        <h4 className={`text-sm font-semibold ${locked ? 'text-gray-400' : 'text-orange-700'}`}>
-          Chat — Acordar punto de encuentro
-        </h4>
-        {locked && (
-          <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
-            🔒 Cerrado
-          </span>
+    <div className="border border-[#c8dbc9] rounded-xl overflow-hidden shadow-sm">
+      {/* Header */}
+      <div className="px-4 py-2.5 bg-[#e8f0e9] border-b border-[#c8dbc9] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#4a7c59]" />
+          <h4 className="text-sm font-semibold text-[#2d4a32]">
+            {counterpartName ? `Chat con ${counterpartName}` : 'Chat'}
+          </h4>
+          {locked && (
+            <span className="text-xs text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full ml-1">
+              Cerrado
+            </span>
+          )}
+        </div>
+        {onOpenInPage && (
+          <button
+            onClick={onOpenInPage}
+            className="flex items-center gap-1 text-xs text-[#4a7c59] hover:text-[#3a6b49] font-medium transition"
+          >
+            <ExternalLink size={13} />
+            Abrir en chats
+          </button>
         )}
       </div>
 
+      {/* Messages */}
       <div ref={containerRef} className="h-52 overflow-y-auto p-3 space-y-2 bg-white">
         {mensajes.length === 0 && (
-          <p className="text-xs text-gray-400 text-center mt-6">
+          <p className="text-xs text-gray-400 text-center mt-8">
             Aún no hay mensajes. ¡Iniciá la conversación!
           </p>
         )}
@@ -101,15 +117,15 @@ export function Chat({ compraId, locked = false }: ChatProps) {
               <div
                 className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
                   esMio
-                    ? 'bg-orange-500 text-white rounded-br-sm'
-                    : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+                    ? 'bg-[#4a7c59] text-white rounded-br-sm'
+                    : 'bg-[#f0f4f0] border border-[#c8dbc9] text-[#2d4a32] rounded-bl-sm'
                 }`}
               >
                 {!esMio && (
-                  <p className="text-xs font-semibold mb-1 text-gray-500">{m.senderNombre}</p>
+                  <p className="text-xs font-semibold mb-1 text-[#4a7c59]">{m.senderNombre}</p>
                 )}
                 <p>{m.texto}</p>
-                <p className={`text-xs mt-1 ${esMio ? 'text-orange-100' : 'text-gray-400'}`}>
+                <p className={`text-xs mt-1 ${esMio ? 'text-green-100' : 'text-gray-400'}`}>
                   {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -118,24 +134,24 @@ export function Chat({ compraId, locked = false }: ChatProps) {
         })}
       </div>
 
+      {/* Input */}
       {locked ? (
-        <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-400">
-          <span>🔒</span>
-          <span>El chat está cerrado porque la orden fue finalizada.</span>
+        <div className="flex items-center justify-center gap-2 p-3 bg-[#f4f7f4] border-t border-[#c8dbc9] text-xs text-gray-400">
+          <span>El chat está cerrado — la orden fue finalizada o cancelada.</span>
         </div>
       ) : (
-        <form onSubmit={handleSend} className="flex gap-2 p-3 bg-gray-50 border-t border-gray-200">
+        <form onSubmit={handleSend} className="flex gap-2 p-3 bg-[#f4f7f4] border-t border-[#c8dbc9]">
           <input
             type="text"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Escribí un mensaje..."
-            className="flex-1 border border-gray-300 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-orange-400"
+            className="flex-1 border border-[#c8dbc9] rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-[#4a7c59] bg-white"
           />
           <button
             type="submit"
             disabled={enviando || !texto.trim()}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-full text-sm disabled:opacity-40 transition"
+            className="bg-[#4a7c59] hover:bg-[#3a6b49] text-white px-4 py-1.5 rounded-full text-sm disabled:opacity-40 transition"
           >
             Enviar
           </button>

@@ -32,6 +32,7 @@ import { PagoExitoso } from "./pages/pagoExitoso";
 import WishlistPage from "./pages/WishlistPage";
 import TiendaRetiroVentasPage from "./pages/TiendaRetiroVentasPage";
 import MiPerfilTiendaRetiroPage from "./pages/MiPerfilTiendaRetiroPage";
+import ChatsPage from "./pages/ChatsPage";
 
 /* ✅ NUEVO — páginas de resultado de pago */
 import PagoError from "./pages/pagoError";
@@ -91,6 +92,16 @@ function UserRoute({ children }: { children: JSX.Element }) {
 }
 
 function PublicarRoute({ children }: { children: JSX.Element }) {
+  const { user } = useUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'vendedor' && user.role !== 'tiendaRetiro') return <Navigate to="/" replace />;
+  return children;
+}
+
+/**
+ * RUTA PROTEGIDA PARA VENTAS (vendedor + tiendaRetiro)
+ */
+function VentasRoute({ children }: { children: JSX.Element }) {
   const { user } = useUser();
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'vendedor' && user.role !== 'tiendaRetiro') return <Navigate to="/" replace />;
@@ -188,6 +199,16 @@ function App() {
                   }
                 />
 
+                {/* Chats */}
+                <Route
+                  path="chats"
+                  element={
+                    <ProtectedRoute>
+                      <ChatsPage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* Publicar */}
                 <Route
                   path="publicar"
@@ -264,9 +285,9 @@ function App() {
                 <Route
                   path="mis-ventas"
                   element={
-                    <VendedorRoute>
+                    <VentasRoute>
                       <MisVentasPage />
-                    </VendedorRoute>
+                    </VentasRoute>
                   }
                 />
 

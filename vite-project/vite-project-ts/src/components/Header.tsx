@@ -3,7 +3,7 @@ import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
-import { X } from "lucide-react";
+import { X, Bell, MessageSquare } from "lucide-react";
 import { fetchApi } from "../services/api";
 import { MdSearch } from "react-icons/md";
 
@@ -341,6 +341,23 @@ export function Header() {
 
         {/* Usuario */}
         <div className="flex items-center gap-4">
+          {user && (
+            <>
+              <button
+                className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
+                title="Notificaciones"
+              >
+                <Bell size={20} />
+              </button>
+              <button
+                onClick={() => navigate('/chats')}
+                className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
+                title="Mis chats"
+              >
+                <MessageSquare size={20} />
+              </button>
+            </>
+          )}
           <div className="relative z-[60] user-menu-container">
             <button
               onClick={handleUserClick}
@@ -369,10 +386,22 @@ export function Header() {
                       Mi Perfil
                     </button>
                     <button
+                      onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                    >
+                      Mis Compras
+                    </button>
+                    <button
+                      onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas'); }}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                    >
+                      Mis Ventas
+                    </button>
+                    <button
                       onClick={() => { setUserMenuOpen(false); navigate('/tienda-retiro/ventas'); }}
                       className="block w-full text-left px-4 py-2 hover:bg-orange-100"
                     >
-                      Ventas
+                      Gestión de pedidos
                     </button>
                     <button
                       onClick={handleLogout}
@@ -406,12 +435,26 @@ export function Header() {
                     )}
 
                     {user.role === 'vendedor' && (
-                      <button
-                        onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas'); }}
-                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
-                      >
-                        Mis Ventas
-                      </button>
+                      <>
+                        <button
+                          onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
+                          className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                        >
+                          Mis Compras
+                        </button>
+                        <button
+                          onClick={() => { setUserMenuOpen(false); navigate('/wishlist'); }}
+                          className="block w-full text-left px-4 py-2 hover:bg-orange-100 text-red-500 font-medium"
+                        >
+                          ♥ Mis Favoritos
+                        </button>
+                        <button
+                          onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas'); }}
+                          className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                        >
+                          Mis Ventas
+                        </button>
+                      </>
                     )}
 
                     {user.role === 'intermediario' && (
