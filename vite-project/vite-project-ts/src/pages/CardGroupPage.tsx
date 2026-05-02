@@ -145,9 +145,15 @@ export default function CardGroupPage() {
         <div className="flex flex-col gap-3">
           {sortedPubs.map((pub: any) => {
             const lang = pub.lang || 'en';
+            const isTienda = !!pub.uploaderTienda;
             const rating = pub.uploader?.rating ?? 0;
             const reviewsCount = pub.uploader?.reviewsCount ?? 0;
-            const vendorName = pub.uploader?.nombre ?? 'Vendedor';
+            const vendorName = isTienda
+              ? pub.uploaderTienda.nombre
+              : (pub.uploader?.nombre ?? 'Vendedor');
+            const vendorPath = isTienda
+              ? `/tienda/${pub.uploaderTienda.id}`
+              : `/vendedor/${pub.uploader?.id}`;
             const pubCities = (pub.intermediarios || [])
               .map((i: any) => i.direccion?.ciudad)
               .filter(Boolean) as string[];
@@ -167,9 +173,17 @@ export default function CardGroupPage() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                    <span
+                      onClick={(e) => { e.stopPropagation(); navigate(vendorPath); }}
+                      className="font-semibold text-green-700 dark:text-green-400 text-sm cursor-pointer hover:underline"
+                    >
                       {vendorName}
                     </span>
+                    {isTienda && (
+                      <span className="text-xs bg-green-100 text-green-700 rounded px-1.5 py-0.5">
+                        Tienda
+                      </span>
+                    )}
                     <span className="text-xs bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
                       {LANG_LABELS[lang] || lang.toUpperCase()}
                     </span>
@@ -177,7 +191,7 @@ export default function CardGroupPage() {
                       <span className="text-xs text-gray-400">{pubCities.join(', ')}</span>
                     )}
                   </div>
-                  <StarRating rating={rating} count={reviewsCount} />
+                  {!isTienda && <StarRating rating={rating} count={reviewsCount} />}
                   <p className="text-xs text-gray-400 mt-0.5">Stock: {pub.stock ?? 1}</p>
                 </div>
                 <div className="text-right flex-shrink-0">

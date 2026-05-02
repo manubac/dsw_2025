@@ -198,6 +198,19 @@ export function CardDetail() {
             </div>
           )}
 
+          {card.uploaderTienda && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+              <span>Vendido por:</span>
+              <span
+                onClick={() => navigate(`/tienda/${card.uploaderTienda.id}`)}
+                className="text-green-600 font-semibold cursor-pointer underline"
+              >
+                {card.uploaderTienda.nombre}
+              </span>
+              <span className="text-xs text-gray-400 italic">Tienda</span>
+            </div>
+          )}
+
           {(user?.role === 'usuario' || user?.role === 'user' || user?.role === 'vendedor' || user?.role === 'tiendaRetiro') && (
             <button
               onClick={handleToggleWishlist}

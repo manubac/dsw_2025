@@ -106,6 +106,31 @@ export function Products({ products }: { products: any[] }) {
                 ${product.price}
               </span>
 
+              {/* Vendedor / Tienda */}
+              {product.uploader && (
+                <p className="text-xs text-gray-500">
+                  Por{' '}
+                  <span
+                    onClick={(e) => { e.stopPropagation(); navigate(`/vendedor/${product.uploader.id}`) }}
+                    className="text-green-600 font-medium cursor-pointer hover:underline"
+                  >
+                    {product.uploader.nombre}
+                  </span>
+                </p>
+              )}
+              {product.uploaderTienda && (
+                <p className="text-xs text-gray-500">
+                  Por{' '}
+                  <span
+                    onClick={(e) => { e.stopPropagation(); navigate(`/tienda/${product.uploaderTienda.id}`) }}
+                    className="text-green-600 font-medium cursor-pointer hover:underline"
+                  >
+                    {product.uploaderTienda.nombre}
+                  </span>
+                  <span className="ml-1 text-gray-400 italic">· Tienda</span>
+                </p>
+              )}
+
               {/* Acciones */}
               <div className="flex items-center gap-2 pt-2">
                 <button

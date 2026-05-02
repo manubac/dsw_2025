@@ -1,87 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/user';
 import { fetchApi } from '../services/api';
 import { HorarioGrid, HorarioSemanal, HORARIO_DEFAULT } from '../components/HorarioGrid';
-
-// ── CityPicker (same as UserRegistration.tsx) ──────────────────────────────
-interface GeorefMunicipio {
-  id: string;
-  nombre: string;
-  provincia: { nombre: string };
-}
-
-function CityPicker({ value, onChange }: { value: string; onChange: (city: string, province: string) => void }) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<GeorefMunicipio[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const search = (q: string) => {
-    setQuery(q);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (q.length < 2) { setResults([]); setOpen(false); return; }
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `https://apis.datos.gob.ar/georef/api/municipios?nombre=${encodeURIComponent(q)}&max=8&campos=id,nombre,provincia&orden=nombre`
-        );
-        const data = await res.json();
-        setResults(data.municipios || []);
-        setOpen(true);
-      } catch { setResults([]); } finally { setLoading(false); }
-    }, 300);
-  };
-
-  const select = (m: GeorefMunicipio) => {
-    setQuery(`${m.nombre}, ${m.provincia.nombre}`);
-    setOpen(false);
-    onChange(m.nombre, m.provincia.nombre);
-  };
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <div className="relative">
-        <input
-          type="text" value={query} onChange={e => search(e.target.value)}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Ej: Rosario, Córdoba, La Plata..." autoComplete="off"
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm transition pr-8"
-        />
-        {loading && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2">
-            <svg className="w-4 h-4 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-          </span>
-        )}
-      </div>
-      {open && results.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-          {results.map(m => (
-            <li key={m.id} onMouseDown={() => select(m)}
-              className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer text-sm flex items-center gap-2 transition">
-              <span className="font-medium text-gray-800">{m.nombre}</span>
-              <span className="text-gray-400 text-xs">{m.provincia.nombre}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
+import { CityPicker } from '../components/CityPicker';
+import { GoogleMapPicker, LocationData } from '../components/GoogleMapPicker';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Step = 'LOADING' | 'INVALID' | 'FORM' | 'EMAIL_CODE' | 'PHONE_CODE' | 'SUCCESS';
@@ -93,9 +16,13 @@ interface FormData {
   password: string;
   confirmPassword: string;
   telefono: string;
-  ciudad: string;
-  provincia: string;
+  // Location - filled exclusively via GoogleMapPicker
   direccion: string;
+  ciudad: string;
+  latitud: number | null;
+  longitud: number | null;
+  googleMapsUrl: string;
+  // Additional address detail
   piso: string;
   departamento: string;
   alias: string;
@@ -114,9 +41,11 @@ export function StoreRegistrationPage() {
   const [step, setStep] = useState<Step>('LOADING');
   const [form, setForm] = useState<FormData>({
     nombreTienda: '', email: '', confirmEmail: '', password: '',
-    confirmPassword: '', telefono: '', ciudad: '', provincia: '',
-    direccion: '', piso: '', departamento: '', alias: '', cbu: '', descripcion: '', horario: HORARIO_DEFAULT,
+    confirmPassword: '', telefono: '',
+    direccion: '', ciudad: '', latitud: null, longitud: null, googleMapsUrl: '',
+    piso: '', departamento: '', alias: '', cbu: '', descripcion: '', horario: HORARIO_DEFAULT,
   });
+  const [cityCenter, setCityCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [emailCode, setEmailCode] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +61,17 @@ export function StoreRegistrationPage() {
 
   const set = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handleLocationChange = (loc: LocationData) => {
+    setForm(prev => ({
+      ...prev,
+      direccion: loc.address,
+      ciudad: loc.city,
+      latitud: loc.lat,
+      longitud: loc.lng,
+      googleMapsUrl: loc.googleMapsUrl,
+    }));
+  };
 
   const passwordStrength = (p: string) => {
     if (!p) return null;
@@ -150,6 +90,9 @@ export function StoreRegistrationPage() {
     if (form.password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
     if (!/^\+54 9 \d{4} \d{4}$/.test(form.telefono)) {
       setError('Formato de teléfono inválido. Usá +54 9 XXXX XXXX'); return;
+    }
+    if (form.latitud === null || form.longitud === null) {
+      setError('Seleccioná la ubicación de tu tienda en el mapa.'); return;
     }
     setStep('EMAIL_CODE');
   };
@@ -198,6 +141,9 @@ export function StoreRegistrationPage() {
           telefono: form.telefono,
           ciudad: form.ciudad,
           direccion: form.direccion,
+          latitud: form.latitud,
+          longitud: form.longitud,
+          googleMapsUrl: form.googleMapsUrl,
           piso: form.piso,
           departamento: form.departamento,
           alias: form.alias,
@@ -340,18 +286,43 @@ export function StoreRegistrationPage() {
                 <input type="text" value={form.telefono} onChange={set('telefono')} required disabled={loading} placeholder="+54 9 XXXX XXXX" className={inputCls} />
               </div>
 
+              {/* ── UBICACIÓN VÍA GOOGLE MAPS ── */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Localidad <span className="text-gray-400 font-normal">(Argentina)</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Localidad <span className="text-gray-400 font-normal">(Argentina)</span> <span className="text-red-500">*</span>
+                </label>
                 <CityPicker
                   value={form.ciudad}
-                  onChange={(city, province) => setForm(prev => ({ ...prev, ciudad: city, provincia: province }))}
+                  onChange={({ city, province, center }) => {
+                    setForm(prev => ({ ...prev, ciudad: city, provincia: province }));
+                    setCityCenter(center);
+                  }}
+                  disabled={loading}
                 />
                 {form.provincia && <p className="text-xs text-gray-400 mt-1">{form.provincia}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Dirección</label>
-                <input type="text" value={form.direccion} onChange={set('direccion')} required disabled={loading} placeholder="Ej: San Martín 1234" className={inputCls} />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Dirección exacta en el mapa <span className="text-red-500">*</span>
+                </label>
+                {!cityCenter && !form.latitud && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-2">
+                    Seleccioná primero la localidad para centrar el mapa.
+                  </p>
+                )}
+                <GoogleMapPicker
+                  value={form.latitud !== null ? {
+                    lat: form.latitud,
+                    lng: form.longitud!,
+                    address: form.direccion,
+                    city: form.ciudad,
+                    googleMapsUrl: form.googleMapsUrl,
+                  } : null}
+                  onChange={handleLocationChange}
+                  disabled={loading}
+                  defaultCenter={cityCenter ?? undefined}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

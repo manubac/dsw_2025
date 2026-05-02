@@ -242,7 +242,13 @@ export function TiendaProfile() {
         {/* GOOGLE MAPS EMBED */}
         {tienda.direccion && (
           <div className="bg-white border border-blue-200 rounded-2xl p-4 shadow-sm mb-8">
-            <h2 className="text-lg font-semibold text-indigo-800 mb-3">Ubicación</h2>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h2 className="text-lg font-semibold text-indigo-800">Ubicación</h2>
+              <div className="text-right">
+                <p className="text-sm text-gray-700">{tienda.direccion}</p>
+                {tienda.ciudad && <p className="text-xs text-gray-400 mt-0.5">{tienda.ciudad}</p>}
+              </div>
+            </div>
             <iframe
               src={`https://maps.google.com/maps?q=${encodeURIComponent(tienda.direccion)}&output=embed`}
               width="100%"

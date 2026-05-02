@@ -6,6 +6,8 @@ import { CancelacionStats } from '../components/CancelacionStats';
 import { Chat } from '../components/Chat';
 import { ReviewModal } from '../components/ReviewModal';
 import { HorarioGrid, HorarioSemanal, HORARIO_DEFAULT } from '../components/HorarioGrid';
+import { CityPicker } from '../components/CityPicker';
+import { GoogleMapPicker, LocationData } from '../components/GoogleMapPicker';
 
 export default function MiPerfilTiendaRetiroPage() {
   const { user } = useUser();
@@ -16,15 +18,28 @@ export default function MiPerfilTiendaRetiroPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const [formData, setFormData] = useState({
-    nombre:    '',
-    email:     '',
-    direccion: '',
-    horario:   HORARIO_DEFAULT as HorarioSemanal,
-    ciudad:    '',
-    activo:    true,
-    alias:     '',
-    cbu:       '',
+    nombre:       '',
+    email:        '',
+    direccion:    '',
+    horario:      HORARIO_DEFAULT as HorarioSemanal,
+    ciudad:       '',
+    activo:       true,
+    alias:        '',
+    cbu:          '',
+    latitud:      null as number | null,
+    longitud:     null as number | null,
+    googleMapsUrl: '',
   });
+  // Edición de ubicación (separada del panel general)
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationDraft, setLocationDraft] = useState<{
+    latitud: number | null; longitud: number | null;
+    direccion: string; ciudad: string; googleMapsUrl: string;
+  }>({ latitud: null, longitud: null, direccion: '', ciudad: '', googleMapsUrl: '' });
+  const [locationCityCenter, setLocationCityCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [locationMsg, setLocationMsg]       = useState<string | null>(null);
+
   const [saving, setSaving]       = useState(false);
   const [saveMsg, setSaveMsg]     = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -88,14 +103,17 @@ export default function MiPerfilTiendaRetiroPage() {
         const t = json.data;
         setTienda(t);
         setFormData({
-          nombre:    t?.nombre    ?? '',
-          email:     t?.email     ?? '',
-          direccion: t?.direccion ?? '',
-          horario:   t?.horario   ?? HORARIO_DEFAULT,
-          ciudad:    t?.ciudad    ?? '',
-          activo:    t?.activo    ?? true,
-          alias:     t?.alias     ?? '',
-          cbu:       t?.cbu       ?? '',
+          nombre:        t?.nombre        ?? '',
+          email:         t?.email         ?? '',
+          direccion:     t?.direccion     ?? '',
+          horario:       t?.horario       ?? HORARIO_DEFAULT,
+          ciudad:        t?.ciudad        ?? '',
+          activo:        t?.activo        ?? true,
+          alias:         t?.alias         ?? '',
+          cbu:           t?.cbu           ?? '',
+          latitud:       t?.latitud       ?? null,
+          longitud:      t?.longitud      ?? null,
+          googleMapsUrl: t?.googleMapsUrl ?? '',
         });
         setHorarioDraft(t?.horario ?? HORARIO_DEFAULT);
         setDescDraft(t?.descripcionCompra ?? '');
@@ -153,11 +171,18 @@ export default function MiPerfilTiendaRetiroPage() {
       const response = await fetchApi(`/api/tiendas/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          nombre:  formData.nombre,
+          email:   formData.email,
+          horario: formData.horario,
+          activo:  formData.activo,
+          alias:   formData.alias,
+          cbu:     formData.cbu,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Error al actualizar.');
-      setTienda((prev: any) => ({ ...prev, ...formData }));
+      setTienda((prev: any) => ({ ...prev, nombre: formData.nombre, email: formData.email, horario: formData.horario, activo: formData.activo, alias: formData.alias, cbu: formData.cbu }));
       setHorarioDraft(formData.horario);
       setSaveMsg('Datos actualizados correctamente.');
     } catch (err: any) {
@@ -208,6 +233,51 @@ export default function MiPerfilTiendaRetiroPage() {
       setDescMsg('Error al guardar.');
     } finally {
       setDescSaving(false);
+    }
+  };
+
+  const openLocationEdit = () => {
+    setLocationDraft({
+      latitud:      tienda?.latitud      ?? null,
+      longitud:     tienda?.longitud     ?? null,
+      direccion:    tienda?.direccion    ?? '',
+      ciudad:       tienda?.ciudad       ?? '',
+      googleMapsUrl: tienda?.googleMapsUrl ?? '',
+    });
+    setLocationCityCenter(null);
+    setLocationMsg(null);
+    setEditingLocation(true);
+  };
+
+  const saveLocation = async () => {
+    if (!user?.id) return;
+    if (locationDraft.latitud === null || locationDraft.longitud === null) {
+      setLocationMsg('Seleccioná la ubicación en el mapa.');
+      return;
+    }
+    setLocationSaving(true);
+    setLocationMsg(null);
+    try {
+      const res = await fetchApi(`/api/tiendas/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          direccion:    locationDraft.direccion,
+          ciudad:       locationDraft.ciudad,
+          latitud:      locationDraft.latitud,
+          longitud:     locationDraft.longitud,
+          googleMapsUrl: locationDraft.googleMapsUrl,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      setTienda((prev: any) => ({ ...prev, ...locationDraft }));
+      setFormData(prev => ({ ...prev, ...locationDraft }));
+      setEditingLocation(false);
+      setLocationMsg('Ubicación actualizada.');
+    } catch (err: any) {
+      setLocationMsg(`Error: ${err.message}`);
+    } finally {
+      setLocationSaving(false);
     }
   };
 
@@ -450,12 +520,10 @@ export default function MiPerfilTiendaRetiroPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {([
-                    { name: 'nombre',    label: 'Nombre de la tienda', type: 'text'  },
-                    { name: 'email',     label: 'Email',               type: 'email' },
-                    { name: 'direccion', label: 'Dirección',           type: 'text'  },
-                    { name: 'ciudad',    label: 'Ciudad',              type: 'text'  },
-                    { name: 'alias',     label: 'Alias (pago)',        type: 'text'  },
-                    { name: 'cbu',       label: 'CBU',                 type: 'text'  },
+                    { name: 'nombre', label: 'Nombre de la tienda', type: 'text'  },
+                    { name: 'email',  label: 'Email',               type: 'email' },
+                    { name: 'alias',  label: 'Alias (pago)',        type: 'text'  },
+                    { name: 'cbu',    label: 'CBU',                 type: 'text'  },
                   ] as const).map(field => (
                     <div key={field.name}>
                       <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
@@ -514,9 +582,98 @@ export default function MiPerfilTiendaRetiroPage() {
           <h2 className="text-lg font-bold text-gray-800 mb-4">Mi tienda de retiro</h2>
 
           <div className="bg-amber-50 border border-orange-100 rounded-lg p-4">
-            <p className="text-sm font-semibold text-gray-800">📍 {tienda.nombre}</p>
-            {tienda.direccion && <p className="text-xs text-gray-500 mt-1">{tienda.direccion}</p>}
-            {tienda.ciudad && <p className="text-xs text-gray-400 mt-0.5">{tienda.ciudad}</p>}
+            {/* ── Dirección: vista y edición ── */}
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">📍 {tienda.nombre}</p>
+                {tienda.direccion
+                  ? <p className="text-xs text-gray-500 mt-1">{tienda.direccion}</p>
+                  : <p className="text-xs text-gray-400 italic mt-1">Sin dirección cargada</p>
+                }
+                {tienda.ciudad && <p className="text-xs text-gray-400 mt-0.5">{tienda.ciudad}</p>}
+                {tienda.googleMapsUrl && !editingLocation && (
+                  <a
+                    href={tienda.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-xs text-orange-600 hover:text-orange-700 hover:underline font-medium"
+                  >
+                    Ver en Google Maps →
+                  </a>
+                )}
+              </div>
+              {!editingLocation && (
+                <button
+                  onClick={openLocationEdit}
+                  className="flex-shrink-0 text-xs text-orange-500 hover:text-orange-600 border border-orange-200 hover:border-orange-300 px-3 py-1.5 rounded-full transition"
+                >
+                  ✏ Editar dirección
+                </button>
+              )}
+            </div>
+
+            {locationMsg && !editingLocation && (
+              <div className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-1.5">
+                {locationMsg}
+              </div>
+            )}
+
+            {editingLocation && (
+              <div className="mt-3 pt-3 border-t border-orange-100 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Localidad</label>
+                  <CityPicker
+                    value={locationDraft.ciudad}
+                    onChange={({ city, center }) => {
+                      setLocationDraft(prev => ({ ...prev, ciudad: city }));
+                      setLocationCityCenter(center);
+                    }}
+                    disabled={locationSaving}
+                    inputClassName="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 transition disabled:opacity-60"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Dirección exacta en el mapa</label>
+                  <GoogleMapPicker
+                    value={locationDraft.latitud !== null ? {
+                      lat: locationDraft.latitud,
+                      lng: locationDraft.longitud!,
+                      address: locationDraft.direccion,
+                      city: locationDraft.ciudad,
+                      googleMapsUrl: locationDraft.googleMapsUrl,
+                    } : null}
+                    onChange={(loc: LocationData) => setLocationDraft({
+                      latitud: loc.lat, longitud: loc.lng,
+                      direccion: loc.address, ciudad: loc.city,
+                      googleMapsUrl: loc.googleMapsUrl,
+                    })}
+                    disabled={locationSaving}
+                    defaultCenter={locationCityCenter ?? undefined}
+                  />
+                </div>
+
+                {locationMsg && (
+                  <p className="text-xs text-red-600">{locationMsg}</p>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={saveLocation}
+                    disabled={locationSaving}
+                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition"
+                  >
+                    {locationSaving ? 'Guardando...' : 'Guardar dirección'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingLocation(false); setLocationMsg(null); }}
+                    className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-4 py-1.5 rounded-lg transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-3 pt-3 border-t border-orange-100">
               <p className="text-xs font-medium text-gray-600 mb-2">Horario de atención</p>

@@ -153,7 +153,7 @@ async function findOne(req: Request, res: Response) {
     const id = Number(req.params.id);
     // Usamos el em global (no fork) para reutilizar entidades ya cacheadas en el identity map
     // (vendedor, cartaClass) y evitar SQL fresco que podría fallar si el schema está desactualizado.
-    const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items", "uploader"] });
+    const carta = await em.findOneOrFail(Carta, { id }, { populate: ["cartaClass", "items", "uploader", "uploaderTienda"] });
 
     // Mapear items a objetos planos para evitar referencias circulares en JSON.stringify
     // (ItemCarta.cartas apunta de vuelta a Carta cuando está inicializado por findAll)
@@ -181,7 +181,8 @@ async function findOne(req: Request, res: Response) {
       cartaClass: carta.cartaClass,
       items,
       lang: carta.lang ?? null,
-      uploader: undefined as any
+      uploader: undefined as any,
+      uploaderTienda: undefined as any,
     } as any;
 
     // incluir id y nombre del uploader si está presente junto con su rating
@@ -197,6 +198,14 @@ async function findOne(req: Request, res: Response) {
         nombre: (carta as any).uploader.nombre,
         rating: avg,
         reviewsCount: valoraciones.length
+      };
+    }
+
+    if ((carta as any).uploaderTienda) {
+      const t = (carta as any).uploaderTienda;
+      cartaFormateada.uploaderTienda = {
+        id: t.id,
+        nombre: t.nombre,
       };
     }
 

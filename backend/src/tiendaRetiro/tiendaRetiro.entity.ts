@@ -51,4 +51,13 @@ export class TiendaRetiro extends BaseEntity {
 
   @Property({ type: 'text', nullable: true })
   descripcionCompra?: string;
+
+  @Property({ type: 'string', nullable: true })
+  googleMapsUrl?: string;
+
+  @Property({ type: 'decimal', nullable: true, precision: 10, scale: 7 })
+  latitud?: number;
+
+  @Property({ type: 'decimal', nullable: true, precision: 10, scale: 7 })
+  longitud?: number;
 }

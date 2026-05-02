@@ -23,6 +23,9 @@ export function sanitizeTiendaRetiroInput(req: Request, res: Response, next: Nex
     alias: req.body.alias,
     cbu: req.body.cbu,
     descripcionCompra: req.body.descripcionCompra,
+    googleMapsUrl: req.body.googleMapsUrl,
+    latitud: req.body.latitud,
+    longitud: req.body.longitud,
   };
   Object.keys(req.body.sanitizedInput).forEach((key) => {
     if (req.body.sanitizedInput[key] === undefined) {

@@ -81,7 +81,7 @@ export async function completeRegistration(req: Request, res: Response) {
   try {
     const {
       token, nombreTienda, email, password, telefono,
-      ciudad, direccion, horario,
+      ciudad, direccion, horario, googleMapsUrl, latitud, longitud,
     } = req.body;
 
     const em = orm.em.fork();
@@ -93,6 +93,9 @@ export async function completeRegistration(req: Request, res: Response) {
 
     if (!nombreTienda || !email || !password || !telefono || !direccion) {
       return res.status(400).json({ message: 'Faltan campos obligatorios' });
+    }
+    if (latitud == null || longitud == null) {
+      return res.status(400).json({ message: 'La ubicación en el mapa es obligatoria' });
     }
     if (!horario) {
       return res.status(400).json({ message: 'El horario es obligatorio' });
@@ -120,6 +123,9 @@ export async function completeRegistration(req: Request, res: Response) {
       direccion,
       activo: true,
       horario,
+      googleMapsUrl: googleMapsUrl || undefined,
+      latitud: latitud ?? undefined,
+      longitud: longitud ?? undefined,
     });
 
     invite.used = true;

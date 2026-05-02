@@ -196,6 +196,14 @@ export function CardsPage() {
 
   const filteredBundles = useMemo(() => {
     return bundles.filter(b => {
+      const bundleCartas: any[] = b.cartas ?? []
+      const matchesGame = bundleCartas.some(c => {
+        const className = c.cartaClass?.name?.toLowerCase()
+        if (className === filters.game) return true
+        if (!c.cartaClass && filters.game === 'pokemon') return true
+        return false
+      })
+      if (!matchesGame) return false
       const inCity = filters.city === 'all' ||
         (b.intermediarios || []).some((i: any) => i.direccion?.ciudad === filters.city)
       if (!inCity) return false
@@ -204,7 +212,7 @@ export function CardsPage() {
       if (price > filters.maxPrice) return false
       return true
     })
-  }, [bundles, filters.city, filters.minPrice, filters.maxPrice])
+  }, [bundles, filters.game, filters.city, filters.minPrice, filters.maxPrice])
 
   const handleGroupClick = (group: CardGroup) => {
     const matchingBundles = bundles.filter(bundle =>

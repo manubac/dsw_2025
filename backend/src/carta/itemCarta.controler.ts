@@ -11,7 +11,7 @@ const em=orm.em
 
 async function findAll(req: Request, res: Response) {
    try {
-       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor', 'uploaderTienda'] });
+       const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas.cartaClass', 'uploaderVendedor', 'uploaderTienda'] });
        // Formatear para cumplir con las expectativas del frontend
        const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
        const itemsFormateadas = items.map(item => {
@@ -34,6 +34,7 @@ async function findAll(req: Request, res: Response) {
              setName: c.setName,
              cardNumber: c.cardNumber,
              lang: c.lang ?? null,
+             cartaClass: c.cartaClass ? { name: c.cartaClass.name } : null,
            })),
            uploader: item.uploaderTienda
             ? { id: item.uploaderTienda.id, nombre: (item.uploaderTienda as any).nombre ?? null }
