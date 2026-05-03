@@ -3,9 +3,10 @@ import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
-import { X, MessageSquare } from "lucide-react";
+import { X, Bell, MessageSquare } from "lucide-react";
 import { OrdersDropdown } from "./OrdersDropdown";
 import { useNotifications } from '../context/notifications';
+import { NotificationDropdown } from './NotificationDropdown';
 import { fetchApi } from "../services/api";
 import { MdSearch } from "react-icons/md";
 
@@ -42,8 +43,9 @@ export function Header() {
   const [cartas, setCartas] = useState<any[]>([]);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
-  const { unreadChatCount } = useNotifications();
+  const { unreadOrderCount, unreadChatCount } = useNotifications();
 
   useEffect(() => {
     async function fetchCartas() {
@@ -347,6 +349,21 @@ export function Header() {
           {user && (
             <>
               <OrdersDropdown />
+              <div className="relative">
+                <button
+                  onClick={() => setNotifOpen((v) => !v)}
+                  className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
+                  title="Notificaciones"
+                >
+                  <Bell size={20} />
+                  {unreadOrderCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                      {unreadOrderCount > 9 ? '9+' : unreadOrderCount}
+                    </span>
+                  )}
+                </button>
+                {notifOpen && <NotificationDropdown onClose={() => setNotifOpen(false)} />}
+              </div>
               <div className="relative">
                 <button
                   onClick={() => navigate('/chats')}
