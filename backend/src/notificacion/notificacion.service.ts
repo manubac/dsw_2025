@@ -34,62 +34,88 @@ async function loadCompraConActores(compraId: number): Promise<Compra | null> {
   });
 }
 
-function resolveTargetsEstado(compra: Compra, estadoLabel: string): NotifTarget[] {
+function resolveTargetsEstado(compra: Compra, nuevoEstado: string, estadoLabel: string): NotifTarget[] {
   const compraId = compra.id!;
   const targets: NotifTarget[] = [];
+  const hasTiendaRetiro = !!(compra.tiendaRetiro as any)?.id;
 
-  if ((compra.comprador as any)?.id) {
-    targets.push({
-      userId: (compra.comprador as any).id,
-      userRole: 'user',
-      contexto: undefined,
-      texto: `Tu orden #${compraId} pasó a: ${estadoLabel}`,
-    });
-  }
+  // ── Comprador ──────────────────────────────────────────────────────────
+  // Con tienda de retiro: en_tienda / pago_confirmado / finalizado / cancelado
+  // Sin tienda de retiro o compra directa a tienda: finalizado / cancelado
+  const compradorStates = hasTiendaRetiro
+    ? ['en_tienda', 'pago_confirmado', 'finalizado', 'cancelado']
+    : ['finalizado', 'cancelado'];
 
-  if ((compra.compradorTienda as any)?.id) {
-    targets.push({
-      userId: (compra.compradorTienda as any).id,
-      userRole: 'tiendaRetiro',
-      contexto: 'compra',
-      texto: `Tu compra #${compraId} pasó a: ${estadoLabel}`,
-    });
-  }
-
-  const vendedoresYa = new Set<number>();
-  const tiendasVentaYa = new Set<number>();
-
-  for (const item of compra.itemCartas.getItems()) {
-    const v = (item as any).uploaderVendedor;
-    const t = (item as any).uploaderTienda;
-
-    if (v?.id && v.user?.id && !vendedoresYa.has(v.id)) {
-      vendedoresYa.add(v.id);
+  if (compradorStates.includes(nuevoEstado)) {
+    if ((compra.comprador as any)?.id) {
       targets.push({
-        userId: v.user.id,
-        userRole: 'vendedor',
-        contexto: 'venta',
-        texto: `Tu venta #${compraId} pasó a: ${estadoLabel}`,
+        userId: (compra.comprador as any).id,
+        userRole: 'user',
+        contexto: undefined,
+        texto: `Tu orden #${compraId} pasó a: ${estadoLabel}`,
       });
     }
-
-    if (t?.id && !tiendasVentaYa.has(t.id)) {
-      tiendasVentaYa.add(t.id);
+    if ((compra.compradorTienda as any)?.id) {
       targets.push({
-        userId: t.id,
+        userId: (compra.compradorTienda as any).id,
         userRole: 'tiendaRetiro',
-        contexto: 'venta',
-        texto: `Tu venta #${compraId} pasó a: ${estadoLabel}`,
+        contexto: 'compra',
+        texto: `Tu compra #${compraId} pasó a: ${estadoLabel}`,
       });
     }
   }
 
-  if ((compra.tiendaRetiro as any)?.id) {
+  // ── Vendedor ──────────────────────────────────────────────────────────
+  // Con tienda de retiro: en_tienda / finalizado / cancelado
+  // Sin tienda de retiro: solo cancelado
+  const vendedorStates = hasTiendaRetiro
+    ? ['en_tienda', 'finalizado', 'cancelado']
+    : ['cancelado'];
+
+  if (vendedorStates.includes(nuevoEstado)) {
+    const vendedoresYa = new Set<number>();
+    for (const item of compra.itemCartas.getItems()) {
+      const v = (item as any).uploaderVendedor;
+      if (v?.id && v.user?.id && !vendedoresYa.has(v.id)) {
+        vendedoresYa.add(v.id);
+        targets.push({
+          userId: v.user.id,
+          userRole: 'vendedor',
+          contexto: 'venta',
+          texto: `Tu venta #${compraId} pasó a: ${estadoLabel}`,
+        });
+      }
+    }
+  }
+
+  // ── Tienda como vendedor directo (uploaderTienda) ─────────────────────
+  // Solo finalizado / cancelado
+  if (['finalizado', 'cancelado'].includes(nuevoEstado)) {
+    const tiendasVentaYa = new Set<number>();
+    for (const item of compra.itemCartas.getItems()) {
+      const t = (item as any).uploaderTienda;
+      if (t?.id && !tiendasVentaYa.has(t.id)) {
+        tiendasVentaYa.add(t.id);
+        targets.push({
+          userId: t.id,
+          userRole: 'tiendaRetiro',
+          contexto: 'venta',
+          texto: `Tu venta #${compraId} pasó a: ${estadoLabel}`,
+        });
+      }
+    }
+  }
+
+  // ── TiendaRetiro como gestión ─────────────────────────────────────────
+  // pendiente (orden nueva) / pago_confirmado / cancelado
+  if (['pendiente', 'pago_confirmado', 'cancelado'].includes(nuevoEstado) && hasTiendaRetiro) {
     targets.push({
       userId: (compra.tiendaRetiro as any).id,
       userRole: 'tiendaRetiro',
       contexto: 'gestion',
-      texto: `Pedido #${compraId} (gestión) pasó a: ${estadoLabel}`,
+      texto: nuevoEstado === 'pendiente'
+        ? `Nueva orden #${compraId} asignada a tu tienda`
+        : `Pedido #${compraId} (gestión) pasó a: ${estadoLabel}`,
     });
   }
 
@@ -137,12 +163,7 @@ function resolveTargetsMensaje(compra: Compra, senderRole: string, senderId: num
     }
   }
 
-  if ((compra.tiendaRetiro as any)?.id) {
-    const uid = (compra.tiendaRetiro as any).id;
-    if (!(senderRole === 'tiendaRetiro' && senderId === uid)) {
-      targets.push({ userId: uid, userRole: 'tiendaRetiro', contexto: 'gestion', texto });
-    }
-  }
+  // tiendaRetiro (gestión) no participa en el chat — no recibe notificaciones de mensajes
 
   return targets;
 }
@@ -183,7 +204,7 @@ export async function crearNotificacionesEstado(compraId: number, nuevoEstado: s
     const compra = await loadCompraConActores(compraId);
     if (!compra) return;
     const estadoLabel = ESTADO_LABELS[nuevoEstado] ?? nuevoEstado;
-    const targets = resolveTargetsEstado(compra, estadoLabel);
+    const targets = resolveTargetsEstado(compra, nuevoEstado, estadoLabel);
     await persistirYEmitir(targets, 'compra_estado', compraId);
   } catch (e) {
     console.error('[notificacion.service] crearNotificacionesEstado error:', e);
