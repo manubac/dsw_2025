@@ -12,6 +12,7 @@ import { TiendaRetiro } from "../tiendaRetiro/tiendaRetiro.entity.js";
 import { Preference } from "mercadopago";
 import mpClient from '../shared/mercadopago.js'
 import { Valoracion } from "../valoracion/valoracion.entity.js";
+import { crearNotificacionesEstado } from '../notificacion/notificacion.service.js';
 
 // Resuelve el User comprador para vendedores (tienen un User vinculado) y users normales.
 // Devuelve null para tiendas de retiro, que usan compradorTienda en su lugar.
@@ -426,6 +427,7 @@ async function update(req: AuthRequest, res: Response) {
       compra.items = input.items;
     }
 
+    const estadoAnterior = compra.estado;
     compra.total = input.total ?? compra.total;
     compra.estado = input.estado ?? compra.estado;
     compra.nombre = input.nombre ?? compra.nombre;
@@ -435,6 +437,11 @@ async function update(req: AuthRequest, res: Response) {
     compra.metodoPago = input.metodoPago ?? compra.metodoPago;
 
     await em.flush();
+
+    if (input.estado && input.estado !== estadoAnterior) {
+      crearNotificacionesEstado(id, compra.estado).catch(() => {});
+    }
+
     res.status(200).json({ message: "Compra actualizada con éxito", data: compra });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -533,6 +540,7 @@ async function cancelarCompra(req: AuthRequest, res: Response) {
     compra.fechaCancelacion = new Date();
 
     await emFork.flush();
+    crearNotificacionesEstado(id, 'cancelado').catch(() => {});
     res.json({ message: 'Compra cancelada exitosamente', data: compra });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

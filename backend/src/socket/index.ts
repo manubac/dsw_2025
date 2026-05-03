@@ -13,7 +13,9 @@ export function initSocket(httpServer: HttpServer): Server {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next(new Error('No token'));
     try {
-      jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as { userId: number; role: string };
+      socket.data.userId = decoded.userId;
+      socket.data.role = decoded.role;
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -21,6 +23,10 @@ export function initSocket(httpServer: HttpServer): Server {
   });
 
   io.on('connection', (socket) => {
+    if (socket.data.userId) {
+      socket.join(`user-${socket.data.userId}`);
+    }
+
     socket.on('join_compra', (compraId: number) => {
       socket.join(`compra-${compraId}`);
     });

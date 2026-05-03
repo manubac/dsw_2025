@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../context/user';
+import { useNotifications } from '../context/notifications';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api } from '../services/api';
@@ -105,6 +106,7 @@ export default function MisVentasPage() {
   const [miAlias, setMiAlias] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
+  const { markAsRead } = useNotifications();
   const [selectedVentaId, setSelectedVentaId] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('todas');
   const [showChat, setShowChat] = useState(false);
@@ -163,6 +165,10 @@ export default function MisVentasPage() {
     if (!user || (user.role !== 'vendedor' && user.role !== 'tiendaRetiro')) { navigate('/'); return; }
     fetchVentas();
   }, [user, navigate]);
+
+  useEffect(() => {
+    if (selectedVentaId) markAsRead(selectedVentaId);
+  }, [selectedVentaId, markAsRead]);
 
   const handleMarkSent = async (compraId: number) => {
     if (!confirm('¿Confirmás que has enviado los items al intermediario?')) return;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useUser } from '../context/user'
+import { useNotifications } from '../context/notifications'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { fetchApi } from '../services/api'
 import { io as socketIO, Socket } from 'socket.io-client'
@@ -80,6 +81,7 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'activos' | 'archivados'>('activos')
   const [search, setSearch] = useState('')
+  const { markAsRead } = useNotifications()
   const [selectedCompraId, setSelectedCompraId] = useState<number | null>(initialCompraId)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [texto, setTexto] = useState('')
@@ -117,6 +119,10 @@ export default function ChatsPage() {
   }, [user])
 
   useEffect(() => { fetchCompras() }, [fetchCompras])
+
+  useEffect(() => {
+    if (selectedCompraId) markAsRead(selectedCompraId)
+  }, [selectedCompraId, markAsRead])
 
   // Socket setup
   useEffect(() => {

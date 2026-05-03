@@ -5,6 +5,7 @@ import { StoreRegistrationPage } from './pages/StoreRegistrationPage';
 import { CartProvider } from "./context/cart";
 import { FiltersProvider } from "./context/filters";
 import { UserProvider, useUser } from "./context/user";
+import { NotificationProvider } from "./context/notifications";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { CardsPage } from "./pages/CardsPage";
@@ -128,6 +129,7 @@ function IntermediarioRoute({ children }: { children: JSX.Element }) {
 function App() {
   return (
     <UserProvider>
+      <NotificationProvider>
       <FiltersProvider>
         <CartProvider>
           <Router>
@@ -325,6 +327,7 @@ function App() {
           </Router>
         </CartProvider>
       </FiltersProvider>
+      </NotificationProvider>
     </UserProvider>
   );
 }

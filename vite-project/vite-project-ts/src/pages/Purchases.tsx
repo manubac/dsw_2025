@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '../context/user'
+import { useNotifications } from '../context/notifications'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { ReviewModal } from '../components/ReviewModal'
@@ -137,6 +138,7 @@ export function Purchases() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const { markAsRead } = useNotifications()
   const [selectedCompraId, setSelectedCompraId] = useState<number | null>(null)
   const [filterEstado, setFilterEstado] = useState<string>('todas')
   const [showChat, setShowChat] = useState(false)
@@ -188,6 +190,10 @@ export function Purchases() {
   }, [user])
 
   useEffect(() => { fetchCompras() }, [fetchCompras])
+
+  useEffect(() => {
+    if (selectedCompraId) markAsRead(selectedCompraId)
+  }, [selectedCompraId, markAsRead])
 
   const selectedCompra = compras.find(c => c.id === selectedCompraId)
   const locked = selectedCompra?.estado === 'finalizado' || selectedCompra?.estado === 'cancelado'

@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { Carta } from "../carta/carta.entity.js";
 import { ItemCarta } from "../carta/itemCarta.entity.js";
+import { crearNotificacionesEstado } from '../notificacion/notificacion.service.js';
 
 const em = orm.em;
 
@@ -204,6 +205,7 @@ export async function marcarEnTienda(req: Request, res: Response) {
 
     compra.estado = 'en_tienda';
     await orm.em.flush();
+    crearNotificacionesEstado(compraId, 'en_tienda').catch(() => {});
 
     const tienda = compra.tiendaRetiro;
     const destinatario = (compra.comprador as any)?.email || compra.email;
@@ -262,6 +264,7 @@ export async function finalizarCompra(req: Request, res: Response) {
 
     compra.estado = 'finalizado';
     await orm.em.flush();
+    crearNotificacionesEstado(compraId, 'finalizado').catch(() => {});
 
     res.json({ message: 'Compra finalizada', data: compra });
   } catch (e: any) {
@@ -291,6 +294,7 @@ export async function marcarListoParaRetirar(req: Request, res: Response) {
 
     compra.estado = 'listo_para_retirar';
     await orm.em.flush();
+    crearNotificacionesEstado(compraId, 'listo_para_retirar').catch(() => {});
 
     const tienda = compra.tiendaRetiro;
     const destinatario = (compra.comprador as any)?.email || compra.email;
@@ -341,6 +345,7 @@ export async function finalizarVentaDirecta(req: Request, res: Response) {
 
     compra.estado = 'finalizado';
     await orm.em.flush();
+    crearNotificacionesEstado(compraId, 'finalizado').catch(() => {});
 
     res.json({ message: 'Venta directa finalizada', data: compra });
   } catch (e: any) {

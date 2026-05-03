@@ -4,6 +4,7 @@ import { Mensaje } from "./mensaje.entity.js";
 import { Compra } from "../compra/compra.entity.js";
 import { authenticate, AuthRequest } from "../shared/middleware/auth.js";
 import { io } from "../socket/index.js";
+import { crearNotificacionesMensaje } from '../notificacion/notificacion.service.js';
 
 export const mensajeRouter = Router();
 
@@ -53,6 +54,8 @@ mensajeRouter.post("/:compraId", authenticate, async (req: AuthRequest, res: Res
     await em.flush();
 
     io.to(`compra-${compraId}`).emit('nuevo_mensaje', mensaje);
+
+    crearNotificacionesMensaje(compraId, req.actorRole ?? 'user', actor.id).catch(() => {});
 
     res.status(201).json({ data: mensaje });
   } catch (error: any) {

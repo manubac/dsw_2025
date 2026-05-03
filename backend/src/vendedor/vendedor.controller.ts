@@ -5,6 +5,7 @@ import { Vendedor } from './vendedores.entity.js'
 import { Compra } from '../compra/compra.entity.js';
 import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
 import { sendEmail } from '../shared/mailer.js';
+import { crearNotificacionesEstado } from '../notificacion/notificacion.service.js';
 
 const em= orm.em
 
@@ -215,6 +216,7 @@ async function finalizarVenta(req: Request, res: Response) {
 
     compra.estado = 'finalizado';
     await em.flush();
+    crearNotificacionesEstado(compraId, 'finalizado').catch(() => {});
 
     res.json({ message: 'Venta finalizada', data: compra });
   } catch (e: any) {
@@ -250,6 +252,7 @@ async function marcarPagoConfirmado(req: Request, res: Response) {
 
     compra.estado = 'pago_confirmado';
     await em.flush();
+    crearNotificacionesEstado(compraId, 'pago_confirmado').catch(() => {});
 
     res.json({ message: 'Pago confirmado exitosamente', data: compra });
   } catch (e: any) {

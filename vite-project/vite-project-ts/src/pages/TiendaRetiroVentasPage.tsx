@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useUser } from "../context/user";
+import { useNotifications } from "../context/notifications";
 import { fetchApi } from "../services/api";
 import { ReviewModal } from "../components/ReviewModal";
 import { CancelOrderModal } from "../components/CancelOrderModal";
@@ -109,6 +110,7 @@ export default function TiendaRetiroVentasPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
+  const { markAsRead } = useNotifications();
   const [selectedVentaId, setSelectedVentaId] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('todas');
 
@@ -155,6 +157,10 @@ export default function TiendaRetiroVentasPage() {
   };
 
   useEffect(() => { fetchVentas(); }, [user?.id]);
+
+  useEffect(() => {
+    if (selectedVentaId) markAsRead(selectedVentaId);
+  }, [selectedVentaId, markAsRead]);
 
   const handleMarcarEnTienda = async (ventaId: number) => {
     if (!confirm("¿Confirmás que recibiste este pedido en la tienda?")) return;
