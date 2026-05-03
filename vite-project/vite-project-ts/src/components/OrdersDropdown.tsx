@@ -35,7 +35,6 @@ const ESTADO_DOT: Record<string, string> = {
 function needsMyAction(order: OrderSummary, role: string): boolean {
   const { estado, hasTiendaRetiro, isDirect } = order;
   if (role === 'vendedor') {
-    if (estado === 'pendiente' && hasTiendaRetiro) return true;
     if (estado === 'en_tienda') return true;
   }
   if (role === 'tiendaRetiro') {
@@ -53,7 +52,6 @@ function needsMyAction(order: OrderSummary, role: string): boolean {
 function getActionLabel(order: OrderSummary, role: string): string | null {
   const { estado, hasTiendaRetiro, isDirect } = order;
   if (role === 'vendedor') {
-    if (estado === 'pendiente' && hasTiendaRetiro) return 'Enviar a tienda';
     if (estado === 'en_tienda') return 'Confirmar pago';
   }
   if (role === 'tiendaRetiro') {
@@ -183,9 +181,7 @@ export function OrdersDropdown() {
     setActioning(order.id);
     try {
       if (role === 'vendedor') {
-        if (order.estado === 'pendiente') {
-          await api.post(`/api/vendedores/${userId}/ventas/${order.id}/enviar`);
-        } else if (order.estado === 'en_tienda') {
+        if (order.estado === 'en_tienda') {
           await api.patch(`/api/vendedores/${userId}/ventas/${order.id}/pago-confirmado`);
         }
       } else if (role === 'tiendaRetiro') {
