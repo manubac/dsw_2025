@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useUser } from "../context/user";
 import { useNotifications } from "../context/notifications";
+import { useLocation } from "react-router-dom";
 import { fetchApi } from "../services/api";
 import { ReviewModal } from "../components/ReviewModal";
 import { CancelOrderModal } from "../components/CancelOrderModal";
@@ -105,13 +106,16 @@ function OrderStepper({ estado }: { estado: string }) {
 
 export default function TiendaRetiroVentasPage() {
   const { user } = useUser();
+  const location = useLocation();
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const { markAsRead } = useNotifications();
-  const [selectedVentaId, setSelectedVentaId] = useState<number | null>(null);
+  const [selectedVentaId, setSelectedVentaId] = useState<number | null>(
+    (location.state as any)?.selectedOrderId ?? null
+  );
   const [filterEstado, setFilterEstado] = useState<string>('todas');
 
   const [reviewModalOpen, setReviewModalOpen] = useState(false);

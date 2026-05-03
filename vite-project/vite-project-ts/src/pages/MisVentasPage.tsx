@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../context/user';
 import { useNotifications } from '../context/notifications';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api } from '../services/api';
 import { Chat } from '../components/Chat';
@@ -100,6 +100,7 @@ function OrderStepper({ venta }: { venta: any }) {
 export default function MisVentasPage() {
   const { user } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
   const [ventas, setVentas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +108,9 @@ export default function MisVentasPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const { markAsRead } = useNotifications();
-  const [selectedVentaId, setSelectedVentaId] = useState<number | null>(null);
+  const [selectedVentaId, setSelectedVentaId] = useState<number | null>(
+    (location.state as any)?.selectedOrderId ?? null
+  );
   const [filterEstado, setFilterEstado] = useState<string>('todas');
   const [showChat, setShowChat] = useState(false);
 

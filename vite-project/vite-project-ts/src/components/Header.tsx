@@ -4,6 +4,7 @@ import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
 import { X, Bell, MessageSquare } from "lucide-react";
+import { OrdersDropdown } from "./OrdersDropdown";
 import { useNotifications } from '../context/notifications';
 import { NotificationDropdown } from './NotificationDropdown';
 import { fetchApi } from "../services/api";
@@ -347,6 +348,7 @@ export function Header() {
         <div className="flex items-center gap-4">
           {user && (
             <>
+              <OrdersDropdown />
               <div className="relative">
                 <button
                   onClick={() => setNotifOpen((v) => !v)}

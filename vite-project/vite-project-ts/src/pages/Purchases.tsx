@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '../context/user'
 import { useNotifications } from '../context/notifications'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { ReviewModal } from '../components/ReviewModal'
 import { CancelOrderModal } from '../components/CancelOrderModal'
@@ -134,12 +134,15 @@ function OrderStepper({ comp }: { comp: any }) {
 export function Purchases() {
   const { user } = useUser()
   const navigate = useNavigate()
+  const location = useLocation()
   const [compras, setCompras] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const { markAsRead } = useNotifications()
-  const [selectedCompraId, setSelectedCompraId] = useState<number | null>(null)
+  const [selectedCompraId, setSelectedCompraId] = useState<number | null>(
+    (location.state as any)?.selectedOrderId ?? null
+  )
   const [filterEstado, setFilterEstado] = useState<string>('todas')
   const [showChat, setShowChat] = useState(false)
 
