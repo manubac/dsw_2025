@@ -4,6 +4,9 @@ declare module '*.module.css' {
   export default classes
 }
 
+// Plain CSS side-effect imports
+declare module '*.css' {}
+
 // Image assets
 declare module '*.png' {
   const src: string
@@ -17,6 +20,9 @@ declare module '*.svg' {
   const src: string
   export default src
 }
+
+// scrolly-video
+declare module 'scrolly-video/dist/ScrollyVideo.esm.jsx'
 
 // Vite env
 interface ImportMeta {

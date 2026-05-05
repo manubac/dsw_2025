@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { HomePage } from "./pages/HomePage";
+import { MainPage } from "./pages/MainPage";
 import { UserRegistration } from "./pages/UserRegistration";
 import { StoreRegistrationPage } from './pages/StoreRegistrationPage';
 import { CartProvider } from "./context/cart";
@@ -137,7 +137,7 @@ function App() {
               <Route path="/" element={<Layout />}>
 
                 {/* Página principal */}
-                <Route index element={<HomePage />} />
+                <Route index element={<MainPage />} />
 
                 {/* Autenticación */}
                 <Route path="register" element={<UserRegistration />} />

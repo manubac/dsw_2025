@@ -1,0 +1,529 @@
+/* ── SCROLL PROGRESS ── */
+.mp-spbar {
+  position: fixed; top: 0; left: 0; z-index: 9999;
+  height: 2px;
+  background: linear-gradient(90deg, #306e4f, #c6c79d);
+  transition: width 0.05s linear;
+}
+
+/* ── GHOST CARDS ── */
+.mp-ghost-layer {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+}
+.mp-gc {
+  position: absolute; width: 60px; height: 84px;
+  border-radius: 6px;
+  border: 1px solid rgba(198,199,157,0.18);
+  background: transparent;
+}
+@keyframes gc-d1 { 0%,100%{transform:translateY(-40px) rotate(-8deg)} 50%{transform:translateY(40px) rotate(8deg)} }
+@keyframes gc-d2 { 0%,100%{transform:translateY(-30px) rotate(5deg)} 50%{transform:translateY(30px) rotate(-5deg)} }
+@keyframes gc-d3 { 0%,100%{transform:translateY(-35px) rotate(-3deg)} 50%{transform:translateY(35px) rotate(6deg)} }
+@keyframes gc-d4 { 0%,100%{transform:translateY(-25px) rotate(7deg)} 50%{transform:translateY(25px) rotate(-7deg)} }
+@keyframes gc-d5 { 0%,100%{transform:translateY(-38px) rotate(-6deg)} 50%{transform:translateY(38px) rotate(4deg)} }
+@keyframes gc-d6 { 0%,100%{transform:translateY(-20px) rotate(8deg)} 50%{transform:translateY(20px) rotate(-4deg)} }
+
+/* ── NOISE OVERLAY ── */
+.mp-noise {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ─────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────── */
+.mp-hero {
+  position: relative; min-height: 520px;
+  background: linear-gradient(135deg,
+    rgba(0,0,0,0.42) 0%,
+    rgba(0,0,0,0.18) 60%,
+    transparent 100%);
+  display: flex; align-items: center;
+  padding: 64px; overflow: hidden; z-index: 2;
+}
+.mp-hero::before {
+  content: ''; position: absolute;
+  top: -80px; right: -80px; width: 700px; height: 700px;
+  background: radial-gradient(circle at 80% 30%, rgba(139,157,123,0.08) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.mp-corner { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+.mp-cc {
+  position: absolute;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px; background: transparent;
+}
+
+.mp-hero-left { flex: 0 0 55%; z-index: 1; padding-right: 40px; }
+.mp-h-badge {
+  display: inline-block; padding: 6px 14px; margin-bottom: 22px;
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 9999px; color: white; font-size: 13px; font-weight: 600;
+}
+.mp-h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  color: white !important; line-height: 1.2; max-width: 520px;
+  margin-bottom: 16px; text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+.mp-hero-sub {
+  color: rgba(255,255,255,0.85); font-size: 1.1rem;
+  line-height: 1.6; margin-bottom: 32px; max-width: 460px;
+}
+.mp-hero-cta { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.mp-hero-loc { color: rgba(255,255,255,0.6); font-size: 0.85rem; margin-top: 14px; }
+
+.mp-btn-h1 {
+  padding: 12px 28px; border-radius: 9999px; border: none; cursor: pointer;
+  background: white; color: #306e4f; font-size: 15px; font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.mp-btn-h1:hover { transform: scale(1.03); box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+
+.mp-btn-h2 {
+  padding: 12px 28px; border-radius: 9999px; cursor: pointer;
+  background: transparent; color: white; font-size: 15px; font-weight: 600;
+  border: 2px solid rgba(255,255,255,0.6); transition: all 0.2s;
+}
+.mp-btn-h2:hover { background: rgba(255,255,255,0.1); }
+
+/* ─────────────────────────────────────────────
+   CARD FAN — layout y cartas base
+───────────────────────────────────────────── */
+.mp-hero-right {
+  flex: 0 0 45%; display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  position: relative; z-index: 1;
+}
+.mp-card-fan {
+  position: relative; width: 300px; height: 310px;
+  display: flex; align-items: center; justify-content: center;
+}
+.mp-fan-glow {
+  position: absolute; width: 280px; height: 280px; border-radius: 50%;
+  filter: blur(18px);
+  background: radial-gradient(circle, rgba(198,199,157,0.25) 0%, transparent 65%);
+  pointer-events: none;
+}
+.mp-fan-card {
+  position: absolute; width: 160px; height: 224px; border-radius: 12px;
+  cursor: pointer; overflow: hidden;
+  /* transición suave con resorte */
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.25s ease,
+              z-index 0s;
+}
+
+/* posiciones base */
+.mp-fc1 {
+  transform: rotate(-18deg) translateX(-40px) translateY(20px);
+  background: linear-gradient(135deg, #1a3a2a, #2d5a3d);
+  border: 2px solid rgba(198,199,157,0.4);
+  box-shadow: -8px 8px 32px rgba(0,0,0,0.35);
+  z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.mp-fc2 {
+  transform: rotate(-4deg) translateY(-10px);
+  background: linear-gradient(160deg, #e0e0cb, #c6c79d);
+  border: 3px solid rgba(255,255,255,0.6);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(198,199,157,0.3);
+  z-index: 3;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px;
+}
+.mp-fc3 {
+  transform: rotate(12deg) translateX(30px) translateY(15px);
+  background: linear-gradient(135deg, #1a3a2a, #2d5a3d);
+  border: 2px solid rgba(198,199,157,0.4);
+  box-shadow: 8px 8px 32px rgba(0,0,0,0.35);
+  z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── HOVER — cuando el mouse está sobre fc1 (izquierda) ── */
+.mp-card-fan:has(.mp-fc1:hover) .mp-fc1 {
+  transform: rotate(-5deg) translateX(-88px) translateY(-8px) scale(1.14);
+  z-index: 5;
+  box-shadow: -12px 20px 48px rgba(0,0,0,0.5);
+}
+.mp-card-fan:has(.mp-fc1:hover) .mp-fc2 {
+  transform: rotate(-4deg) translateY(-10px) translateX(18px);
+}
+.mp-card-fan:has(.mp-fc1:hover) .mp-fc3 {
+  transform: rotate(12deg) translateX(46px) translateY(15px);
+}
+
+/* ── HOVER — cuando el mouse está sobre fc2 (centro) ── */
+.mp-card-fan:has(.mp-fc2:hover) .mp-fc2 {
+  transform: rotate(0deg) translateY(-36px) scale(1.18);
+  z-index: 5;
+  box-shadow: 0 28px 60px rgba(0,0,0,0.5);
+}
+.mp-card-fan:has(.mp-fc2:hover) .mp-fc1 {
+  transform: rotate(-18deg) translateX(-58px) translateY(22px);
+}
+.mp-card-fan:has(.mp-fc2:hover) .mp-fc3 {
+  transform: rotate(12deg) translateX(48px) translateY(18px);
+}
+
+/* ── HOVER — cuando el mouse está sobre fc3 (derecha) ── */
+.mp-card-fan:has(.mp-fc3:hover) .mp-fc3 {
+  transform: rotate(5deg) translateX(86px) translateY(-8px) scale(1.14);
+  z-index: 5;
+  box-shadow: 12px 20px 48px rgba(0,0,0,0.5);
+}
+.mp-card-fan:has(.mp-fc3:hover) .mp-fc1 {
+  transform: rotate(-18deg) translateX(-42px) translateY(20px);
+}
+.mp-card-fan:has(.mp-fc3:hover) .mp-fc2 {
+  transform: rotate(-4deg) translateY(-10px) translateX(-18px);
+}
+
+/* ── imágenes reales en el fan ── */
+.mp-fc-img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+.mp-fc-sym {
+  font-size: 34px;
+  color: rgba(198,199,157,0.5);
+}
+
+/* overlay de precio — aparece en hover */
+.mp-fc-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%);
+  padding: 22px 10px 8px;
+  border-radius: 0 0 12px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+.mp-fan-card:hover .mp-fc-overlay { opacity: 1; }
+.mp-fc-name {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mp-fc-price {
+  font-size: 13px; font-weight: 700; color: #c6c79d;
+}
+
+/* shimmer en la carta central */
+.mp-hero-card-main { position: relative; }
+.mp-hero-card-main::after {
+  content: ''; position: absolute; top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,0.25) 50%, transparent);
+  animation: mp-shimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes mp-shimmer { 0%{left:-100%} 40%,100%{left:150%} }
+
+/* pokeball fallback */
+.mp-pokeball {
+  width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
+  border: 3px solid #1a1a1a; flex-shrink: 0; position: relative;
+}
+.mp-pb-top { width: 100%; height: 50%; background: #e63946; }
+.mp-pb-bot { width: 100%; height: 50%; background: white; }
+.mp-pb-line {
+  position: absolute; top: calc(50% - 1.5px);
+  left: 0; right: 0; height: 3px; background: #1a1a1a;
+}
+.mp-pb-dot {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px; height: 18px; border-radius: 50%;
+  background: white; border: 3px solid #1a1a1a; z-index: 1;
+}
+.mp-fc2-txt {
+  font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 700;
+  color: #1a3a2a; letter-spacing: 0.12em; text-transform: uppercase;
+}
+
+.mp-fan-label {
+  margin-top: 14px; font-size: 12px; font-style: italic;
+  color: rgba(255,255,255,0.5); text-align: center;
+}
+
+/* ─────────────────────────────────────────────
+   NOVEDADES — restyle del fondo
+───────────────────────────────────────────── */
+.mp-novedades-wrap > section {
+  background: rgba(6, 18, 11, 0.78) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+/* oculta el gradiente naranja interno */
+.mp-novedades-wrap section > div[style*="fea928"],
+.mp-novedades-wrap section > div.absolute.inset-0 {
+  display: none !important;
+}
+
+/* ─────────────────────────────────────────────
+   MEJORES VENDEDORES (cards de top sellers)
+───────────────────────────────────────────── */
+.mp-vendedores-cards-wrap > section {
+  background: rgba(12, 32, 20, 0.55) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.mp-vendedores-cards-wrap h2          { color: white !important; }
+.mp-vendedores-cards-wrap .text-gray-900 { color: white !important; }
+.mp-vendedores-cards-wrap .text-gray-500,
+.mp-vendedores-cards-wrap .text-gray-400 { color: rgba(255,255,255,0.55) !important; }
+
+/* ─────────────────────────────────────────────
+   SECCIÓN COMPARTIDA — cabecera + barra
+───────────────────────────────────────────── */
+.mp-sec-header {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; flex-wrap: wrap;
+  gap: 16px; padding: 0 64px; margin-bottom: 24px;
+}
+.mp-sec-h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem; color: white !important;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+.mp-title-bar {
+  width: 48px; height: 3px;
+  background: #c6c79d; border-radius: 2px;
+}
+
+/* ─────────────────────────────────────────────
+   VENDEDORES CONFIABLES
+───────────────────────────────────────────── */
+.mp-sellers { padding: 80px 0 64px; }
+
+/* filtro por ciudad */
+.mp-city-filter {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.mp-city-pill {
+  padding: 5px 14px; border-radius: 9999px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
+  transition: all 0.2s; white-space: nowrap;
+}
+.mp-city-pill:hover { background: rgba(255,255,255,0.18); }
+.mp-city-pill--active { background: #306e4f; border-color: #306e4f; color: white; }
+
+/* carrusel de vendedores */
+.mp-sellers-carousel {
+  display: flex; gap: 16px;
+  padding: 8px 64px 16px;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.mp-sellers-carousel::-webkit-scrollbar { display: none; }
+
+/* tarjeta de vendedor */
+.mp-scard {
+  min-width: 256px; flex-shrink: 0;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 16px; padding: 16px;
+  display: flex; gap: 14px; align-items: flex-start;
+  scroll-snap-align: start; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.mp-scard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+}
+.mp-savatar {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid #306e4f;
+  background: linear-gradient(135deg, #306e4f, #8b9d7b);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; color: white;
+}
+.mp-sinfo { flex: 1; min-width: 0; }
+.mp-sname  { font-size: 15px; font-weight: 700; color: white; margin-bottom: 4px; }
+.mp-sstars { display: flex; align-items: center; gap: 2px; margin-bottom: 4px; }
+.mp-star-filled { color: #fbbf24; fill: #fbbf24; }
+.mp-star-empty  { color: #6b7280; fill: #6b7280; }
+.mp-sreviewcount { font-size: 10px; color: rgba(255,255,255,0.5); margin-left: 4px; }
+.mp-smeta  { font-size: 11px; color: rgba(255,255,255,0.65); margin-bottom: 8px; }
+.mp-slink  {
+  background: none; border: none; cursor: pointer; padding: 0;
+  color: #c6c79d; font-size: 13px; font-weight: 700;
+  transition: color 0.2s;
+}
+.mp-slink:hover { color: white; }
+
+/* ─────────────────────────────────────────────
+   TIENDAS AFILIADAS
+───────────────────────────────────────────── */
+.mp-tiendas { padding: 80px 64px; }
+.mp-tiendas-hdr { margin-bottom: 32px; }
+.mp-tiendas-sub {
+  color: rgba(255,255,255,0.65); font-size: 14px; margin: 6px 0 8px;
+}
+.mp-tiendas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 20px;
+}
+
+/* tarjeta de tienda */
+.mp-tcard {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 16px; overflow: hidden; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.mp-tcard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+.mp-tcard-banner {
+  height: 72px;
+  background: linear-gradient(135deg, #1a3a2a, #306e4f, #8b9d7b);
+}
+.mp-tcard-body { padding: 0 14px 14px; }
+.mp-tcard-av-wrap { margin-top: -18px; margin-bottom: 8px; }
+.mp-tcard-av {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.5);
+  background: linear-gradient(135deg, #306e4f, #2d5a3d);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.mp-tcard-name { font-size: 14px; font-weight: 700; color: white; margin-bottom: 2px; }
+.mp-tcard-city { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 10px; }
+.mp-tcard-btn {
+  width: 100%; padding: 7px;
+  background: rgba(48,110,79,0.7);
+  color: white; font-size: 12px; font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; cursor: pointer;
+  transition: background 0.2s;
+}
+.mp-tcard-btn:hover { background: #306e4f; }
+
+/* ─────────────────────────────────────────────
+   FEATURES
+───────────────────────────────────────────── */
+.mp-features { background: transparent; padding: 80px 64px; position: relative; z-index: 2; }
+.mp-feat-h2 {
+  font-family: 'Playfair Display', serif; font-size: 1.8rem;
+  text-align: center; color: white !important; margin-bottom: 48px;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+.mp-feat-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 32px; max-width: 960px; margin: 0 auto;
+}
+.mp-feat {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 12px;
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 16px; padding: 28px 20px;
+}
+.mp-feat-ico {
+  width: 56px; height: 56px; background: #306e4f; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: white;
+}
+.mp-feat-title { font-size: 16px; font-weight: 700; color: white; }
+.mp-feat-desc  { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.55; }
+
+/* ─────────────────────────────────────────────
+   CAFECITO
+───────────────────────────────────────────── */
+.mp-cafecito {
+  background: #306e4f;
+  clip-path: polygon(0 40px, 100% 0, 100% calc(100% - 40px), 0 100%);
+  padding: 100px 64px;
+  display: flex; gap: 64px; align-items: center;
+  position: relative; overflow: hidden; z-index: 2;
+}
+.mp-coffee-wrap { position: relative; width: 180px; height: 200px; flex-shrink: 0; }
+.mp-cup-rim    { position: absolute; bottom: 120px; left: 28px; width: 100px; height: 10px; background: rgba(255,255,255,0.22); border-radius: 4px; }
+.mp-cup-body   { position: absolute; bottom: 48px; left: 32px; width: 92px; height: 76px; background: rgba(255,255,255,0.15); clip-path: polygon(6% 0%,94% 0%,84% 100%,16% 100%); border-radius: 0 0 12px 12px; }
+.mp-cup-handle { position: absolute; bottom: 68px; right: 28px; width: 22px; height: 34px; border: 5px solid rgba(255,255,255,0.2); border-left: none; border-radius: 0 12px 12px 0; }
+.mp-saucer     { position: absolute; bottom: 38px; left: 20px; width: 120px; height: 13px; background: rgba(255,255,255,0.15); border-radius: 50%; }
+.mp-st, .mp-st2, .mp-st3 { position: absolute; width: 3px; border-radius: 2px; background: rgba(255,255,255,0.25); }
+.mp-st  { height: 22px; bottom: 202px; left: 55px; animation: mp-stm 2.5s ease-in-out infinite; }
+.mp-st2 { height: 18px; bottom: 204px; left: 72px; animation: mp-stm 2.5s ease-in-out infinite; animation-delay: 0.6s; }
+.mp-st3 { height: 20px; bottom: 202px; left: 88px; animation: mp-stm 2.5s ease-in-out infinite; animation-delay: 1.2s; }
+@keyframes mp-stm {
+  0%   { transform: translateY(0) scaleX(1);    opacity: 0.45; }
+  50%  { transform: translateY(-8px) scaleX(1.6); opacity: 0.2;  }
+  100% { transform: translateY(-16px) scaleX(0.8); opacity: 0;  }
+}
+.mp-suit { position: absolute; color: rgba(198,199,157,0.4); font-size: 18px; }
+.mp-s1 { top: 12px; left: 4px;   transform: rotate(-15deg); }
+.mp-s2 { top: 28px; right: 12px; transform: rotate(22deg);  }
+.mp-s3 { bottom: 42px; left: 8px;  transform: rotate(10deg);  }
+.mp-s4 { bottom: 62px; right: 4px; transform: rotate(-28deg); }
+.mp-cafe-txt h2 {
+  font-family: 'Playfair Display', serif; font-size: 2rem;
+  color: #f9f9f5 !important; margin-bottom: 14px;
+}
+.mp-cafe-txt p {
+  color: rgba(249,249,245,0.82); font-size: 1.05rem;
+  max-width: 420px; line-height: 1.7; margin-bottom: 28px;
+  position: relative; z-index: 1;
+}
+.mp-btn-cafe {
+  background: #c6c79d; color: #1a1a1a;
+  font-size: 1rem; font-weight: 700;
+  border-radius: 9999px; padding: 14px 32px;
+  border: none; cursor: pointer;
+  transition: background 0.2s, transform 0.2s; position: relative; z-index: 1;
+}
+.mp-btn-cafe:hover { background: #d5d6b0; transform: scale(1.02); }
+
+/* ─────────────────────────────────────────────
+   FAB
+───────────────────────────────────────────── */
+.mp-fab { position: fixed; bottom: 28px; right: 28px; z-index: 300; }
+.mp-fab-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 24px; border: none; border-radius: 9999px; cursor: pointer;
+  background: linear-gradient(135deg, #306e4f, #8b9d7b);
+  color: white; font-size: 15px; font-weight: 700;
+  box-shadow: 0 8px 24px rgba(48,110,79,0.45);
+  position: relative; z-index: 1; transition: transform 0.2s;
+}
+.mp-fab-btn:hover { transform: scale(1.03); }
+.mp-fab::after {
+  content: ''; position: absolute; inset: 0;
+  border: 2px solid #c6c79d; border-radius: 9999px;
+  animation: mp-pulser 2.5s ease-out infinite; pointer-events: none;
+}
+@keyframes mp-pulser { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.45);opacity:0} }
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .mp-hero { flex-direction: column; padding: 40px 24px; min-height: auto; }
+  .mp-hero-left { flex: none; padding-right: 0; text-align: center; }
+  .mp-hero-right { margin-top: 40px; }
+  .mp-hero-cta { justify-content: center; }
+  .mp-feat-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .mp-features { padding: 60px 24px; }
+  .mp-cafecito { flex-direction: column; padding: 80px 24px; clip-path: none; text-align: center; }
+  .mp-coffee-wrap { display: none; }
+  .mp-cafe-txt p { max-width: 100%; }
+  .mp-sec-header { padding: 0 24px; }
+  .mp-sellers-carousel { padding: 8px 24px 16px; }
+  .mp-tiendas { padding: 60px 24px; }
+  .mp-tiendas-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
