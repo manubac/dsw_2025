@@ -7,6 +7,7 @@ import { fetchApi } from '../services/api'
 import { NovedadesCarousel } from '../components/NovedadesCarousel'
 import { MejoresVendedoresSection } from '../components/MejoresVendedoresSection'
 import { CardScanner, type ScannedCard } from '../components/CardScanner/CardScanner'
+import ScrollBackground from '../components/ScrollBackground'
 import './MainPage.css'
 
 interface TopCard {
@@ -119,6 +120,8 @@ export function MainPage() {
 
   return (
     <>
+      <ScrollBackground />
+
       {/* barra de progreso */}
       <div className="mp-spbar" style={{ width: `${scrollPct}%` }} />
 
