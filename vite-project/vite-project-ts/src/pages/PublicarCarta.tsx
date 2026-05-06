@@ -5,8 +5,9 @@ import { useUser } from "../context/user";
 import { api, fetchApi } from "../services/api";
 import { searchCards, getCardRarities, resolveCard, type GameSlug } from "../services/tcg";
 import { CardScanner, type ScannedCard } from "../components/CardScanner/CardScanner";
-import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ScanLine, ListPlus, X, ChevronRight, Loader2, CheckCircle2, AlertCircle, Upload, ExternalLink, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { type ParsedCard, type DetectedFormat } from "../utils/deckParsers";
+import { useCurrency, parseLocalAmount, formatCurrency, AVAILABLE_CURRENCIES } from "../hooks/useCurrency";
 
 type Juego = "pokemon" | "magic" | "yugioh" | "digimon" | "riftbound";
 
@@ -144,6 +145,8 @@ export default function PublicarCartaPage() {
 
   const [selectedPriceSite, setSelectedPriceSite] = useState<PriceSiteKey>("coolstuff");
   const [minPrice, setMinPrice] = useState<string>("");
+
+  const { currencyInfo, setCurrencyCode, convertEnabled, setConvertEnabled, rate, rateLoading, rateError, convertFromUSD, formatPrice } = useCurrency();
 
   // Estado del popup de rareza (hold-to-open)
   interface RarityPopupState { uid: string; anchorRect: DOMRect; hoveredIdx: number | null; rarezas: Rareza[]; }
@@ -836,14 +839,20 @@ export default function PublicarCartaPage() {
         }
       } catch { /* precio queda "" */ }
 
-      // Normalizar precio a formato $X.XX
+      // Normalizar y opcionalmente convertir a moneda local
       if (precio) {
-        const numVal = parseFloat(precio.replace(/[^0-9.]/g, ""));
-        if (!isNaN(numVal) && numVal > 0) {
-          // Aplicar precio mínimo si está configurado
-          const minVal = minPrice ? parseFloat(minPrice.replace(/[^0-9.]/g, "")) : NaN;
-          const finalVal = (!isNaN(minVal) && minVal > 0 && numVal < minVal) ? minVal : numVal;
-          precio = `$${finalVal.toFixed(2)}`;
+        const numValUSD = parseFloat(precio.replace(/[^0-9.]/g, ""));
+        if (!isNaN(numValUSD) && numValUSD > 0) {
+          if (convertEnabled && rate && currencyInfo.code !== 'USD') {
+            const localVal = numValUSD * rate;
+            const minVal = minPrice ? parseLocalAmount(minPrice) : NaN;
+            const finalVal = (!isNaN(minVal) && minVal > 0 && localVal < minVal) ? minVal : localVal;
+            precio = formatCurrency(finalVal, currencyInfo);
+          } else {
+            const minVal = minPrice ? parseFloat(minPrice.replace(/[^0-9.]/g, "")) : NaN;
+            const finalVal = (!isNaN(minVal) && minVal > 0 && numValUSD < minVal) ? minVal : numValUSD;
+            precio = `$${finalVal.toFixed(2)}`;
+          }
         } else {
           precio = "";
         }
@@ -942,7 +951,6 @@ export default function PublicarCartaPage() {
       }
 
       // Paso 2: crear el ItemCarta que enlaza todas las Cartas
-      const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
       const rawBundleName = pending.map(it => {
         const qty = it.stock ?? 1;
         return qty > 1 ? `${qty}x ${it.carta!.name}` : it.carta!.name;
@@ -955,7 +963,7 @@ export default function PublicarCartaPage() {
         .map(it => {
           const qty = it.stock ?? 1;
           const qtyStr = qty > 1 ? `${qty}x ` : "";
-          return `${qtyStr}${it.carta!.name}${it.price ? ` ($${parsePrice(it.price).toFixed(2)})` : ""}`;
+          return `${qtyStr}${it.carta!.name}${it.price ? ` (${it.price})` : ""}`;
         })
         .join(", ");
 
@@ -1411,17 +1419,50 @@ export default function PublicarCartaPage() {
                     type="text"
                     value={minPrice}
                     onChange={e => setMinPrice(e.target.value)}
-                    placeholder="Sin mínimo"
+                    placeholder={convertEnabled && currencyInfo.code !== 'USD' ? `Sin mínimo (${currencyInfo.code})` : "Sin mínimo"}
                     disabled={applyingPrices}
                     className="flex-1 text-xs border border-amber-200 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-amber-400 bg-amber-50/60 text-amber-800 placeholder-amber-300 disabled:opacity-50 transition"
                   />
+                </div>
+                {/* Toggle de conversión de moneda */}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none flex-1 min-w-0">
+                    <div
+                      onClick={() => setConvertEnabled(!convertEnabled)}
+                      className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${convertEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${convertEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                    <span className="text-[11px] text-gray-600 font-medium whitespace-nowrap">Convertir a</span>
+                    <select
+                      value={currencyInfo.code}
+                      onChange={e => setCurrencyCode(e.target.value)}
+                      disabled={!convertEnabled}
+                      className="text-[11px] border border-blue-200 rounded px-1 py-0.5 bg-blue-50 text-blue-800 outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-400 transition min-w-0"
+                    >
+                      {AVAILABLE_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {convertEnabled && (
+                    <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">
+                      {rateLoading
+                        ? <RefreshCw size={10} className="animate-spin inline" />
+                        : rateError
+                          ? <span className="text-red-400">Sin datos</span>
+                          : rate && currencyInfo.code !== 'USD'
+                            ? `1 USD = ${formatCurrency(rate, currencyInfo)}`
+                            : null
+                      }
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-1.5 flex-1">
                 {(() => {
                   const checkedPending = queue.filter(it => it.checked && it.status === "found" && !it.published);
-                  const parsePrice = (p: string) => parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
-                  const total = checkedPending.reduce((acc, it) => acc + parsePrice(it.price) * it.quantity, 0);
+                  const total = checkedPending.reduce((acc, it) => acc + parseLocalAmount(it.price) * it.quantity, 0);
                   const bundleClassMixed = bundleAll && checkedPending.length > 1 && (() => {
                     const firstId = checkedPending[0].cartaClassId ?? cartaClasses.find(cc => cc.name.toLowerCase() === checkedPending[0].format?.toLowerCase())?.id;
                     return checkedPending.some(it => {
@@ -1440,7 +1481,7 @@ export default function PublicarCartaPage() {
                         />
                         Todo en una publicación
                         {bundleAll && !bundleClassMixed && total > 0 && (
-                          <span className="ml-auto font-semibold text-green-600">${total.toFixed(2)}</span>
+                          <span className="ml-auto font-semibold text-green-600">{formatPrice(total)}</span>
                         )}
                       </label>
                       {bundleAll && !bundleClassMixed && (
@@ -1647,8 +1688,8 @@ export default function PublicarCartaPage() {
                                     prev.map((it) => (it.uid === item.uid ? { ...it, price: e.target.value } : it))
                                   )
                                 }
-                                placeholder="Precio (ej: $4.99)"
-                                className="w-24 text-xs border rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-green-400"
+                                placeholder={convertEnabled && currencyInfo.code !== 'USD' ? `Precio (${currencyInfo.code})` : "Precio (ej: $4.99)"}
+                                className="w-28 text-xs border rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-green-400 font-mono"
                               />
                               <button
                                 onClick={() => publishQueueItem(item)}

@@ -19,6 +19,7 @@ import fs      from 'fs/promises';
 import { pipeline, env } from '@xenova/transformers';
 import { orm }   from '../shared/db/orm.js';
 import { Carta } from '../carta/carta.entity.js';
+import { parsePrice } from '../shared/parsePrice.js';
 
 // Descargar modelos del hub de Hugging Face (se cachean en ~/.cache/huggingface)
 env.allowRemoteModels = true;
@@ -72,7 +73,7 @@ async function processBatch(
         id:        carta.id!,
         nombre:    carta.name,
         coleccion: carta.setName ?? '',
-        precio:    carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+        precio:    parsePrice(carta.price),
         // Para cartas con imagen base64, guardar solo el link como URL pública
         imagenUrl: carta.image?.startsWith('http') ? carta.image : (carta.link ?? ''),
         rareza:    carta.rarity ?? '',

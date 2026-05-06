@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useMemo } from "react";
 import { CartContext } from "../context/cart";
 import { FiltersContext } from "../context/filters";
 import { useUser } from "../context/user";
@@ -9,6 +9,8 @@ import { useNotifications } from '../context/notifications';
 import { NotificationDropdown } from './NotificationDropdown';
 import { fetchApi } from "../services/api";
 import { MdSearch } from "react-icons/md";
+import type { CardGroup } from '../utils/cardGroups'
+import { buildCardGroups, buildCardIdToGroup, filterCartasByGame, navigateToGroup } from '../utils/cardGroups'
 
 const POKEMON_CODE_RE = /^(.+?)\s+([A-Z][A-Z0-9]{1,7})\s+(\d+)$/;
 
@@ -41,6 +43,10 @@ export function Header() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [cartas, setCartas] = useState<any[]>([]);
+  const cardIdToGroup = useMemo<Map<number, CardGroup>>(() => {
+    const gameCartas = filterCartasByGame(cartas, filters.game)
+    return buildCardIdToGroup(buildCardGroups(gameCartas))
+  }, [cartas, filters.game])
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -79,19 +85,25 @@ export function Header() {
     } else {
       setFilters((prev: any) => ({ ...prev, query: value }));
       if (!isCardsPage) {
-        const filtered = cartas.filter((carta) =>
+        const gameCartas = filterCartasByGame(cartas, filters.game)
+        const filtered = gameCartas.filter((carta: any) =>
           carta.title.toLowerCase().includes(value.toLowerCase())
-        );
-        setResults(filtered.slice(0, 5));
+        )
+        setResults(filtered.slice(0, 5))
       }
     }
   };
 
   const handleResultClick = (card: any) => {
-    setResults([]);
-    setQuery(card.title);
-    navigate(`/card/${card.id}`);
-  };
+    setResults([])
+    setQuery(card.title)
+    const group = cardIdToGroup.get(card.id)
+    if (group) {
+      navigateToGroup(navigate, group, filters.city)
+    } else {
+      navigate(`/card/${card.id}`)
+    }
+  }
 
   const handleClearSearch = () => {
     setQuery("");

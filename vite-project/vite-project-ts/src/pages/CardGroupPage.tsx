@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { fmtPrice } from "../utils/fmtPrice";
 import { useState, useMemo } from "react";
 
 type SortKey = 'price-asc' | 'price-desc' | 'rating-desc' | 'rating-asc';
@@ -195,7 +196,7 @@ export default function CardGroupPage() {
                   <p className="text-xs text-gray-400 mt-0.5">Stock: {pub.stock ?? 1}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-lg font-bold text-green-700">${(pub.price ?? 0).toFixed(2)}</p>
+                  <p className="text-lg font-bold text-green-700">{fmtPrice(pub.price, pub.priceStr)}</p>
                 </div>
               </div>
             );
@@ -232,7 +233,7 @@ export default function CardGroupPage() {
                     {bundle.title}
                   </p>
                   <p className="text-sm font-bold text-green-700 mt-1">
-                    ${(bundle.price ?? 0).toFixed(2)}
+                    {fmtPrice(bundle.price, bundle.priceStr)}
                   </p>
                 </div>
               </button>

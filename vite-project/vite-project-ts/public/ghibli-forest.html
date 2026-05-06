@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Ghibli Forest</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow-x: hidden; background: #000; }
+    #bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: block;
+    }
+    #scroll-container {
+      height: 400vh;
+      position: relative;
+      pointer-events: none;
+    }
+
+    /* ── Vegetation layer ─────────────────────────────────────────────────── */
+    #vegetation-layer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 40vh;
+      pointer-events: none;
+      z-index: 2;
+      overflow: hidden;
+      mix-blend-mode: multiply;
+    }
+    .vz {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('./pastogemmini.jpg');
+      background-size: 100% auto;
+      background-position: bottom center;
+      background-repeat: no-repeat;
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <div id="scroll-container"></div>
+
+  <div id="vegetation-layer">
+    <div class="vz"></div>
+    <div class="vz"></div>
+    <div class="vz"></div>
+    <div class="vz"></div>
+    <div class="vz"></div>
+    <div class="vz"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    // ── Shared state ──────────────────────────────────────────────────────────
+    const uniforms = {
+      uTime:          { value: 0 },
+      uNightProgress: { value: 0 },
+    };
+    const scrollState = { progress: 0 };
+
+    // ── Renderer ──────────────────────────────────────────────────────────────
+    const canvas = document.getElementById('bg');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      75, window.innerWidth / window.innerHeight, 0.1, 200
+    );
+    camera.position.set(0, 1.5, 0);
+    camera.rotation.order = 'YXZ';
+    camera.rotation.x = THREE.MathUtils.degToRad(-5);
+
+    // ── Resize ────────────────────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ── Shared gradientMap (3-band toon shading) ──────────────────────────────
+    const gradientData = new Uint8Array([64, 128, 255]);
+    const gradientMap = new THREE.DataTexture(gradientData, 3, 1);
+    gradientMap.minFilter = THREE.NearestFilter;
+    gradientMap.magFilter = THREE.NearestFilter;
+    gradientMap.needsUpdate = true;
+
+    // ── Fog ───────────────────────────────────────────────────────────────────
+    scene.fog = new THREE.Fog(0xC8E8F0, 15, 60);
+
+    // ── Ground ────────────────────────────────────────────────────────────────
+    const groundMat = new THREE.MeshToonMaterial({ color: 0x4a7e28, gradientMap });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // ── Lighting ──────────────────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xfff5e0, 1.0);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xfff8e0, 1.5);
+    dirLight.position.set(5, 10, 5);
+    scene.add(dirLight);
+
+    // ── Sky dome ──────────────────────────────────────────────────────────────
+    const skyGeo = new THREE.SphereGeometry(80, 32, 16);
+    skyGeo.scale(-1, 1, -1); // invert normals so inside is visible
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: { uNightProgress: uniforms.uNightProgress },
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uNightProgress;
+        varying vec3 vWorldPos;
+        void main() {
+          float t = clamp((vWorldPos.y + 5.0) / 85.0, 0.0, 1.0);
+          vec3 dayH   = vec3(0.91, 0.84, 0.64);
+          vec3 dayZ   = vec3(0.53, 0.81, 0.92);
+          vec3 nightH = vec3(0.051, 0.106, 0.165);
+          vec3 nightZ = vec3(0.008, 0.016, 0.031);
+          vec3 day   = mix(dayH, dayZ, t);
+          vec3 night = mix(nightH, nightZ, t);
+          gl_FragColor = vec4(mix(day, night, uNightProgress), 1.0);
+        }
+      `,
+      side: THREE.FrontSide,
+      depthWrite: false,
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    // ── Wind shader helper ────────────────────────────────────────────────────
+    function addWindShader(material, seedOffset) {
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.uTime = uniforms.uTime;
+        shader.vertexShader = `uniform float uTime;\n` +
+          shader.vertexShader.replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>
+            float seed = float(gl_InstanceID) * 1.618 + ${seedOffset.toFixed(1)};
+            float h = max(0.0, transformed.y / 2.0);
+            transformed.x += sin(uTime * 0.8 + seed + position.x * 0.5) * 0.06 * h;
+            transformed.z += cos(uTime * 0.6 + seed + position.z * 0.4) * 0.03 * h;`
+          );
+      };
+    }
+
+    // ── Trees ─────────────────────────────────────────────────────────────────
+    const TREE_COUNT = 45;
+    const treeData = [];
+    {
+      const rng = () => Math.random();
+      for (let i = 0; i < TREE_COUNT; i++) {
+        const angle = rng() * Math.PI * 2;
+        const radius = 10 + rng() * 15;
+        treeData.push({
+          x: Math.cos(angle) * radius,
+          z: Math.sin(angle) * radius,
+          scale: 0.8 + rng() * 1.0,
+          rotY: rng() * Math.PI * 2,
+        });
+      }
+    }
+
+    const dummy = new THREE.Object3D();
+
+    // Trunks
+    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.18, 2.0, 6);
+    const trunkMat = new THREE.MeshToonMaterial({ color: 0x5c3a1e, gradientMap });
+    addWindShader(trunkMat, 0.0);
+    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, TREE_COUNT);
+    trunks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+    // Foliage
+    const foliageGeo = new THREE.ConeGeometry(1.4, 3.5, 7);
+    const foliageMat = new THREE.MeshToonMaterial({ color: 0x2a6010, gradientMap });
+    addWindShader(foliageMat, 1.0);
+    const foliage = new THREE.InstancedMesh(foliageGeo, foliageMat, TREE_COUNT);
+    foliage.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+    treeData.forEach(({ x, z, scale, rotY }, i) => {
+      // trunk: base at ground (y=0), center at y=1*scale
+      dummy.position.set(x, 1.0 * scale, z);
+      dummy.rotation.y = rotY;
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      trunks.setMatrixAt(i, dummy.matrix);
+
+      // foliage: cone center above trunk top
+      dummy.position.set(x, (1.0 + 1.75 + 0.5) * scale, z);
+      dummy.updateMatrix();
+      foliage.setMatrixAt(i, dummy.matrix);
+    });
+
+    scene.add(trunks, foliage);
+
+    // ── Grass ─────────────────────────────────────────────────────────────────
+    const GRASS_COUNT = 2000;
+    const bladeGeo = new THREE.PlaneGeometry(0.05, 0.3);
+    bladeGeo.translate(0, 0.15, 0); // pivot at base so wind bends from ground up
+    const bladeMat = new THREE.MeshToonMaterial({
+      color: 0x5a9e30,
+      gradientMap,
+      side: THREE.DoubleSide,
+    });
+    bladeMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = uniforms.uTime;
+      shader.vertexShader = `uniform float uTime;\n` +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+          float seed = float(gl_InstanceID) * 0.927;
+          float h = max(0.0, transformed.y / 0.3);
+          transformed.x += sin(uTime * 1.8 + seed) * 0.18 * h;
+          transformed.z += cos(uTime * 1.4 + seed + 1.3) * 0.10 * h;`
+        );
+    };
+    const grassMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, GRASS_COUNT);
+    grassMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    for (let i = 0; i < GRASS_COUNT; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.random() * 12;
+      dummy.position.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+      dummy.rotation.y = Math.random() * Math.PI * 2;
+      dummy.scale.setScalar(0.8 + Math.random() * 0.5);
+      dummy.updateMatrix();
+      grassMesh.setMatrixAt(i, dummy.matrix);
+    }
+    scene.add(grassMesh);
+
+    // ── Clouds ────────────────────────────────────────────────────────────────
+    function generateCloudTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 128;
+      const ctx = c.getContext('2d');
+      for (let i = 0; i < 8; i++) {
+        const cx = 30 + Math.random() * 196;
+        const cy = 20 + Math.random() * 88;
+        const rx = 20 + Math.random() * 50;
+        const ry = 12 + Math.random() * 30;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
+        g.addColorStop(0,   'rgba(255,255,255,0.90)');
+        g.addColorStop(0.6, 'rgba(255,255,255,0.40)');
+        g.addColorStop(1,   'rgba(255,255,255,0.00)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    const clouds = [];
+    for (let i = 0; i < 7; i++) {
+      const tex = generateCloudTexture();
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(18 + Math.random() * 12, 8 + Math.random() * 6),
+        mat
+      );
+      mesh.position.set(
+        (Math.random() - 0.5) * 80,
+        22 + Math.random() * 15,
+        (Math.random() - 0.5) * 80
+      );
+      mesh.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.2;
+      mesh.userData.speed = 0.003 + Math.random() * 0.004;
+      mesh.userData.bound = 50;
+      scene.add(mesh);
+      clouds.push(mesh);
+    }
+
+    // ── Stars ─────────────────────────────────────────────────────────────────
+    const STAR_COUNT = 800;
+    const starPos  = new Float32Array(STAR_COUNT * 3);
+    const starSeed = new Float32Array(STAR_COUNT * 3); // [speed, size, phase]
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi   = Math.random() * Math.PI * 0.5; // upper hemisphere only
+      const r = 68;
+      starPos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i*3+1] = r * Math.cos(phi);
+      starPos[i*3+2] = r * Math.sin(phi) * Math.sin(theta);
+      starSeed[i*3]   = 0.5 + Math.random() * 1.5;      // twinkle speed
+      starSeed[i*3+1] = 2.0 + Math.random() * 2.0;      // point size
+      starSeed[i*3+2] = Math.random() * Math.PI * 2;    // phase offset
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute('aSeed',    new THREE.BufferAttribute(starSeed, 3));
+    const starMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime:          uniforms.uTime,
+        uNightProgress: uniforms.uNightProgress,
+      },
+      vertexShader: `
+        attribute vec3 aSeed;
+        uniform float uTime;
+        uniform float uNightProgress;
+        varying float vTwinkle;
+        void main() {
+          vTwinkle = 0.5 + 0.5 * sin(uTime * aSeed.x + aSeed.z);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          float night = smoothstep(0.6, 1.0, uNightProgress);
+          gl_PointSize = aSeed.y * (300.0 / -mv.z) * night;
+          gl_Position  = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: `
+        uniform float uNightProgress;
+        varying float vTwinkle;
+        void main() {
+          float dist = length(gl_PointCoord - 0.5);
+          if (dist > 0.5) discard;
+          float night = smoothstep(0.6, 1.0, uNightProgress);
+          float alpha = (1.0 - dist * 2.0) * vTwinkle * night;
+          gl_FragColor = vec4(0.90, 0.95, 1.0, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite:  false,
+    });
+    scene.add(new THREE.Points(starGeo, starMat));
+
+    // ── Post-processing ───────────────────────────────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.3,  // strength
+      0.5,  // radius
+      0.1   // threshold
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+
+    // ── GSAP ScrollTrigger ────────────────────────────────────────────────────
+    gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.create({
+      trigger: '#scroll-container',
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: true,
+      onUpdate: (self) => { scrollState.progress = self.progress; },
+    });
+
+    // ── Vegetation wind ───────────────────────────────────────────────────────
+    const vegLayer = document.getElementById('vegetation-layer');
+    {
+      const zones = Array.from(vegLayer.querySelectorAll('.vz'));
+
+      // [clipStart%, clipEnd%, transformOriginX%, maxAmplitude(deg), basePeriod(s)]
+      // Edges move most; center barely moves. Tall grasses (outer) sway more.
+      const zoneCfg = [
+        [  0,  24,  11,  6.5, 2.3],  // far-left  — tall grass, aggressive
+        [ 14,  43,  28,  4.0, 3.7],  // left       — medium sway
+        [ 36,  56,  46,  1.8, 5.1],  // center-L   — gentle, slow
+        [ 48,  68,  58,  2.0, 4.8],  // center-R   — gentle, offset timing
+        [ 62,  86,  74,  4.3, 3.1],  // right       — medium sway
+        [ 80, 100,  90,  7.0, 2.0],  // far-right  — tall grass, most aggressive
+      ];
+
+      zones.forEach((z, i) => {
+        const [s, e, ox] = zoneCfg[i];
+        z.style.clipPath = `polygon(${s}% 0, ${e}% 0, ${e}% 100%, ${s}% 100%)`;
+        z.style.transformOrigin = `${ox}% 100%`;
+      });
+
+      // Organic sway: random target with slight rightward bias (prevailing breeze)
+      function swayZone(zone, i) {
+        const [, , , amp, period] = zoneCfg[i];
+        const bias = amp * 0.15; // lean slightly right
+        const spread = amp * (0.7 + Math.random() * 0.6);
+        const target = bias + (Math.random() * 2 - 1.1) * spread;
+        const dur = period * (0.6 + Math.random() * 0.8);
+        // Occasional pause: 15% chance of lingering before resuming
+        const delay = Math.random() < 0.15 ? Math.random() * 0.6 : 0;
+        gsap.to(zone, {
+          rotation: target,
+          duration: dur,
+          delay,
+          ease: 'sine.inOut',
+          onComplete: () => swayZone(zone, i),
+        });
+      }
+
+      // Stagger startup so not all zones start in sync
+      zones.forEach((z, i) => {
+        gsap.delayedCall(i * 0.3 + Math.random() * 1.4, () => swayZone(z, i));
+      });
+
+      // Gust wave: sweeps left → right, zones further right feel it later
+      function triggerGust() {
+        const strength = 5 + Math.random() * 8;
+        const sweepTime = 0.9 + Math.random() * 0.4;
+
+        zones.forEach((z, i) => {
+          const [s, e, , amp] = zoneCfg[i];
+          const ctr = (s + e) / 200;                     // 0..1
+          const boost = strength * (0.25 + ctr * 0.75);  // right edge amplified
+          const delay = ctr * sweepTime;
+
+          gsap.to(z, {
+            rotation: gsap.getProperty(z, 'rotation') + boost,
+            duration: 0.28,
+            delay,
+            ease: 'power3.out',
+            overwrite: 'auto',
+            onComplete: () => swayZone(z, i), // resume organic sway from new pos
+          });
+        });
+
+        setTimeout(triggerGust, 9000 + Math.random() * 11000);
+      }
+      setTimeout(triggerGust, 4500 + Math.random() * 4000);
+    }
+
+    // ── Lerp color helpers ────────────────────────────────────────────────────
+    const ambientDay   = new THREE.Color(0xfff5e0);
+    const ambientNight = new THREE.Color(0x0a1a2e);
+    const fogDay       = new THREE.Color(0xC8E8F0);
+    const fogNight     = new THREE.Color(0x0A0A1A);
+
+    // ── Animation loop ────────────────────────────────────────────────────────
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const t = now * 0.001;
+      uniforms.uTime.value = t;
+
+      const p = scrollState.progress;
+      uniforms.uNightProgress.value = p;
+
+      // Camera pitch: -5° (horizon) → +88° (near-zenith)
+      camera.rotation.x = THREE.MathUtils.degToRad(
+        THREE.MathUtils.lerp(-5, 88, p)
+      );
+
+      // Ambient light color + intensity
+      ambientLight.color.lerpColors(ambientDay, ambientNight, p);
+      ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.15, p);
+
+      // Directional (sun) light fades out by mid-scroll
+      dirLight.intensity = Math.max(0, THREE.MathUtils.lerp(1.5, 0, p * 2));
+
+      // Fog color + density increase at night
+      scene.fog.color.lerpColors(fogDay, fogNight, p);
+      scene.fog.near = THREE.MathUtils.lerp(15, 5, p);
+      scene.fog.far  = THREE.MathUtils.lerp(60, 30, p);
+
+      // Clouds drift + fade out as night approaches
+      clouds.forEach(c => {
+        c.position.x += c.userData.speed;
+        if (c.position.x > c.userData.bound) c.position.x = -c.userData.bound;
+        c.material.opacity = THREE.MathUtils.lerp(0.85, 0, Math.min(1, p * 1.5));
+      });
+
+      // Bloom intensifies at night (stars glow)
+      bloomPass.strength = THREE.MathUtils.lerp(0.3, 0.9, p);
+
+      // Vegetation fades as camera tilts upward (gone by 40% scroll)
+      vegLayer.style.opacity = Math.max(0, 1 - p * 2.8).toFixed(3);
+
+      composer.render();
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

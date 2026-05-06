@@ -2,6 +2,7 @@ import { EntityManager } from "@mikro-orm/postgresql";
 import { Wishlist } from "./wishlist.entity.js";
 import { User } from "../user/user.entity.js";
 import { sendEmail } from "../shared/mailer.js";
+import { parsePrice } from "../shared/parsePrice.js";
 import { Carta } from "../carta/carta.entity.js";
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -15,9 +16,7 @@ export async function notifyWishlistSubscribers(em: EntityManager, cartaId: numb
     );
     if (!carta) return;
 
-    const cartaPrice = carta.price
-      ? parseFloat(carta.price.replace(/[^0-9.]/g, ''))
-      : null;
+    const cartaPrice = carta.price ? parsePrice(carta.price) : null;
 
     // Buscar entradas de wishlist cuya carta tenga el mismo nombre (case-insensitive, sin espacios extra)
     const nombreNorm = carta.name.trim().replace(/\s+/g, ' ');

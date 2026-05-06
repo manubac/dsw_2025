@@ -4,6 +4,7 @@ import { Wishlist } from "./wishlist.entity.js";
 import { Carta } from "../carta/carta.entity.js";
 import { Valoracion } from "../valoracion/valoracion.entity.js";
 import { authenticate, AuthRequest } from "../shared/middleware/auth.js";
+import { parsePrice } from "../shared/parsePrice.js";
 
 export const wishlistRouter = Router();
 
@@ -24,7 +25,7 @@ async function buildCartaRow(em: any, carta: any) {
   return {
     id: carta.id,
     name: carta.name,
-    price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, "")) : 0,
+    price: parsePrice(carta.price),
     rarity: carta.rarity,
     setName: carta.setName,
     image: carta.image,

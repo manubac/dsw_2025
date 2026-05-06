@@ -11,6 +11,7 @@ import { resolveNamesAcrossLanguages, getSetAbbreviations } from "../identify/se
 import axios from "axios";
 import puppeteer, { type Browser } from "puppeteer";
 import { notifyWishlistSubscribers } from "../wishlist/wishlistNotifier.js";
+import { parsePrice } from "../shared/parsePrice.js";
 
 
 const em = orm.em;
@@ -99,7 +100,8 @@ async function findAll(req: Request, res: Response) {
             id: carta.id,
             title: carta.name,
             thumbnail: carta.image,
-            price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+            price: parsePrice(carta.price),
+            priceStr: carta.price ?? null,
             description: carta.rarity || "Carta coleccionable",
             set: carta.setName || "Unknown Set",
             setCode: carta.setCode ? (abbrMap.get(carta.setCode) ?? carta.setCode) : null,
@@ -169,7 +171,7 @@ async function findOne(req: Request, res: Response) {
       title: carta.name,
       thumbnail: carta.image,
       images: carta.image ? [carta.image] : [],
-      price: carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+      price: parsePrice(carta.price),
       description: carta.rarity || "Carta coleccionable",
       set: carta.setName || "Unknown Set",
       rarity: carta.rarity,
@@ -363,7 +365,7 @@ async function getPopulares(req: Request, res: Response) {
       id: c.id,
       title: c.name,
       thumbnail: c.image,
-      price: c.price ? parseFloat(c.price.replace(/[^0-9.]/g, '')) : 0,
+      price: parsePrice(c.price),
       rarity: c.rarity,
       set: c.setName,
       viewCount: c.viewCount ?? 0,
@@ -436,7 +438,8 @@ async function getMejoresVendedores(req: Request, res: Response) {
         id: c.id,
         title: c.name,
         thumbnail: c.image,
-        price: c.price ? parseFloat(c.price.replace(/[^0-9.]/g, '')) : 0,
+        price: parsePrice(c.price),
+        priceStr: c.price ?? null,
         rarity: c.rarity,
         set: c.setName,
         cartaClass: c.cartaClass ? { name: (c.cartaClass as any).name } : null,

@@ -6,6 +6,7 @@ import { Intermediario } from '../intermediario/intermediario.entity.js';
 import { Carta } from './carta.entity.js';
 import { Vendedor } from '../vendedor/vendedores.entity.js';
 import { TiendaRetiro } from '../tiendaRetiro/tiendaRetiro.entity.js';
+import { parsePrice } from '../shared/parsePrice.js';
 
 const em=orm.em
 
@@ -13,7 +14,7 @@ async function findAll(req: Request, res: Response) {
    try {
        const items = await em.find(ItemCarta, { estado: 'disponible' }, { populate: ['intermediarios.direccion', 'cartas.cartaClass', 'uploaderVendedor', 'uploaderTienda'] });
        // Formatear para cumplir con las expectativas del frontend
-       const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
+       const parseCartaPrice = (p?: string) => parsePrice(p);
        const itemsFormateadas = items.map(item => {
          const cartaItems = item.cartas.getItems();
          const totalPrice = cartaItems.reduce((sum, c) => sum + parseCartaPrice(c.price), 0);
@@ -30,6 +31,7 @@ async function findAll(req: Request, res: Response) {
              name: c.name,
              image: c.image,
              price: parseCartaPrice(c.price),
+             priceStr: c.price ?? null,
              rarity: c.rarity,
              setName: c.setName,
              cardNumber: c.cardNumber,
@@ -52,7 +54,7 @@ async function findOne(req: Request, res: Response) {
     try {
         const id=Number(req.params.id)
         const item = await em.findOneOrFail(ItemCarta, { id }, { populate: ['intermediarios.direccion', 'cartas', 'uploaderVendedor', 'uploaderTienda'] });
-        const parseCartaPrice = (p?: string) => p ? parseFloat(p.replace(/[^0-9.]/g, '')) || 0 : 0;
+        const parseCartaPrice = (p?: string) => parsePrice(p);
         const cartaItems = item.cartas.getItems();
         const totalPrice = cartaItems.reduce((sum, c) => sum + parseCartaPrice(c.price), 0);
         const itemFormateado = {

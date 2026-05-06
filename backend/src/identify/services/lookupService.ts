@@ -12,6 +12,7 @@
 import { orm } from '../../shared/db/orm.js';
 import { Carta } from '../../carta/carta.entity.js';
 import { findByLocalName, findByLocalNameAnySet } from './translationService.js';
+import { parsePrice } from '../../shared/parsePrice.js';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -55,7 +56,7 @@ function toResult(carta: Carta): CartaResult {
     nombre:     carta.name,
     coleccion:  carta.setName ?? '',
     numero:     carta.cardNumber ?? '',
-    precio:     carta.price ? parseFloat(carta.price.replace(/[^0-9.]/g, '')) : 0,
+    precio:     parsePrice(carta.price),
     imagenUrl:  carta.image ?? '',
     rareza:     carta.rarity ?? '',
     link:       carta.link ?? '',
