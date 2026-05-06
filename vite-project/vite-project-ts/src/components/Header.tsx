@@ -100,7 +100,7 @@ export function Header() {
     setQuery(card.title)
     const group = cardIdToGroup.get(card.id)
     if (group) {
-      navigateToGroup(navigate, group, filters.city)
+      navigateToGroup(navigate, group, 'all')
     } else {
       navigate(`/card/${card.id}`)
     }

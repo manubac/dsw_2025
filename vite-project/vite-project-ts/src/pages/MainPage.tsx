@@ -53,16 +53,16 @@ export function MainPage() {
   const [scrollPct, setScrollPct]       = useState(0)
   const [topCards, setTopCards]         = useState<TopCard[]>([])
   const [allCartas, setAllCartas]       = useState<any[]>([])
+  const [vendedores, setVendedores]     = useState<VendedorItem[]>([])
+  const [tiendas, setTiendas]           = useState<TiendaItem[]>([])
+  const [selectedCity, setSelectedCity] = useState('all')
+  const ghostRef = useRef<HTMLDivElement>(null)
 
   const cardIdToGroup = useMemo<Map<number, CardGroup>>(() => {
     const gameCartas = filterCartasByGame(allCartas, filters.game)
     const groups = buildCardGroups(gameCartas)
     return buildCardIdToGroup(groups)
   }, [allCartas, filters.game])
-  const [vendedores, setVendedores]     = useState<VendedorItem[]>([])
-  const [tiendas, setTiendas]           = useState<TiendaItem[]>([])
-  const [selectedCity, setSelectedCity] = useState('all')
-  const ghostRef = useRef<HTMLDivElement>(null)
 
   /* scroll progress */
   useEffect(() => {
@@ -199,7 +199,7 @@ export function MainPage() {
             {/* Carta izquierda */}
             <div
               className="mp-fan-card mp-fc1"
-              onClick={() => h1 && navigateToGroup(navigate, h1.group, filters.city)}
+              onClick={() => h1 && navigateToGroup(navigate, h1.group, 'all')}
               title={h1?.card.title}
             >
               {h1?.card.thumbnail
@@ -217,7 +217,7 @@ export function MainPage() {
             {/* Carta central */}
             <div
               className="mp-fan-card mp-fc2 mp-hero-card-main"
-              onClick={() => h2 && navigateToGroup(navigate, h2.group, filters.city)}
+              onClick={() => h2 && navigateToGroup(navigate, h2.group, 'all')}
               title={h2?.card.title}
             >
               {h2?.card.thumbnail
@@ -245,7 +245,7 @@ export function MainPage() {
             {/* Carta derecha */}
             <div
               className="mp-fan-card mp-fc3"
-              onClick={() => h3 && navigateToGroup(navigate, h3.group, filters.city)}
+              onClick={() => h3 && navigateToGroup(navigate, h3.group, 'all')}
               title={h3?.card.title}
             >
               {h3?.card.thumbnail
