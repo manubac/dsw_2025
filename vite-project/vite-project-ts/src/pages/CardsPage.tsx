@@ -3,18 +3,8 @@ import { useFilters } from "../hooks/useFilters";
 import { ProductFilters } from "../components/ProductFilters";
 import { fetchApi } from "../services/api";
 import { useNavigate } from "react-router-dom";
-
-interface CardGroup {
-  groupKey: string;
-  name: string;
-  setName: string;
-  setCode: string | null;
-  cardNumber: string | null;
-  rarity: string | null;
-  thumbnail: string | null;
-  publications: any[];
-  allCities: string[];
-}
+import { fmtPrice } from "../utils/fmtPrice";
+import { CardGroup, buildCardGroups, filterCartasByGame } from '../utils/cardGroups'
 
 function getMinPrice(group: CardGroup, city: string): number {
   const pubs = city === 'all'
@@ -24,6 +14,17 @@ function getMinPrice(group: CardGroup, city: string): number {
       );
   if (pubs.length === 0) return Infinity;
   return Math.min(...pubs.map((p: any) => p.price ?? 0));
+}
+
+function getMinPriceStr(group: CardGroup, city: string): string | null {
+  const pubs = city === 'all'
+    ? group.publications
+    : group.publications.filter((p: any) =>
+        (p.intermediarios || []).some((i: any) => i.direccion?.ciudad === city)
+      );
+  if (pubs.length === 0) return null;
+  const minPub = pubs.reduce((min: any, p: any) => (p.price ?? 0) < (min.price ?? 0) ? p : min, pubs[0]);
+  return fmtPrice(minPub.price, minPub.priceStr);
 }
 
 export function CardsPage() {
@@ -67,57 +68,15 @@ export function CardsPage() {
     fetchCartas();
   }, []);
 
-  const gameCartas = useMemo(() =>
-    cartas.filter(c => {
-      const name = c.cartaClass?.name?.toLowerCase()
-      if (name === filters.game) return true
-      if (!c.cartaClass && filters.game === 'pokemon') return true
-      return false
-    })
-  , [cartas, filters.game])
+  const gameCartas = useMemo(
+    () => filterCartasByGame(cartas, filters.game),
+    [cartas, filters.game]
+  )
 
-  const groups = useMemo<CardGroup[]>(() => {
-    const groupMap = new Map<string, CardGroup>();
-
-    for (const carta of gameCartas) {
-      const setCode = carta.setCode || null;
-      const cardNumber = carta.cardNumber || null;
-      const rarity = carta.rarity || null;
-      const name = carta.title || carta.name || '';
-
-      const keyBase = setCode && cardNumber
-        ? `${setCode.toLowerCase()}-${cardNumber.toLowerCase()}`
-        : name.toLowerCase();
-      const groupKey = `${keyBase}-${(rarity || '').toLowerCase()}`;
-
-      if (!groupMap.has(groupKey)) {
-        groupMap.set(groupKey, {
-          groupKey,
-          name,
-          setName: carta.set || 'Unknown Set',
-          setCode,
-          cardNumber,
-          rarity,
-          thumbnail: carta.thumbnail || null,
-          publications: [],
-          allCities: [],
-        });
-      }
-
-      const group = groupMap.get(groupKey)!;
-      group.publications.push(carta);
-      if (!group.thumbnail && carta.thumbnail) group.thumbnail = carta.thumbnail;
-
-      const citiesFromThis: string[] = (carta.intermediarios || [])
-        .map((i: any) => i.direccion?.ciudad)
-        .filter(Boolean);
-      for (const city of citiesFromThis) {
-        if (!group.allCities.includes(city)) group.allCities.push(city);
-      }
-    }
-
-    return Array.from(groupMap.values());
-  }, [gameCartas]);
+  const groups = useMemo<CardGroup[]>(
+    () => buildCardGroups(gameCartas),
+    [gameCartas]
+  )
 
   const cities = useMemo(
     () => Array.from(new Set(groups.flatMap(g => g.allCities))).sort(),
@@ -282,6 +241,7 @@ export function CardsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {filteredGroups.map(group => {
               const minPrice = getMinPrice(group, filters.city);
+              const minPriceStr = getMinPriceStr(group, filters.city);
               const pubCount = filters.city === 'all'
                 ? group.publications.length
                 : group.publications.filter((p: any) =>
@@ -321,7 +281,7 @@ export function CardsPage() {
                       </span>
                     )}
                     <p className="text-sm font-bold text-green-700 mt-1">
-                      {minPrice === Infinity ? '—' : `Desde $${minPrice.toFixed(2)}`}
+                      {minPriceStr === null ? '—' : `Desde ${minPriceStr}`}
                     </p>
                     <p className="text-xs text-gray-400">
                       {pubCount} publicación{pubCount !== 1 ? 'es' : ''}
@@ -364,7 +324,7 @@ export function CardsPage() {
                     {bundle.cartas?.length ?? 0} cartas
                   </span>
                   <p className="text-sm font-bold text-green-700 mt-1">
-                    ${(bundle.price ?? 0).toFixed(2)}
+                    {fmtPrice(bundle.price, bundle.priceStr)}
                   </p>
                 </div>
               </button>
