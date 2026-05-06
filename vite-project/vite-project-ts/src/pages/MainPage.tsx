@@ -8,6 +8,8 @@ import { NovedadesCarousel } from '../components/NovedadesCarousel'
 import { MejoresVendedoresSection } from '../components/MejoresVendedoresSection'
 import { CardScanner, type ScannedCard } from '../components/CardScanner/CardScanner'
 import ScrollBackground from '../components/ScrollBackground'
+import type { CardGroup } from '../utils/cardGroups'
+import { buildCardGroups, buildCardIdToGroup, filterCartasByGame, navigateToGroup } from '../utils/cardGroups'
 import './MainPage.css'
 
 interface TopCard {
@@ -50,6 +52,13 @@ export function MainPage() {
   const [scannerOpen, setScannerOpen]   = useState(false)
   const [scrollPct, setScrollPct]       = useState(0)
   const [topCards, setTopCards]         = useState<TopCard[]>([])
+  const [allCartas, setAllCartas]       = useState<any[]>([])
+
+  const cardIdToGroup = useMemo<Map<number, CardGroup>>(() => {
+    const gameCartas = filterCartasByGame(allCartas, filters.game)
+    const groups = buildCardGroups(gameCartas)
+    return buildCardIdToGroup(groups)
+  }, [allCartas, filters.game])
   const [vendedores, setVendedores]     = useState<VendedorItem[]>([])
   const [tiendas, setTiendas]           = useState<TiendaItem[]>([])
   const [selectedCity, setSelectedCity] = useState('all')
@@ -88,6 +97,13 @@ export function MainPage() {
       .catch(() => {})
   }, [filters.game])
 
+  useEffect(() => {
+    fetchApi('/api/cartas')
+      .then(r => r.json())
+      .then(d => setAllCartas(d.data ?? []))
+      .catch(() => {})
+  }, [])
+
   /* vendedores */
   useEffect(() => {
     fetchApi('/api/vendedores')
@@ -116,7 +132,15 @@ export function MainPage() {
 
   const activeTiendas = useMemo(() => tiendas.filter(t => t.activo !== false), [tiendas])
 
-  const [c1, c2, c3] = topCards
+  const heroCards = useMemo(() =>
+    topCards
+      .map(card => ({ card, group: cardIdToGroup.get(card.id) ?? null }))
+      .filter((item): item is { card: TopCard; group: CardGroup } => item.group !== null)
+  , [topCards, cardIdToGroup])
+
+  const h1 = heroCards[0]
+  const h2 = heroCards[1]
+  const h3 = heroCards[2]
 
   return (
     <>
@@ -175,17 +199,17 @@ export function MainPage() {
             {/* Carta izquierda */}
             <div
               className="mp-fan-card mp-fc1"
-              onClick={() => c1 && navigate(`/card/${c1.id}`)}
-              title={c1?.title}
+              onClick={() => h1 && navigateToGroup(navigate, h1.group, filters.city)}
+              title={h1?.card.title}
             >
-              {c1?.thumbnail
-                ? <img src={c1.thumbnail} alt={c1.title} className="mp-fc-img" />
+              {h1?.card.thumbnail
+                ? <img src={h1.card.thumbnail} alt={h1.card.title} className="mp-fc-img" />
                 : <span className="mp-fc-sym">◆</span>
               }
-              {c1 && (
+              {h1 && (
                 <div className="mp-fc-overlay">
-                  <span className="mp-fc-name">{c1.title}</span>
-                  <span className="mp-fc-price">${c1.price.toLocaleString()}</span>
+                  <span className="mp-fc-name">{h1.card.title}</span>
+                  <span className="mp-fc-price">${h1.card.price.toLocaleString()}</span>
                 </div>
               )}
             </div>
@@ -193,11 +217,11 @@ export function MainPage() {
             {/* Carta central */}
             <div
               className="mp-fan-card mp-fc2 mp-hero-card-main"
-              onClick={() => c2 && navigate(`/card/${c2.id}`)}
-              title={c2?.title}
+              onClick={() => h2 && navigateToGroup(navigate, h2.group, filters.city)}
+              title={h2?.card.title}
             >
-              {c2?.thumbnail
-                ? <img src={c2.thumbnail} alt={c2.title} className="mp-fc-img" />
+              {h2?.card.thumbnail
+                ? <img src={h2.card.thumbnail} alt={h2.card.title} className="mp-fc-img" />
                 : (
                   <>
                     <div className="mp-pokeball">
@@ -210,10 +234,10 @@ export function MainPage() {
                   </>
                 )
               }
-              {c2 && (
+              {h2 && (
                 <div className="mp-fc-overlay">
-                  <span className="mp-fc-name">{c2.title}</span>
-                  <span className="mp-fc-price">${c2.price.toLocaleString()}</span>
+                  <span className="mp-fc-name">{h2.card.title}</span>
+                  <span className="mp-fc-price">${h2.card.price.toLocaleString()}</span>
                 </div>
               )}
             </div>
@@ -221,22 +245,22 @@ export function MainPage() {
             {/* Carta derecha */}
             <div
               className="mp-fan-card mp-fc3"
-              onClick={() => c3 && navigate(`/card/${c3.id}`)}
-              title={c3?.title}
+              onClick={() => h3 && navigateToGroup(navigate, h3.group, filters.city)}
+              title={h3?.card.title}
             >
-              {c3?.thumbnail
-                ? <img src={c3.thumbnail} alt={c3.title} className="mp-fc-img" />
+              {h3?.card.thumbnail
+                ? <img src={h3.card.thumbnail} alt={h3.card.title} className="mp-fc-img" />
                 : <span className="mp-fc-sym">♠</span>
               }
-              {c3 && (
+              {h3 && (
                 <div className="mp-fc-overlay">
-                  <span className="mp-fc-name">{c3.title}</span>
-                  <span className="mp-fc-price">${c3.price.toLocaleString()}</span>
+                  <span className="mp-fc-name">{h3.card.title}</span>
+                  <span className="mp-fc-price">${h3.card.price.toLocaleString()}</span>
                 </div>
               )}
             </div>
           </div>
-          {topCards.length > 0 && (
+          {heroCards.length > 0 && (
             <p className="mp-fan-label">🔥 Top cartas de la semana</p>
           )}
         </div>
@@ -244,7 +268,7 @@ export function MainPage() {
 
       {/* ═══════════════════════ NOVEDADES ═══════════════════════ */}
       <div className="mp-novedades-wrap" style={{ position: 'relative', zIndex: 2 }}>
-        <NovedadesCarousel />
+        <NovedadesCarousel cardIdToGroup={cardIdToGroup} />
       </div>
 
       {/* ═══════════════════════ CARDS DE MEJORES VENDEDORES ═══════════════════════ */}
