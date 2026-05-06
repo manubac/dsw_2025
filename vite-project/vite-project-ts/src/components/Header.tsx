@@ -43,15 +43,16 @@ export function Header() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [cartas, setCartas] = useState<any[]>([]);
-  const cardIdToGroup = useMemo<Map<number, CardGroup>>(() => {
-    const gameCartas = filterCartasByGame(cartas, filters.game)
-    return buildCardIdToGroup(buildCardGroups(gameCartas))
-  }, [cartas, filters.game])
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
   const { unreadOrderCount, unreadChatCount } = useNotifications();
+
+  const cardIdToGroup = useMemo<Map<number, CardGroup>>(() => {
+    const gameCartas = filterCartasByGame(cartas, filters.game)
+    return buildCardIdToGroup(buildCardGroups(gameCartas))
+  }, [cartas, filters.game])
 
   useEffect(() => {
     async function fetchCartas() {
