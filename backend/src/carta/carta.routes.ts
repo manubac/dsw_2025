@@ -12,6 +12,8 @@ import {
   getPopulares,
   getMejoresVendedores,
   incrementViewCount,
+  getGrupos,
+  getByGroup,
 } from "./carta.controler.js";
 import { authenticate, authorizeRoles } from "../shared/middleware/auth.js";
 
@@ -23,6 +25,8 @@ cartaRouter.get("/", findAll);
 // Endpoints para la HomePage (deben ir antes de /:id)
 cartaRouter.get("/populares", getPopulares);
 cartaRouter.get("/mejores-vendedores", getMejoresVendedores);
+cartaRouter.get("/grupos", getGrupos);
+cartaRouter.get("/by-group", getByGroup);
 
 // Precios via scraping — solo se usan en /publicar (sin auth: son scrapers de sitios públicos)
 cartaRouter.get("/precio-coolstuff", getPrecioCoolStuff);

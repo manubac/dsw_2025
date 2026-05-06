@@ -57,7 +57,7 @@ export function Header() {
   useEffect(() => {
     async function fetchCartas() {
       try {
-        const res = await fetchApi('/api/cartas');
+        const res = await fetchApi(`/api/cartas/grupos?game=${filters.game}`);
         const json = await res.json();
         setCartas(json.data || []);
       } catch (err) {
@@ -65,7 +65,7 @@ export function Header() {
       }
     }
     fetchCartas();
-  }, []);
+  }, [filters.game]);
 
   useEffect(() => {
     if (!isCardsPage) {
@@ -100,7 +100,7 @@ export function Header() {
     setQuery(card.title)
     const group = cardIdToGroup.get(card.id)
     if (group) {
-      navigateToGroup(navigate, group, 'all')
+      navigateToGroup(navigate, group, 'all', group.publications.map((p: any) => p.id))
     } else {
       navigate(`/card/${card.id}`)
     }

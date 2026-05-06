@@ -98,11 +98,11 @@ export function MainPage() {
   }, [filters.game])
 
   useEffect(() => {
-    fetchApi('/api/cartas')
+    fetchApi(`/api/cartas/grupos?game=${filters.game}`)
       .then(r => r.json())
       .then(d => setAllCartas(d.data ?? []))
       .catch(() => {})
-  }, [])
+  }, [filters.game])
 
   /* vendedores */
   useEffect(() => {
@@ -199,7 +199,7 @@ export function MainPage() {
             {/* Carta izquierda */}
             <div
               className="mp-fan-card mp-fc1"
-              onClick={() => h1 && navigateToGroup(navigate, h1.group, 'all')}
+              onClick={() => h1 && navigateToGroup(navigate, h1.group, 'all', h1.group.publications.map(p => p.id))}
               title={h1?.card.title}
             >
               {h1?.card.thumbnail
@@ -217,7 +217,7 @@ export function MainPage() {
             {/* Carta central */}
             <div
               className="mp-fan-card mp-fc2 mp-hero-card-main"
-              onClick={() => h2 && navigateToGroup(navigate, h2.group, 'all')}
+              onClick={() => h2 && navigateToGroup(navigate, h2.group, 'all', h2.group.publications.map(p => p.id))}
               title={h2?.card.title}
             >
               {h2?.card.thumbnail
@@ -245,7 +245,7 @@ export function MainPage() {
             {/* Carta derecha */}
             <div
               className="mp-fan-card mp-fc3"
-              onClick={() => h3 && navigateToGroup(navigate, h3.group, 'all')}
+              onClick={() => h3 && navigateToGroup(navigate, h3.group, 'all', h3.group.publications.map(p => p.id))}
               title={h3?.card.title}
             >
               {h3?.card.thumbnail

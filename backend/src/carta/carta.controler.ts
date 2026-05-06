@@ -1047,6 +1047,138 @@ async function resolveNames(req: Request, res: Response) {
   res.json({ names });
 }
 
+async function getGrupos(req: Request, res: Response) {
+  try {
+    const game = req.query.game as string;
+    if (!game) return res.status(400).json({ message: 'game param required' });
+
+    const emFork = orm.em.fork();
+    const cartas = await emFork.find(Carta, buildGameFilter(game), {
+      populate: ['cartaClass'],
+    });
+
+    const setCodes = [...new Set(
+      cartas.map(c => c.setCode).filter((s): s is string => !!s)
+    )];
+    const abbrMap = await getSetAbbreviations(setCodes);
+
+    const data = cartas.map(c => ({
+      id: c.id,
+      title: c.name,
+      thumbnail: c.image,
+      setCode: c.setCode ? (abbrMap.get(c.setCode) ?? c.setCode) : null,
+      cardNumber: c.cardNumber ?? null,
+      rarity: c.rarity ?? null,
+      set: c.setName || 'Unknown Set',
+      cartaClass: c.cartaClass ? { name: (c.cartaClass as any).name } : null,
+    }));
+
+    res.json({ data });
+  } catch (error: any) {
+    console.error('Error fetching grupos:', error);
+    res.status(500).json({ message: 'Error fetching grupos', error: error.message });
+  }
+}
+
+async function getByGroup(req: Request, res: Response) {
+  try {
+    const idsParam = req.query.ids as string;
+    if (!idsParam) return res.status(400).json({ message: 'ids param required' });
+
+    const ids = idsParam.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
+    if (ids.length === 0) return res.status(400).json({ message: 'ids param malformed' });
+    if (ids.length > 100) return res.status(400).json({ message: 'max 100 ids' });
+
+    const emFork = orm.em.fork();
+    const cartas = await emFork.find(
+      Carta,
+      { id: { $in: ids } },
+      { populate: ['cartaClass', 'items', 'items.cartas', 'items.intermediarios.direccion', 'uploader', 'uploaderTienda'] }
+    );
+
+    if (cartas.length === 0) return res.json({ data: [] });
+
+    const setCodes = [...new Set(cartas.map(c => c.setCode).filter((s): s is string => !!s))];
+    const abbrMap = await getSetAbbreviations(setCodes);
+
+    const uploaderIds: number[] = [...new Set(
+      cartas.filter(c => (c as any).uploader?.id != null).map(c => (c as any).uploader.id as number)
+    )];
+    const ratingMap = new Map<number, { sum: number; count: number }>();
+    if (uploaderIds.length > 0) {
+      const allValoraciones = await emFork.find(Valoracion, { tipoObjeto: 'vendedor', objetoId: { $in: uploaderIds } });
+      for (const v of allValoraciones) {
+        const existing = ratingMap.get(v.objetoId) ?? { sum: 0, count: 0 };
+        existing.sum += v.puntuacion;
+        existing.count += 1;
+        ratingMap.set(v.objetoId, existing);
+      }
+    }
+
+    const data = cartas
+      .filter(carta => carta.items.getItems().every(item => item.cartas.getItems().length < 2))
+      .map(carta => {
+        const interMap = new Map<number, any>();
+        carta.items.getItems().forEach(item =>
+          item.intermediarios.getItems().forEach(i => {
+            if (i.id == null) return;
+            interMap.set(i.id, {
+              id: i.id,
+              nombre: i.nombre,
+              direccion: i.direccion ? { ciudad: i.direccion.ciudad, provincia: i.direccion.provincia } : undefined,
+            });
+          })
+        );
+        const intermediarios = Array.from(interMap.values());
+
+        const cartaFormateada: any = {
+          id: carta.id,
+          title: carta.name,
+          thumbnail: carta.image,
+          price: parsePrice(carta.price),
+          priceStr: carta.price ?? null,
+          set: carta.setName || 'Unknown Set',
+          setCode: carta.setCode ? (abbrMap.get(carta.setCode) ?? carta.setCode) : null,
+          cardNumber: carta.cardNumber ?? null,
+          rarity: carta.rarity,
+          cartaClass: carta.cartaClass,
+          intermediarios,
+          lang: carta.lang ?? null,
+          stock: carta.items.getItems().reduce((sum, item) => sum + item.stock, 0),
+        };
+
+        if (carta.uploader) {
+          const uploaderId = carta.uploader.id as number;
+          const ratings = ratingMap.get(uploaderId) ?? { sum: 0, count: 0 };
+          cartaFormateada.uploader = {
+            id: uploaderId,
+            nombre: (carta.uploader as any).nombre,
+            rating: ratings.count > 0 ? ratings.sum / ratings.count : 0,
+            reviewsCount: ratings.count,
+          };
+        }
+
+        if ((carta as any).uploaderTienda) {
+          const t = (carta as any).uploaderTienda;
+          cartaFormateada.uploaderTienda = {
+            id: t.id,
+            nombre: t.nombre,
+            direccion: t.direccion,
+            horario: t.horario ?? null,
+            ciudad: t.ciudad ?? null,
+          };
+        }
+
+        return cartaFormateada;
+      });
+
+    res.json({ data });
+  } catch (error: any) {
+    console.error('Error fetching by-group:', error);
+    res.status(500).json({ message: 'Error fetching by-group', error: error.message });
+  }
+}
+
 export {
   sanitizeCartaInput,
   findAll,
@@ -1058,4 +1190,6 @@ export {
   getPopulares,
   getMejoresVendedores,
   incrementViewCount,
+  getGrupos,
+  getByGroup,
 };

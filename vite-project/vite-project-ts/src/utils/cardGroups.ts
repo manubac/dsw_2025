@@ -77,21 +77,42 @@ export function buildCardIdToGroup(groups: CardGroup[]): Map<number, CardGroup> 
 export function navigateToGroup(
   navigate: NavigateFunction,
   group: CardGroup,
-  activeCity: string
+  activeCity: string,
+  publicationIds?: number[]
 ): void {
-  navigate('/group', {
-    state: {
-      group: {
-        name: group.name,
-        setName: group.setName,
-        setCode: group.setCode,
-        cardNumber: group.cardNumber,
-        rarity: group.rarity,
-        thumbnail: group.thumbnail,
+  if (publicationIds !== undefined) {
+    navigate('/group', {
+      state: {
+        group: {
+          name: group.name,
+          setName: group.setName,
+          setCode: group.setCode,
+          cardNumber: group.cardNumber,
+          rarity: group.rarity,
+          thumbnail: group.thumbnail,
+        },
+        publications: [],
+        bundles: [],
+        activeCity,
+        needsFetch: true,
+        publicationIds,
       },
-      publications: group.publications,
-      bundles: [],
-      activeCity,
-    },
-  })
+    })
+  } else {
+    navigate('/group', {
+      state: {
+        group: {
+          name: group.name,
+          setName: group.setName,
+          setCode: group.setCode,
+          cardNumber: group.cardNumber,
+          rarity: group.rarity,
+          thumbnail: group.thumbnail,
+        },
+        publications: group.publications,
+        bundles: [],
+        activeCity,
+      },
+    })
+  }
 }

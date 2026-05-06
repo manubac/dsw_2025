@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { fmtPrice } from "../utils/fmtPrice";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { fetchApi } from "../services/api";
 
 type SortKey = 'price-asc' | 'price-desc' | 'rating-desc' | 'rating-asc';
 
@@ -41,17 +42,31 @@ export default function CardGroupPage() {
     publications: any[];
     bundles: any[];
     activeCity: string;
+    needsFetch?: boolean;
+    publicationIds?: number[];
   } | null;
 
   const [sort, setSort] = useState<SortKey>('price-asc');
   const [cityFilter, setCityFilter] = useState<string>(state?.activeCity || 'all');
+  const [publications, setPublications] = useState<any[]>(state?.publications ?? []);
+  const [loadingPubs, setLoadingPubs] = useState(state?.needsFetch ?? false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!state?.needsFetch || !state.publicationIds?.length) return;
+    fetchApi(`/api/cartas/by-group?ids=${state.publicationIds.join(',')}`)
+      .then(r => r.json())
+      .then(d => setPublications(d.data ?? []))
+      .catch(() => setFetchError('No se pudieron cargar las publicaciones.'))
+      .finally(() => setLoadingPubs(false));
+  }, []);
 
   if (!state) {
     navigate('/cards', { replace: true });
     return null;
   }
 
-  const { group, publications, bundles } = state;
+  const { group, bundles } = state;
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -110,9 +125,11 @@ export default function CardGroupPage() {
               {group.rarity}
             </span>
           )}
-          <p className="text-sm text-gray-500">
-            {publications.length} publicación{publications.length !== 1 ? 'es' : ''}
-          </p>
+          {!loadingPubs && (
+            <p className="text-sm text-gray-500">
+              {publications.length} publicación{publications.length !== 1 ? 'es' : ''}
+            </p>
+          )}
         </div>
       </div>
 
@@ -140,7 +157,9 @@ export default function CardGroupPage() {
       </div>
 
       {/* Publications list */}
-      {sortedPubs.length === 0 ? (
+      {fetchError ? (
+        <p className="text-red-500 text-center mt-8">{fetchError}</p>
+      ) : loadingPubs ? null : sortedPubs.length === 0 ? (
         <p className="text-gray-500 text-center mt-8">Sin publicaciones en esta ciudad.</p>
       ) : (
         <div className="flex flex-col gap-3">
