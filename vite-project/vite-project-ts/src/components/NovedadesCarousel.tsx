@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFilters } from '../hooks/useFilters'
 import { fetchApi } from '../services/api'
 import { Flame, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { CardGroup } from '../utils/cardGroups'
+import { navigateToGroup } from '../utils/cardGroups'
 
 interface PopularCard {
   id: number
@@ -24,7 +26,11 @@ const GAME_LABELS: Record<string, string> = {
   riftbound: 'Riftbound',
 }
 
-export function NovedadesCarousel() {
+interface NovedadesCarouselProps {
+  cardIdToGroup?: Map<number, CardGroup>
+}
+
+export function NovedadesCarousel({ cardIdToGroup }: NovedadesCarouselProps = {}) {
   const [cards, setCards] = useState<PopularCard[]>([])
   const [loading, setLoading] = useState(true)
   const { filters } = useFilters()
@@ -48,6 +54,11 @@ export function NovedadesCarousel() {
     checkScroll()
   }, [cards])
 
+  const displayCards = useMemo(() => {
+    if (!cardIdToGroup) return cards
+    return cards.filter(c => cardIdToGroup.has(c.id))
+  }, [cards, cardIdToGroup])
+
   function checkScroll() {
     const el = scrollRef.current
     if (!el) return
@@ -64,6 +75,13 @@ export function NovedadesCarousel() {
 
   function handleCardClick(card: PopularCard) {
     fetchApi(`/api/cartas/${card.id}/view`, { method: 'POST' }).catch(() => {})
+    if (cardIdToGroup) {
+      const group = cardIdToGroup.get(card.id)
+      if (group) {
+        navigateToGroup(navigate, group, 'all')
+        return
+      }
+    }
     navigate(`/card/${card.id}`)
   }
 
@@ -128,7 +146,7 @@ export function NovedadesCarousel() {
               />
             ))}
           </div>
-        ) : cards.length === 0 ? (
+        ) : displayCards.length === 0 ? (
           <p className="text-gray-500 text-sm py-8 text-center">
             No hay publicaciones de {gameLabel} todavía.
           </p>
@@ -139,7 +157,7 @@ export function NovedadesCarousel() {
             className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory"
             style={{ scrollbarWidth: 'none' }}
           >
-            {cards.map(card => (
+            {displayCards.map(card => (
               <button
                 key={card.id}
                 onClick={() => handleCardClick(card)}
