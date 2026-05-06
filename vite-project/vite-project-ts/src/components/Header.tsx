@@ -289,7 +289,7 @@ export function Header() {
 
  return (
   <header className="sticky top-0 z-50">
-    <div className="shadow-md bg-white dark:bg-gray-900 dark:text-white duration-200 relative z-40">
+    <div className="bg-black/10 backdrop-blur-md border-b border-white/8 duration-200 relative z-40">
       <div className="container flex items-center justify-between h-16">
 
         {/* Logo */}
@@ -304,7 +304,7 @@ export function Header() {
           <select
             value={filters.game}
             onChange={e => handleGameChange(e.target.value)}
-            className="hidden sm:block px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:border-primary transition text-sm shrink-0"
+            className="hidden sm:block px-3 py-1.5 rounded-full border border-white/25 bg-white/10 text-white focus:outline-none focus:border-[#c6c79d] transition text-sm shrink-0"
           >
             {JUEGOS.map(j => (
               <option key={j.value} value={j.value}>{j.label}</option>
@@ -316,9 +316,9 @@ export function Header() {
           >
             <input
               type="text"
-              className="w-full rounded-full border border-gray-300
-              px-4 pr-16 py-1.5 focus:outline-none focus:border-primary
-              transition-all duration-300 select-none disabled:opacity-60"
+              className="w-full rounded-full border border-white/25 bg-white/10 text-white placeholder:text-white/45
+              px-4 pr-16 py-1.5 focus:outline-none focus:border-[#c6c79d]
+              transition-all duration-300 select-none disabled:opacity-50"
               placeholder={PLACEHOLDERS[filters.game as GameSlug] ?? 'Buscar cartas...'}
               value={query}
               onChange={handleSearch}
@@ -326,16 +326,16 @@ export function Header() {
               disabled={resolving}
             />
 
-            <MdSearch className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <MdSearch className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
 
             {results.length > 0 && (
-              <ul className="absolute top-full mt-2 w-full bg-white border rounded-lg shadow-lg z-50">
+              <ul className="absolute top-full mt-2 w-full bg-[#0d1e14] border border-white/15 rounded-lg shadow-xl z-50">
                 {results.map((card, index) => (
                   <li
                     key={card.id}
                     onClick={() => handleResultClick(card)}
-                    className={`flex items-center gap-2 p-2 cursor-pointer hover:bg-orange-100 ${
-                      selectedIndex === index ? "bg-gray-100" : ""
+                    className={`flex items-center gap-2 p-2 cursor-pointer hover:bg-white/10 text-white/85 ${
+                      selectedIndex === index ? "bg-white/15" : ""
                     }`}
                   >
                     <img
@@ -343,15 +343,15 @@ export function Header() {
                       alt={card.title}
                       className="w-8 h-8 object-cover rounded"
                     />
-                    <span className="text-sm">{card.title}</span>
+                    <span className="text-sm text-white/85">{card.title}</span>
                   </li>
                 ))}
               </ul>
             )}
 
             {resolveError && (
-              <div className="absolute top-full mt-2 w-full bg-white border border-red-200 rounded-lg shadow-lg z-50 px-3 py-2">
-                <p className="text-xs text-red-500">{resolveError}</p>
+              <div className="absolute top-full mt-2 w-full bg-[#0d1e14] border border-red-400/40 rounded-lg shadow-xl z-50 px-3 py-2">
+                <p className="text-xs text-red-400">{resolveError}</p>
               </div>
             )}
           </div>
@@ -365,7 +365,7 @@ export function Header() {
               <div className="relative">
                 <button
                   onClick={() => setNotifOpen((v) => !v)}
-                  className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
+                  className="relative p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition"
                   title="Notificaciones"
                 >
                   <Bell size={20} />
@@ -380,7 +380,7 @@ export function Header() {
               <div className="relative">
                 <button
                   onClick={() => navigate('/chats')}
-                  className="relative p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
+                  className="relative p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition"
                   title="Mis chats"
                 >
                   <MessageSquare size={20} />
@@ -396,7 +396,7 @@ export function Header() {
           <div className="relative z-[60] user-menu-container">
             <button
               onClick={handleUserClick}
-              className="flex items-center gap-2 px-3 py-1 rounded hover:bg-orange-100"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white/85 hover:bg-white/10 hover:text-[#c6c79d] transition font-medium"
             >
               {user ? user.name : "Usuario"}
               {user && (
@@ -411,50 +411,50 @@ export function Header() {
             </button>
 
             {user && userMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-[70]">
+              <div className="absolute right-0 mt-2 w-48 bg-[#0d1e14] border border-white/15 rounded-lg shadow-xl z-[70] text-white/85">
                 {user.role === 'tiendaRetiro' ? (
                   <>
                     <button
                       onClick={() => { setUserMenuOpen(false); navigate('/tienda-retiro/perfil'); }}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10"
                     >
                       Mi Perfil
                     </button>
                     <button
                       onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10"
                     >
                       Mis Compras
                     </button>
                     <button
                       onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas'); }}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10"
                     >
                       Mis Ventas
                     </button>
                     <button
                       onClick={() => { setUserMenuOpen(false); navigate('/tienda-retiro/ventas'); }}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10"
                     >
                       Gestión de pedidos
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10"
                     >
                       Cerrar Sesión
                     </button>
                   </>
                 ) : (
                   <>
-                    <button onClick={handleProfileClick} className="block w-full text-left px-4 py-2 hover:bg-orange-100">
+                    <button onClick={handleProfileClick} className="block w-full text-left px-4 py-2 hover:bg-white/10">
                       Mi Perfil
                     </button>
 
                     {(user.role === 'user' || user.role === 'usuario') && (
                       <button
                         onClick={() => { setUserMenuOpen(false); navigate('/wishlist'); }}
-                        className="block w-full text-left px-4 py-2 hover:bg-orange-100 text-red-500 font-medium"
+                        className="block w-full text-left px-4 py-2 hover:bg-white/10 text-red-500 font-medium"
                       >
                         ♥ Mis Favoritos
                       </button>
@@ -463,7 +463,7 @@ export function Header() {
                     {(user.role === 'user' || user.role === 'usuario') && (
                       <button
                         onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
-                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                        className="block w-full text-left px-4 py-2 hover:bg-white/10"
                       >
                         Mis Compras
                       </button>
@@ -473,19 +473,19 @@ export function Header() {
                       <>
                         <button
                           onClick={() => { setUserMenuOpen(false); navigate('/purchases'); }}
-                          className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                          className="block w-full text-left px-4 py-2 hover:bg-white/10"
                         >
                           Mis Compras
                         </button>
                         <button
                           onClick={() => { setUserMenuOpen(false); navigate('/wishlist'); }}
-                          className="block w-full text-left px-4 py-2 hover:bg-orange-100 text-red-500 font-medium"
+                          className="block w-full text-left px-4 py-2 hover:bg-white/10 text-red-500 font-medium"
                         >
                           ♥ Mis Favoritos
                         </button>
                         <button
                           onClick={() => { setUserMenuOpen(false); navigate('/mis-ventas'); }}
-                          className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                          className="block w-full text-left px-4 py-2 hover:bg-white/10"
                         >
                           Mis Ventas
                         </button>
@@ -495,7 +495,7 @@ export function Header() {
                     {user.role === 'intermediario' && (
                       <button
                         onClick={() => { setUserMenuOpen(false); navigate('/intermediario'); }}
-                        className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                        className="block w-full text-left px-4 py-2 hover:bg-white/10"
                       >
                         Panel de Intermediario
                       </button>
@@ -503,7 +503,7 @@ export function Header() {
 
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10"
                     >
                       Cerrar Sesión
                     </button>
